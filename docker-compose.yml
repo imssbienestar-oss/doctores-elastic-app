@@ -1,0 +1,48 @@
+version: '3.7' # Versión de la sintaxis de Docker Compose
+
+services:
+  # --- Servicio de Elasticsearch ---
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.2 # ¡Usa una versión específica y reciente! Revisa las últimas versiones estables si quieres.
+    container_name: elasticsearch_prod # Nombre del contenedor
+    environment:
+      - discovery.type=single-node # Configuración para un solo nodo (suficiente para empezar)
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m # Memoria para Elasticsearch. AJUSTA según tu plan de Render (512m es un mínimo bajo)
+      - xpack.security.enabled=true # Habilitar seguridad (¡MUY IMPORTANTE!)
+      - xpack.security.http.ssl.enabled=false # SSL manejado externamente por Render o proxy si es necesario. Mantenlo false por ahora.
+      - xpack.security.transport.ssl.enabled=false # SSL manejado externamente
+      - ELASTIC_PASSWORD=RHdez@IMSSB1203 # ¡¡¡CAMBIA ESTA CONTRASEÑA POR UNA REALMENTE SEGURA!!!
+    ulimits: # Configuraciones recomendadas para Elasticsearch
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - esdata:/usr/share/elasticsearch/data # Mapea el directorio de datos de ES a un volumen persistente llamado 'esdata'
+    networks:
+      - elastic_network # Conecta este servicio a la red definida abajo
+
+  # --- Servicio de Kibana ---
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.13.2 # ¡Usa la MISMA versión que Elasticsearch!
+    container_name: kibana_prod # Nombre del contenedor
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch_prod:9200 # Cómo Kibana encuentra a Elasticsearch (usa el nombre del servicio/contenedor)
+      - ELASTICSEARCH_USERNAME=elastic # Usuario por defecto de Elasticsearch (creado al habilitar seguridad)
+      - ELASTICSEARCH_PASSWORD= RHdez@IMSSB1203 # ¡¡¡Usa LA MISMA CONTRASEÑA SEGURA que definiste arriba!!!
+      - SERVER_HOST=0.0.0.0 # Hace que Kibana escuche en todas las interfaces dentro del contenedor
+    ports:
+      - "5601:5601" # Expone el puerto 5601 para acceder a la interfaz de Kibana
+    depends_on:
+      - elasticsearch # Le dice a Docker que espere a que Elasticsearch esté listo antes de iniciar Kibana
+    networks:
+      - elastic_network # Conecta este servicio a la misma red
+
+# --- Volúmenes ---
+volumes:
+  esdata: # Define el volumen nombrado 'esdata'. Render lo asociará con un Disco Persistente.
+    driver: local # Necesario para Render
+
+# --- Redes ---
+networks:
+  elastic_network: # Define la red que usarán los contenedores para comunicarse entre sí
+    driver: bridge

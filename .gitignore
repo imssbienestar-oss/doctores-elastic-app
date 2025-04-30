@@ -1,0 +1,28 @@
+# Entorno Virtual de Python
+venv/
+*.venv
+
+# Archivos compilados de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Archivos de configuración específicos del editor/SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Archivos de dependencias (si usaras manejadores como pipenv o poetry)
+# Pipfile.lock
+# poetry.lock
+
+# Archivos sensibles (ejemplo - ¡añade otros si los tienes!)
+# .env
+
+# Opcional: Si no quieres subir el JSON generado cada vez (si es muy grande o temporal)
+# doctores_output.json
+
+# Opcional: Si no quieres subir el Excel original
+*.xlsx
