@@ -1,0 +1,131 @@
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: #888;
+}
+
+/* --- Estilos para el Modal de Edición --- */
+
+.modal-form {
+  padding: 20px;
+  background-color: #c666669e; /* Un fondo ligeramente diferente */
+  border-radius: 8px;
+  color: #333; /* Asegurar texto oscuro sobre fondo claro */
+}
+
+.modal-form h2 {
+    margin-top: 0;
+    margin-bottom: 25px;
+    text-align: center;
+    color: #444;
+}
+
+.form-group {
+  margin-bottom: 15px; /* Espacio entre cada campo del formulario */
+}
+
+.form-label {
+  display: block; /* Hace que el label ocupe su propia línea */
+  margin-bottom: 5px; /* Espacio entre label e input */
+  font-weight: bold;
+  color: #555;
+}
+
+.form-input {
+  width: 100%; /* Ocupa todo el ancho disponible */
+  padding: 8px 10px; /* Espaciado interno */
+  border: 1px solid #ccc; /* Borde sutil */
+  border-radius: 4px; /* Esquinas redondeadas */
+  box-sizing: border-box; /* Asegura que padding/border no aumenten el ancho total */
+  background-color: #fff; /* Fondo blanco */
+  color: #333; /* Texto oscuro */
+}
+
+.form-input:focus {
+    border-color: #007bff; /* Resaltar borde al enfocar (ejemplo azul) */
+    outline: none; /* Quitar el outline por defecto del navegador */
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25); /* Añadir un brillo sutil al enfocar */
+}
+
+.button-group {
+  display: flex; /* Alinear botones */
+  justify-content: flex-end; /* Poner botones a la derecha */
+  margin-top: 25px; /* Espacio sobre los botones */
+}
+
+.form-button {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.2s ease; /* Transición suave */
+}
+
+.form-button.primary {
+  background-color: #007bff; /* Azul primario */
+  color: white;
+}
+.form-button.primary:hover:not(:disabled) {
+  background-color: #0056b3;
+}
+.form-button.primary:disabled {
+  background-color: #a0cfff;
+  cursor: not-allowed;
+}
+
+.form-button.secondary {
+  background-color: #6c757d; /* Gris secundario */
+  color: white;
+  margin-left: 10px; /* Espacio entre botones */
+}
+ .form-button.secondary:hover:not(:disabled) {
+  background-color: #5a6268;
+}
+.form-button.secondary:disabled {
+  background-color: #adb5bd;
+   cursor: not-allowed;
+}
+
+/* Ajustes específicos para react-modal si es necesario */
+/* Por ejemplo, el overlay (fondo oscuro) */
+ .ReactModal__Overlay { 
+   background-color: rgba(0, 0, 0, 0.552) !important;
+ } 
