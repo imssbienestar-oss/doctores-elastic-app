@@ -185,36 +185,35 @@ function App() {
     // Si hace clic en "Cancelar", no se hace nada
   };
 
-  // Función asíncrona que llama a la API para borrar
   const deleteDoctor = async (doctorId) => {
-    if (!token) return; // Comprobar token por si acaso
+    if (!token) return;
 
-    // Podrías añadir un estado de "isDeleting" si quieres mostrar un indicador
-    // setIsLoading(true); // O usar el mismo isLoading
-    setFetchError(""); // Limpiar errores previos
+    setFetchError('');
     console.log(`Intentando eliminar doctor con ID: ${doctorId}`);
+
+    // --- CORRECCIÓN: Usar variable de entorno para la URL del backend ---
+    const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'; // Obtener URL base
+    const deleteUrl = `<span class="math-inline">\{apiUrl\}/api/doctores/</span>{doctorId}`; // Construir URL completa
+
+    console.log("Llamando a DELETE en:", deleteUrl); // DEBUG
 
     try {
       const currentToken = localStorage.getItem("accessToken");
       if (!currentToken) throw new Error("Token no encontrado");
 
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/doctores/${doctorId}`,
-        {
-          method: "DELETE", // Método HTTP DELETE
-          headers: {
-            Authorization: `Bearer ${currentToken}`, // ¡Enviar token!
-          },
-        }
-      );
+      // Usa la variable 'deleteUrl' construida
+      const response = await fetch(deleteUrl, { // <--- USA la variable deleteUrl
+        method: "DELETE", // Método HTTP DELETE
+        headers: {
+          Authorization: `Bearer ${currentToken}`, // ¡Enviar token!
+        },
+      });
+      // --- FIN CORRECCIÓN ---
 
       if (response.ok) {
         console.log(`Doctor con ID ${doctorId} eliminado exitosamente.`);
-        // Vuelve a cargar los datos de la página actual para que la tabla se refresque
-        // Nota: Si borras el último item de una página, esta lógica te mostrará
-        // la misma página (ahora vacía o con menos items). Podría mejorarse para ir
-        // a la página anterior si la actual queda vacía, pero esto es más simple.
-        fetchDoctores(currentPage);
+        // Refrescar datos (pasando searchTerm por si acaso)
+        fetchDoctores(currentPage, searchTerm);
       } else if (response.status === 401) {
         console.error("Error de autenticación (401) al borrar");
         setFetchError(
@@ -226,10 +225,8 @@ function App() {
         setFetchError(
           `Error: No se encontró el doctor con ID ${doctorId}. Refresca la lista.`
         );
-        // Refrescar igualmente por si acaso la lista estaba desactualizada
-        fetchDoctores(currentPage);
+        fetchDoctores(currentPage, searchTerm); // Refrescar igualmente
       } else {
-        // Otros errores del servidor
         console.error(
           "Error al borrar doctor:",
           response.status,
@@ -248,9 +245,9 @@ function App() {
         "Error de conexión al borrar. Revisa el backend y tu conexión."
       );
     } finally {
-      // setIsLoading(false); // Si usaste estado de carga
+      // setIsLoading(false); // Si añades estado isDeleting
     }
-  };
+  }; // Fin de deleteDoctor
   // --- FIN NUEVAS FUNCIONES ---
 
     // Maneja el clic en el botón "Buscar"
