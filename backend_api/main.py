@@ -25,6 +25,15 @@ origins = [
     "https://doctores-elastic-2khh14iea-imssbienestars-projects.vercel.app" # <-- ¿Está esta línea?
 ]
 
+# --- INICIO DEBUG CORS ---
+print("--- [DEBUG CORS] Orígenes Configurados en main.py: ---")
+if isinstance(origins, list):
+    for origin in origins:
+        print(f"- {origin}")
+else:
+    print(f"- Valor de origins NO es una lista: {origins}")
+print("----------------------------------------------------")
+    # --- FIN DEBUG CORS ---
 
 
 app.add_middleware(
