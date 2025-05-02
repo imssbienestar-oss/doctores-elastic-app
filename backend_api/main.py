@@ -6,14 +6,14 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from datetime import timedelta
 from fastapi.middleware.cors import CORSMiddleware
 import security # Importa nuestro nuevo módulo de seguridad
+
 # Importaciones locales (usando . por estar en el mismo directorio)
 import models, schemas, database
 
 # Crear tablas en la base de datos (solo si no existen)
 # Esto normalmente se hace una vez, a veces con herramientas de migración,
 # pero para empezar lo podemos poner aquí. No afectará a la tabla existente.
-
-#models.Base.metadata.create_all(bind=database.engine)
+models.Base.metadata.create_all(bind=database.engine)
 
 app = FastAPI(title="API de Doctores IMSS Bienestar")
 
@@ -98,7 +98,7 @@ async def leer_doctor_por_id(doctor_id: int, db: Session = Depends(get_db_sessio
 async def crear_doctor(
     doctor_data: schemas.DoctorCreate, # Recibe datos validados por DoctorCreate
     db: Session = Depends(get_db_session),
-    #current_user: schemas.User = Depends(security.get_current_user) # Protegido
+    current_user: schemas.User = Depends(security.get_current_user) # Protegido
 ):
     """
     Crea un nuevo registro de doctor en la base de datos (RUTA PROTEGIDA).
@@ -124,7 +124,7 @@ async def actualizar_doctor(
     doctor_id: int,
     doctor_update: schemas.DoctorBase, # Recibe los datos a actualizar en el cuerpo
     db: Session = Depends(get_db_session),
-    #current_user: schemas.User = Depends(security.get_current_user) # Protegido
+    current_user: schemas.User = Depends(security.get_current_user) # Protegido
 ):
     print(f"--- Iniciando actualización para ID: {doctor_id} ---") # DEBUG 
     """
@@ -180,7 +180,7 @@ async def actualizar_doctor(
 async def eliminar_doctor(
     doctor_id: int,
     db: Session = Depends(get_db_session),
-    #current_user: schemas.User = Depends(security.get_current_user) # Protegido
+    current_user: schemas.User = Depends(security.get_current_user) # Protegido
 ):
     """
     Elimina un doctor por su ID (RUTA PROTEGIDA).
