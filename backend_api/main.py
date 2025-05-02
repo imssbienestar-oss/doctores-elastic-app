@@ -17,16 +17,13 @@ models.Base.metadata.create_all(bind=database.engine)
 
 app = FastAPI(title="API de Doctores IMSS Bienestar")
 
-# Configuración de CORS
-# Lista de orígenes permitidos (¡IMPORTANTE!)
-# Añade la URL donde corre tu frontend Vite (normalmente empieza con http://localhost:...)
 origins = [
-    "http://localhost:5173", # Desarrollo local Vite
-    "http://localhost:3000", # Desarrollo local CRA
-    "http://127.0.0.1:5173", # Desarrollo local Vite
-    "https://doctores-elastic-app.vercel.app" # <-- AÑADIR URL DE VERCEL
-    # Puedes añadir más URLs si tienes otros entornos o dominios personalizados
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:5173",
+    "https://doctores-elastic-2khh14iea-imssbienestars-projects.vercel.app" # <-- ¿Está esta línea?
 ]
+
 
 
 app.add_middleware(
