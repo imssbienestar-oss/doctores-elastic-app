@@ -6,7 +6,6 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from datetime import timedelta
 from fastapi.middleware.cors import CORSMiddleware
 import security # Importa nuestro nuevo módulo de seguridad
-
 # Importaciones locales (usando . por estar en el mismo directorio)
 import models, schemas, database
 
