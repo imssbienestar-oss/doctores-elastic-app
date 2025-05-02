@@ -21,6 +21,7 @@ origins = [
     "http://localhost:5173",
     "http://localhost:3000",
     "http://127.0.0.1:5173",
+    "https://doctores-elastic-app.vercel.app"
     "https://doctores-elastic-2khh14iea-imssbienestars-projects.vercel.app" # <-- ¿Está esta línea?
 ]
 
