@@ -21,11 +21,13 @@ app = FastAPI(title="API de Doctores IMSS Bienestar")
 # Lista de orígenes permitidos (¡IMPORTANTE!)
 # Añade la URL donde corre tu frontend Vite (normalmente empieza con http://localhost:...)
 origins = [
-    "http://localhost:5173", # Origen común para Vite/React
-    "http://localhost:3000", # Origen común para Create React App
-    "http://127.0.0.1:5173",
-    # Podrías añadir la URL de despliegue de tu frontend aquí más adelante
+    "http://localhost:5173", # Desarrollo local Vite
+    "http://localhost:3000", # Desarrollo local CRA
+    "http://127.0.0.1:5173", # Desarrollo local Vite
+    "https://doctores-elastic-app.vercel.app" # <-- AÑADIR URL DE VERCEL
+    # Puedes añadir más URLs si tienes otros entornos o dominios personalizados
 ]
+
 
 app.add_middleware(
     CORSMiddleware,
