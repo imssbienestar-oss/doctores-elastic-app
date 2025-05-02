@@ -3,41 +3,34 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from dotenv import load_dotenv
-import sys # Importar sys para salir en caso de error fatal
+from dotenv import load_dotenv # Útil para desarrollo local con .env
+import sys # Para salir si hay error crítico
 
-load_dotenv() # Cargar .env para desarrollo local (no afectará a Railway si las variables están definidas allí)
+# Carga .env solo para desarrollo local, Railway inyectará la variable directamente
+load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL") # Intentar leer la URL completa primero
+# Lee la única variable que esperamos ahora, inyectada por Railway
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Si DATABASE_URL no está, intentar construirla desde PG* vars
-if not DATABASE_URL:
-    print("--- DATABASE_URL no encontrada, intentando construir desde PG* variables ---")
-    pg_user = os.getenv("PGUSER")
-    pg_password = os.getenv("PGPASSWORD")
-    pg_host = os.getenv("PGHOST") # Debería ser 'postgres' en Railway
-    pg_port = os.getenv("PGPORT", "5432") # Usar 5432 como default si no está definida
-    pg_database = os.getenv("PGDATABASE")
-
-    if all([pg_user, pg_password, pg_host, pg_database]): # Comprobar que las variables esenciales existen
-        DATABASE_URL = f"postgresql://{pg_user}:{pg_password}@{pg_host}:{pg_port}/{pg_database}"
-        print(f"--- URL construida: postgresql://{pg_user}:******@{pg_host}:{pg_port}/{pg_database} ---")
-    else:
-        print("Error Fatal: Faltan variables de entorno requeridas (PGUSER, PGPASSWORD, PGHOST, PGDATABASE).")
-        sys.exit("Configuración de base de datos incompleta.")
-
-if not DATABASE_URL:
-    print("Error Fatal: No se pudo obtener o construir la DATABASE_URL.")
+log_safe_db_url = "Variable DATABASE_URL no encontrada"
+if DATABASE_URL:
+    # Intenta ocultar contraseña para el log (mejor esfuerzo)
+    try:
+        from urllib.parse import urlparse, urlunparse
+        parsed = urlparse(DATABASE_URL)
+        password = parsed.password
+        log_safe_db_url = DATABASE_URL.replace(f":{password}@", ":********@") if password else DATABASE_URL
+    except:
+        log_safe_db_url = "Error al parsear URL para ocultar contraseña"
+else:
+    # Si la variable no está definida, es un error fatal en despliegue
+    print("Error Fatal: La variable de entorno DATABASE_URL no fue encontrada o inyectada por Railway.")
     sys.exit("Configuración de base de datos ausente.")
 
-# Ocultar contraseña en logs posteriores por seguridad
-log_safe_db_url = DATABASE_URL
-if pg_password: # O podrías re-leer os.getenv("PGPASSWORD") si fuera necesario
-  log_safe_db_url = DATABASE_URL.replace(pg_password, "********")
-print(f"--- Usando DATABASE_URL: {log_safe_db_url} ---")
+print(f"--- Iniciando conexión usando DATABASE_URL: {log_safe_db_url} ---")
 
 try:
-    # Crear el motor SQLAlchemy
+    # Crear el motor SQLAlchemy con la URL obtenida
     engine = create_engine(DATABASE_URL)
 
     # Crear una clase SessionLocal configurada
@@ -55,6 +48,6 @@ try:
             db.close()
 
 except Exception as e:
-    print(f"Error Fatal al crear el engine de SQLAlchemy: {e}")
-    print(f"Se intentó usar la URL: {log_safe_db_url}")
+    print(f"Error Fatal al crear el engine de SQLAlchemy o conectar: {e}")
+    print(f"Se intentó usar la URL (segura): {log_safe_db_url}")
     sys.exit("Fallo al inicializar la conexión a la base de datos.")
