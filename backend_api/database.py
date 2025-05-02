@@ -1,53 +1,37 @@
-# backend_api/database.py
+# backend_api/database.py - DEBUG EXTENDIDO
 import os
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from dotenv import load_dotenv # Útil para desarrollo local con .env
-import sys # Para salir si hay error crítico
+from dotenv import load_dotenv
+import sys
 
-# Carga .env solo para desarrollo local, Railway inyectará la variable directamente
 load_dotenv()
 
-# Lee la única variable que esperamos ahora, inyectada por Railway
-DATABASE_URL = os.getenv("DATABASE_URL")
+print("--- [DEBUG INICIO] Verificando variables de entorno ---")
 
-log_safe_db_url = "Variable DATABASE_URL no encontrada"
-if DATABASE_URL:
-    # Intenta ocultar contraseña para el log (mejor esfuerzo)
-    try:
-        from urllib.parse import urlparse, urlunparse
-        parsed = urlparse(DATABASE_URL)
-        password = parsed.password
-        log_safe_db_url = DATABASE_URL.replace(f":{password}@", ":********@") if password else DATABASE_URL
-    except:
-        log_safe_db_url = "Error al parsear URL para ocultar contraseña"
+db_url_value = os.getenv("DATABASE_URL")
+secret_key_value = os.getenv("SECRET_KEY")
+token_minutes_value = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES")
+
+# Verificar DATABASE_URL
+if db_url_value:
+    print(f"[DEBUG] DATABASE_URL raw value: {db_url_value}")
 else:
-    # Si la variable no está definida, es un error fatal en despliegue
-    print("Error Fatal: La variable de entorno DATABASE_URL no fue encontrada o inyectada por Railway.")
-    sys.exit("Configuración de base de datos ausente.")
+    print("[DEBUG] ERROR: DATABASE_URL environment variable NOT FOUND or EMPTY.")
 
-print(f"--- Iniciando conexión usando DATABASE_URL: {log_safe_db_url} ---")
+# Verificar SECRET_KEY
+if secret_key_value:
+    # No imprimir el valor de la clave secreta, solo si existe
+    print(f"[DEBUG] SECRET_KEY found: YES (length {len(secret_key_value)})")
+else:
+    print("[DEBUG] ERROR: SECRET_KEY environment variable NOT FOUND or EMPTY.")
 
-try:
-    # Crear el motor SQLAlchemy con la URL obtenida
-    engine = create_engine(DATABASE_URL)
+# Verificar ACCESS_TOKEN_EXPIRE_MINUTES
+if token_minutes_value:
+    print(f"[DEBUG] ACCESS_TOKEN_EXPIRE_MINUTES found: {token_minutes_value}")
+else:
+    print("[DEBUG] ERROR: ACCESS_TOKEN_EXPIRE_MINUTES environment variable NOT FOUND or EMPTY.")
 
-    # Crear una clase SessionLocal configurada
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-    # Crear una clase Base para nuestros modelos SQLAlchemy
-    Base = declarative_base()
+print("--- [DEBUG FIN] Saliendo del script de depuración ---")
+sys.exit(1) # Salir para que el despliegue falle aquí
 
-    # Función para obtener una sesión de base de datos
-    def get_db():
-        db = SessionLocal()
-        try:
-            yield db
-        finally:
-            db.close()
-
-except Exception as e:
-    print(f"Error Fatal al crear el engine de SQLAlchemy o conectar: {e}")
-    print(f"Se intentó usar la URL (segura): {log_safe_db_url}")
-    sys.exit("Fallo al inicializar la conexión a la base de datos.")
+# --- Código original inaccesible ---
