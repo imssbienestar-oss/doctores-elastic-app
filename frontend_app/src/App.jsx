@@ -193,7 +193,7 @@ function App() {
 
     // --- CORRECCIÓN: Usar variable de entorno para la URL del backend ---
     const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'; // Obtener URL base
-    const deleteUrl = `<span class="math-inline">\{apiUrl\}/api/doctores/</span>{doctorId}`; // Construir URL completa
+    const deleteUrl = `${apiUrl}/api/doctores/${doctorId}`;
 
     console.log("Llamando a DELETE en:", deleteUrl); // DEBUG
 
