@@ -19,14 +19,6 @@ app = FastAPI(title="API de Doctores IMSS Bienestar")
 
 from fastapi.middleware.cors import CORSMiddleware
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 origins = [
     "http://localhost:5173",
     "http://localhost:3000",
@@ -34,6 +26,14 @@ origins = [
     "https://doctores-elastic-app.vercel.app",
     "https://doctores-elastic-2khh14iea-imssbienestars-projects.vercel.app" # <-- ¿Está esta línea?
 ]
+ 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # --- INICIO DEBUG CORS ---
 print("--- [DEBUG CORS] Orígenes Configurados en main.py: ---")
