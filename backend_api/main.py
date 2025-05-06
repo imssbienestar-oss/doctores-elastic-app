@@ -9,6 +9,10 @@ import security # Importa nuestro nuevo módulo de seguridad
 
 # Importaciones locales (usando . por estar en el mismo directorio)
 import models, schemas, database
+import pandas as pd
+from fpdf import FPDF # Para PDF
+from io import BytesIO # Para manejar archivos en memoria
+from fastapi.responses import StreamingResponse # Para devolver archivos
 
 # Crear tablas en la base de datos (solo si no existen)
 # Esto normalmente se hace una vez, a veces con herramientas de migración,
@@ -17,8 +21,6 @@ models.Base.metadata.create_all(bind=database.engine)
 
 app = FastAPI(title="API de Doctores IMSS Bienestar")
 
-from fastapi.middleware.cors import CORSMiddleware
-
 origins = [
     "http://localhost:5173",
     "http://localhost:3000",
@@ -26,14 +28,6 @@ origins = [
     "https://doctores-elastic-app.vercel.app",
     "https://doctores-elastic-2khh14iea-imssbienestars-projects.vercel.app" # <-- ¿Está esta línea?
 ]
- 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # --- INICIO DEBUG CORS ---
 print("--- [DEBUG CORS] Orígenes Configurados en main.py: ---")
@@ -246,3 +240,114 @@ async def login_for_access_token(
     )
     # Devuelve el token
     return {"access_token": access_token, "token_type": "bearer"}
+
+# --- Endpoint para Reporte Excel ---
+@app.get("/api/reporte/excel")
+async def generar_reporte_excel(
+    db: Session = Depends(get_db_session),
+    current_user: schemas.User = Depends(security.get_current_user) # Protegido
+):
+    try:
+        print("Generando reporte Excel...")
+        # 1. Obtener TODOS los datos de doctores (sin paginación)
+        #    Considera añadir filtros si es necesario en el futuro
+        doctores_db = db.query(models.Doctor).order_by(models.Doctor.identificador_imss).all()
+        if not doctores_db:
+            raise HTTPException(status_code=404, detail="No hay doctores para generar el reporte.")
+
+        # 2. Convertir a DataFrame de Pandas
+        #    Podemos convertir los objetos SQLAlchemy directamente a dicts
+        #    o usar una función para seleccionar/renombrar columnas si es necesario
+        doctores_list = [schemas.Doctor.from_orm(doc).dict() for doc in doctores_db] # Usar Pydantic para serializar
+        df = pd.DataFrame(doctores_list)
+
+        # Opcional: Seleccionar/Reordenar/Renombrar columnas para el Excel
+        # df = df[['id', 'nombre_completo', 'especialidad', ... ]] # Ejemplo
+        # df.rename(columns={'nombre_completo': 'Nombre del Doctor'}, inplace=True) # Ejemplo
+
+        print(f"DataFrame creado con {len(df)} filas. Generando Excel...")
+
+        # 3. Crear archivo Excel en memoria
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Doctores')
+        output.seek(0) # Mover el "cursor" al inicio del stream
+
+        print("Excel generado. Enviando respuesta...")
+
+        # 4. Devolver como respuesta descargable
+        headers = {
+            'Content-Disposition': 'attachment; filename="reporte_doctores.xlsx"'
+        }
+        return StreamingResponse(output, headers=headers, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+    except Exception as e:
+        print(f"Error generando reporte Excel: {e}")
+        raise HTTPException(status_code=500, detail=f"Error interno al generar el reporte Excel: {e}")
+
+# --- Endpoint para Reporte PDF ---
+@app.get("/api/reporte/pdf")
+async def generar_reporte_pdf(
+    db: Session = Depends(get_db_session),
+    current_user: schemas.User = Depends(security.get_current_user) # Protegido
+):
+    try:
+        print("Generando reporte PDF...")
+        # 1. Obtener TODOS los datos (igual que en Excel)
+        doctores_db = db.query(models.Doctor).order_by(models.Doctor.id).all()
+        if not doctores_db:
+            raise HTTPException(status_code=404, detail="No hay doctores para generar el reporte.")
+
+         # Convertir a lista de diccionarios (simplificado)
+        doctores_list = [schemas.Doctor.from_orm(doc).dict() for doc in doctores_db]
+
+        print(f"Datos obtenidos ({len(doctores_list)} filas). Generando PDF...")
+
+        # 2. Crear PDF con FPDF
+        pdf = FPDF(orientation='L', unit='mm', format='A4') # L=Landscape (Horizontal)
+        pdf.add_page()
+        pdf.set_font('Arial', 'B', 14) # Fuente para el título
+        pdf.cell(277, 10, 'Reporte de Doctores', 0, 1, 'C') # Ancho A4-márgenes, alto, texto, borde, salto línea, align
+        pdf.ln(5) # Salto de línea
+
+        # Encabezados de la tabla (¡AJUSTA ESTOS Y SUS ANCHOS!)
+        pdf.set_font('Arial', 'B', 8) # Fuente más pequeña para tabla
+        headers = ['ID', 'Nombre Completo', 'Especialidad', 'Estatus', 'Entidad', 'CURP', 'Cedula Esp.'] # Ejemplo
+        col_widths = [10, 60, 40, 20, 30, 40, 30] # Ancho de cada columna en mm (¡DEBEN SUMAR MENOS DE 277!)
+        for header, width in zip(headers, col_widths):
+            pdf.cell(width, 7, header, 1, 0, 'C', fill=True) # Borde 1, sin salto, centrado, con relleno
+        pdf.ln() # Salto de línea después de encabezados
+
+        # Datos de la tabla (¡AJUSTA LOS CAMPOS A MOSTRAR!)
+        pdf.set_font('Arial', '', 8)
+        for doctor in doctores_list:
+            # Asegúrate que las claves coincidan con tu schema/modelo
+            # y que manejes valores None (usamos '??' o get con default)
+            row = [
+                str(doctor.get('id', '')),
+                str(doctor.get('nombre_completo', '')),
+                str(doctor.get('especialidad', '')),
+                str(doctor.get('estatus', '')),
+                str(doctor.get('entidad', '')),
+                str(doctor.get('curp', '')),
+                str(doctor.get('cedula_esp', '')),
+                # Añade más campos aquí si es necesario, ajustando headers y col_widths
+            ]
+            for item, width in zip(row, col_widths):
+                pdf.cell(width, 6, item, 1, 0) # Borde 1, sin salto
+            pdf.ln() # Salto al final de la fila
+
+        print("PDF generado. Enviando respuesta...")
+
+        # 3. Devolver PDF como respuesta descargable
+        pdf_output = BytesIO(pdf.output(dest='S').encode('latin-1')) # Guardar en memoria como bytes
+
+        headers = {
+            'Content-Disposition': 'attachment; filename="reporte_doctores.pdf"'
+        }
+        return StreamingResponse(pdf_output, headers=headers, media_type='application/pdf')
+
+    except Exception as e:
+        print(f"Error generando reporte PDF: {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error interno al generar el reporte PDF: {e}")
