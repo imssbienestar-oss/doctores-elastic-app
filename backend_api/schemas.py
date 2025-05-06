@@ -16,8 +16,9 @@ class DoctorBase(BaseModel):
     especialidad: Optional[str] = None
     entidad: Optional[str] = None
     clues_ssa: Optional[str] = None
-    forma_notificacion_baja: Optional[str] = None
+    notificacion_baja: Optional[str] = None
     motivo_baja: Optional[str] = None
+    fecha_extraccion: Optional[str] = None # O Optional[str] si lo cambiaste a TEXT
     fecha_notificacion: Optional[date] = None # O Optional[str] si lo cambiaste a TEXT
     sexo: Optional[str] = None
     turno: Optional[str] = None
