@@ -6,6 +6,8 @@ import DoctorTable from "../components/DoctorTable"; // Componente para mostrar 
 import "./App.css"; // Estilos generales (puedes personalizarlos)
 import Modal from "react-modal"; // <--- NUEVA IMPORTACIÓN
 import EditDoctorModal from "../components/EditDoctorModal"; // <--- NUEVA IMPORTACIÓN (lo crearemos después)
+import Navbar from "../components/Navbar";
+import GraficasPage from "../components/GraficasPage";
 
 // Configuración inicial para react-modal (ayuda con accesibilidad)
 Modal.setAppElement("#root"); // #root es el id del div principal en public/index.html o similar
@@ -27,23 +29,42 @@ function App() {
   // Guarda el número total de doctores (devuelto por la API).
   const [totalDoctores, setTotalDoctores] = useState(0);
 
-  const [searchTerm, setSearchTerm] = useState(''); // <--- NUEVO: Término de búsqueda
+  const [searchTerm, setSearchTerm] = useState(""); // <--- NUEVO: Término de búsqueda
 
   const [isModalOpen, setIsModalOpen] = useState(false); // <--- NUEVO: ¿Está abierto el modal?
   const [editingDoctor, setEditingDoctor] = useState(null); // <--- NUEVO: Qué doctor se edita (o null)
+  const [vistaActual, setVistaActual] = useState("tabla"); // 'tabla' o 'graficas' <-- NUEVO ESTADO
+
+  // Nueva función para cambiar a la vista de gráficas
+  const handleVerGraficas = () => {
+    setVistaActual("graficas");
+  };
+
+  // Nueva función para volver a la tabla (la necesitarás en Navbar o GraficasPage)
+  const handleVerTabla = () => {
+    setVistaActual("tabla");
+  };
 
   // Calcula el número total de páginas necesarias.
   const totalPages = Math.ceil(totalDoctores / itemsPerPage);
 
   // --- FUNCIÓN PARA OBTENER DOCTORES DE LA API WorkspaceDoctores ---
-  const fetchDoctores = async (page = 1,  currentSearchTerm = searchTerm) => {
+  const fetchDoctores = async (page = 1, currentSearchTerm = searchTerm) => {
     // No intentar si no hay token
     console.log("--- fetchDoctores INICIO ---"); // DEBUG
-    console.log("Recibido: page =", page, ", currentSearchTerm =", currentSearchTerm, "(Tipo:", typeof currentSearchTerm, ")"); // DEBUG
+    console.log(
+      "Recibido: page =",
+      page,
+      ", currentSearchTerm =",
+      currentSearchTerm,
+      "(Tipo:",
+      typeof currentSearchTerm,
+      ")"
+    ); // DEBUG
     if (!token) {
       console.log("fetchDoctores: No hay token, saliendo."); // DEBUG
       return;
-  }
+    }
 
     setIsLoading(true); // Iniciar indicador de carga
     setFetchError(""); // Limpiar errores previos
@@ -51,42 +72,49 @@ function App() {
     // Calcular 'skip' para la API basado en la página y items por página
     const skip = (page - 1) * itemsPerPage;
     const limit = itemsPerPage;
-    const apiUrlBase = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'; // URL Base API
+    const apiUrlBase =
+      import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000"; // URL Base API
     let url = `${apiUrlBase}/api/doctores?skip=${skip}&limit=${limit}`;
     console.log("URL base:", url);
 
     // Condición para añadir el filtro de nombre
-    if (currentSearchTerm && String(currentSearchTerm).trim() !== '') { // Convertir a String por si acaso y trim()
+    if (currentSearchTerm && String(currentSearchTerm).trim() !== "") {
+      // Convertir a String por si acaso y trim()
       console.log("CONDICIÓN 'if searchTerm' CUMPLIDA. Añadiendo nombre."); // DEBUG
-      const encodedSearchTerm = encodeURIComponent(String(currentSearchTerm).trim());
+      const encodedSearchTerm = encodeURIComponent(
+        String(currentSearchTerm).trim()
+      );
       url += `&nombre=${encodedSearchTerm}`;
-  } else {
-      console.log("CONDICIÓN 'if searchTerm' NO cumplida. currentSearchTerm:", currentSearchTerm); // DEBUG
-  }
+    } else {
+      console.log(
+        "CONDICIÓN 'if searchTerm' NO cumplida. currentSearchTerm:",
+        currentSearchTerm
+      ); // DEBUG
+    }
 
-  console.log("URL FINAL a usar en fetch:", url); // DEBUG FINAL URL
+    console.log("URL FINAL a usar en fetch:", url); // DEBUG FINAL URL
 
-  
     try {
       // Obtener token actual (por seguridad, aunque ya está en el estado)
       const currentToken = localStorage.getItem("accessToken");
       if (!currentToken) {
-        console.log("fetchDoctores: No hay token en localStorage antes de fetch."); // DEBUG
+        console.log(
+          "fetchDoctores: No hay token en localStorage antes de fetch."
+        ); // DEBUG
         throw new Error("Token no encontrado al intentar obtener doctores.");
       }
       console.log("Realizando fetch a:", url); // DEBUG
       // Llamada a la API Backend (asegúrate que la URL y puerto sean correctos)
       const response = await fetch(url, {
-          method: "GET",
-          headers: {
-            // ¡Enviar el token para autenticación!
-            Authorization: `Bearer ${currentToken}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+        method: "GET",
+        headers: {
+          // ¡Enviar el token para autenticación!
+          Authorization: `Bearer ${currentToken}`,
+          "Content-Type": "application/json",
+        },
+      });
       console.log("Respuesta recibida, status:", response.status);
-      
+
       // Procesar la respuesta
       if (response.ok) {
         const data = await response.json(); // Esperamos { total_count, doctores }
@@ -135,7 +163,7 @@ function App() {
       setDoctores([]);
       setTotalDoctores(0);
       setCurrentPage(1); // Resetear a la página 1
-      setSearchTerm(''); // Limpiar búsqueda en logout
+      setSearchTerm(""); // Limpiar búsqueda en logout
     }
   }, [token, currentPage]); // Dependencias del efecto
 
@@ -188,11 +216,11 @@ function App() {
   const deleteDoctor = async (doctorId) => {
     if (!token) return;
 
-    setFetchError('');
+    setFetchError("");
     console.log(`Intentando eliminar doctor con ID: ${doctorId}`);
 
     // --- CORRECCIÓN: Usar variable de entorno para la URL del backend ---
-    const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'; // Obtener URL base
+    const apiUrl = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000"; // Obtener URL base
     const deleteUrl = `${apiUrl}/api/doctores/${doctorId}`;
 
     console.log("Llamando a DELETE en:", deleteUrl); // DEBUG
@@ -202,7 +230,8 @@ function App() {
       if (!currentToken) throw new Error("Token no encontrado");
 
       // Usa la variable 'deleteUrl' construida
-      const response = await fetch(deleteUrl, { // <--- USA la variable deleteUrl
+      const response = await fetch(deleteUrl, {
+        // <--- USA la variable deleteUrl
         method: "DELETE", // Método HTTP DELETE
         headers: {
           Authorization: `Bearer ${currentToken}`, // ¡Enviar token!
@@ -250,124 +279,141 @@ function App() {
   }; // Fin de deleteDoctor
   // --- FIN NUEVAS FUNCIONES ---
 
-    // Maneja el clic en el botón "Buscar"
-    const handleSearch = () => {
-      setCurrentPage(1); // Volver a la página 1 al hacer una nueva búsqueda
-      console.log("Valor de searchTerm en handleSearch:", searchTerm); // <--- AÑADE ESTA LÍNEA
-      fetchDoctores(1, searchTerm); // Pasar searchTerm explícitamente
-    };
-  
-    // Maneja el clic en el botón "Limpiar"
-    const handleClearSearch = () => {
-      setSearchTerm(''); // Limpiar el estado del término de búsqueda
-      setCurrentPage(1); // Volver a la página 1
-      fetchDoctores(1, ''); // Llamar a fetchDoctores con término vacío
-    };
-    
+  // Maneja el clic en el botón "Buscar"
+  const handleSearch = () => {
+    setCurrentPage(1); // Volver a la página 1 al hacer una nueva búsqueda
+    console.log("Valor de searchTerm en handleSearch:", searchTerm); // <--- AÑADE ESTA LÍNEA
+    fetchDoctores(1, searchTerm); // Pasar searchTerm explícitamente
+  };
+
+  // Maneja el clic en el botón "Limpiar"
+  const handleClearSearch = () => {
+    setSearchTerm(""); // Limpiar el estado del término de búsqueda
+    setCurrentPage(1); // Volver a la página 1
+    fetchDoctores(1, ""); // Llamar a fetchDoctores con término vacío
+  };
+
   // --- RENDERIZADO DEL COMPONENTE ---
   return (
-    <div className="App">
-      <h1>Aplicación de Doctores</h1>
+    <>
+      {token && (
+        <Navbar
+          title="Sistema Doctores"
+          onAddDoctorClick={handleOpenEditModal}
+          onLogoutClick={handleLogout}
+          onVerGraficasClick={handleVerGraficas}
+          onVerTablaClick={handleVerTabla}
+          vistaActual={vistaActual}
+          // Añade aquí props para los botones "Generar Reporte", "Ver Graficas" si la lógica está en App.jsx
+          // Ejemplo: onGenerarReporte={() => console.log('Generar Reporte...')}
+        />
+      )}
 
-      {/* Renderizado Condicional: Muestra contenido diferente si el usuario está logueado o no */}
-      {token ? (
-        // --- VISTA CUANDO ESTÁ LOGUEADO ---
-        <div>
-          <p>¡Estás logueado!</p>
-          <button onClick={handleLogout} style={{ marginBottom: "20px" }}>
-            Cerrar Sesión
-          </button>
-
-             {/* --- INICIO: Sección de Búsqueda --- */}
-             <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-             <label htmlFor="search-nombre" style={{fontWeight: 'bold'}}>Buscar por Nombre:</label>
-             <input
+      {/* Contenedor principal para el resto del contenido */}
+      <div className="container">
+        {!token ? (
+          // --- VISTA CUANDO NO ESTÁ LOGUEADO ---
+          <div style={{ padding: "20px" }}>
+            <LoginPage onLoginSuccess={handleLoginSuccess} />
+          </div>
+        ) : vistaActual === "tabla" ? (
+          // --- VISTA DE TABLA CUANDO ESTÁ LOGUEADO ---
+          <div>
+            <div
+              style={{
+                marginBottom: "15px",
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+              }}
+            >
+              <label htmlFor="search-nombre" style={{ fontWeight: "bold" }}>
+                Buscar por Nombre:
+              </label>
+              <input
                 type="search"
                 id="search-nombre"
                 placeholder="Escribe un nombre..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                style={{padding: '5px'}}
-             />
-             <button onClick={handleSearch} className="form-button primary">Buscar</button>
-             <button onClick={handleClearSearch} className="form-button secondary">Limpiar</button>
-          </div>
-          {/* --- FIN: Sección de Búsqueda --- */}
-
-          {/* --- NUEVO: Botón para Agregar --- */}
-          <div style={{ marginBottom: "15px" }}>
-            <button onClick={() => handleOpenEditModal(null)}>
-              {" "}
-              {/* Llama a la misma función, pero con null */}
-              Agregar Nuevo Doctor
-            </button>
-          </div>
-          {/* --- FIN NUEVO --- */}
-
-          <h2>Lista de Doctores</h2>
-
-          {/* Indicador de Carga */}
-          {isLoading && <p>Cargando doctores...</p>}
-
-          {/* Mensaje de Error */}
-          {fetchError && <p style={{ color: "red" }}>{fetchError}</p>}
-
-          {/* Tabla de Doctores (si no está cargando y no hay error) */}
-          {!isLoading && !fetchError && doctores.length > 0 && (
-            <DoctorTable
-              doctores={doctores}
-              onEdit={handleOpenEditModal} // <--- PASAR LA FUNCIÓN COMO PROP 'onEdit'
-              onDelete={handleDeleteClick} // <--- PASAR LA FUNCIÓN COMO PROP 'onDelete'
-              // onDelete={handleDeleteClick} // Añadiremos esto después para borrar
-            />
-          )}
-          {/* Mensaje si no hay doctores y no está cargando */}
-          {!isLoading && !fetchError && doctores.length === 0 && (
-            <p>No se encontraron doctores.</p>
-          )}
-
-          {/* Controles de Paginación (solo si no carga, no hay error y hay más de 1 página) */}
-          {!isLoading && !fetchError && totalPages > 1 && (
-            <div
-              style={{
-                marginTop: "20px",
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-              }}
-            >
-              <button
-                onClick={() => setCurrentPage(currentPage - 1)}
-                disabled={currentPage === 1} // Deshabilitar en la primera página
-              >
-                Anterior
+                onKeyPress={(e) => e.key === 'Enter' && handleSearch()} // Opcional: buscar con Enter
+                style={{ padding: "12px", width: "340px" }}
+              />
+              <button onClick={handleSearch} className="form-button primary">
+                Buscar
               </button>
-              <span style={{ margin: "0 15px" }}>
-                Página {currentPage} de {totalPages} (Total: {totalDoctores})
-              </span>
               <button
-                onClick={() => setCurrentPage(currentPage + 1)}
-                disabled={currentPage === totalPages} // Deshabilitar en la última página
+                onClick={handleClearSearch}
+                className="form-button secondary"
               >
-                Siguiente
+                Limpiar
               </button>
             </div>
-          )}
-        </div>
-      ) : (
-        // --- VISTA CUANDO NO ESTÁ LOGUEADO ---
-        <LoginPage onLoginSuccess={handleLoginSuccess} />
-      )}
+
+            <h2>Lista de Doctores</h2>
+
+            {isLoading && <p>Cargando doctores...</p>}
+            {fetchError && <p style={{ color: "red" }}>{fetchError}</p>}
+
+            {!isLoading && !fetchError && totalPages > 1 && (
+              <div
+                style={{
+                  marginTop: "20px",
+                  marginBottom: "20px", // Reducido un poco para que no se pegue a la tabla
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                <button
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                >
+                  Anterior
+                </button>
+                <span style={{ margin: "0 15px" }}>
+                  Página {currentPage} de {totalPages} (Total: {totalDoctores})
+                </span>
+                <button
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                  disabled={currentPage === totalPages || totalPages === 0} // Añadir totalPages === 0
+                >
+                  Siguiente
+                </button>
+              </div>
+            )}
+
+            {!isLoading && !fetchError && doctores.length > 0 && (
+              <DoctorTable
+                doctores={doctores}
+                onEdit={handleOpenEditModal}
+                onDelete={handleDeleteClick}
+              />
+            )}
+            {!isLoading &&
+              !fetchError &&
+              doctores.length === 0 &&
+              totalDoctores === 0 && ( // Mostrar solo si el total es 0 realmente, no solo la página actual
+                <p>No se encontraron doctores.</p>
+              )}
+          </div>
+        ) : vistaActual === "graficas" ? (
+          // --- VISTA DE GRÁFICAS CUANDO ESTÁ LOGUEADO ---
+          <GraficasPage
+            onVolverATabla={handleVerTabla} // Para un botón de "Volver" en GraficasPage
+            token={token} // Pasar el token si GraficasPage necesita hacer sus propios fetches
+          />
+        ) : null} {/* Fallback por si vistaActual tiene un valor inesperado */}
+      </div>
+
       {/* --- Renderizar el Modal --- */}
-      {/* Se mostrará u ocultará basado en isModalOpen */}
-      {/* Asegúrate de que editingDoctor no sea null antes de pasarlo */}
       <EditDoctorModal
         isOpen={isModalOpen}
         onRequestClose={handleCloseModal}
         doctorData={editingDoctor} // Pasa el doctor seleccionado
         onSave={handleDoctorSave} // Pasa la función para refrescar datos
       />
-    </div>
+    </>
   );
 }
 
