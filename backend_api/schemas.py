@@ -1,7 +1,6 @@
 # backend_api/schemas.py
 from pydantic import BaseModel
-from typing import List, Optional # <--- Importa List y Optional desde typing
-from typing import Optional # Para campos opcionales (que pueden ser None/NULL)
+from typing import List, Optional, Union  # <--- Importa List y Optional desde typing
 from datetime import date # Para importar el tipo date
 
 # Schema base con los campos comunes
@@ -40,7 +39,7 @@ class Doctor(DoctorBase):
     id: int
 
     class Config:
-       from_attributes = True # Permite que Pydantic lea datos desde modelos ORM como SQLAlchemy
+        from_attributes = True # Permite que Pydantic lea datos desde modelos ORM como SQLAlchemy
 
 # Schema para recibir datos al CREAR un nuevo doctor
 class DoctorCreate(DoctorBase):
@@ -88,3 +87,8 @@ class TokenData(BaseModel):
 class DoctoresPaginados(BaseModel):
     total_count: int  # Número total de doctores
     doctores: List[Doctor] # La lista de doctores para la página actual
+
+class DataGraficaItem(BaseModel):
+    label: str           # La etiqueta que se muestra en el gráfico (ej. nombre del estado, especialidad, estatus)
+    value: Union[int, float] # El valor numérico (ej. conteo de doctores)
+    
