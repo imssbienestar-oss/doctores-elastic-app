@@ -9,28 +9,33 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from database import get_db # Importa la función para obtener sesión de DB
-import models
-import schemas
+import models # Asegúrate que tus modelos SQLAlchemy estén aquí (ej. models.User)
+import schemas # Asegúrate que tus esquemas Pydantic estén aquí (ej. schemas.TokenData)
 
 load_dotenv() # Cargar variables de .env
 
 # --- Configuración de Seguridad ---
-# !! MUY IMPORTANTE: Genera una clave secreta fuerte y ponla en tu .env !!
-# Puedes generar una con: openssl rand -hex 32
-# En tu archivo .env añade: SECRET_KEY='tu_clave_generada'
 SECRET_KEY = os.getenv("SECRET_KEY")
-ALGORITHM = "HS256" # Algoritmo estándar para firmar JWT
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30)) # Lee del .env o usa 30 min por defecto
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
 
 if SECRET_KEY is None:
     print("Error Crítico: La variable de entorno SECRET_KEY no está definida.")
     print("Genera una con 'openssl rand -hex 32' y añádela a tu archivo .env")
+    # Considera usar 'raise EnvironmentError("SECRET_KEY no definida")' en lugar de exit()
+    # para que FastAPI pueda manejarlo mejor si se ejecuta en un contexto de servidor.
     exit()
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/token")
+# Esquema OAuth2 para rutas que REQUIEREN autenticación
+oauth2_scheme_strict = OAuth2PasswordBearer(tokenUrl="/api/token")
+
+# NUEVO: Esquema OAuth2 para rutas donde la autenticación es OPCIONAL (invitados)
+# auto_error=False significa que si no se provee el token, la dependencia recibirá 'None'
+# en lugar de lanzar un error 401 automáticamente.
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/api/token", auto_error=False)
+
 
 # --- Hashing de Contraseñas ---
-# Configura passlib para usar bcrypt
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -49,18 +54,16 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
-        # Usa el tiempo de expiración de la configuración
         expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-# --- (Añadiremos la función para decodificar/validar tokens más tarde) ---
-
-async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+# --- Dependencia para obtener el usuario actual (autenticación REQUERIDA) ---
+async def get_current_user(token: str = Depends(oauth2_scheme_strict), db: Session = Depends(get_db)):
     """
     Decodifica el token JWT, valida al usuario y lo devuelve.
-    Se usa como dependencia en las rutas protegidas.
+    Se usa como dependencia en las rutas protegidas que requieren autenticación.
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -68,24 +71,50 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        # Decodifica el token usando la clave secreta y el algoritmo
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        # Extrae el nombre de usuario del campo 'sub' (subject) del token
-        username: str = payload.get("sub")
+        username: Optional[str] = payload.get("sub")
         if username is None:
             raise credentials_exception
-        # Crea un objeto TokenData para validación (opcional pero bueno)
-        token_data = schemas.TokenData(username=username)
+        token_data = schemas.TokenData(username=username) # Asumiendo que schemas.TokenData existe
     except JWTError:
-        # Si hay error al decodificar (token inválido, expirado, etc.)
         raise credentials_exception
 
-    # Busca al usuario en la base de datos
-    user = db.query(models.User).filter(models.User.username == token_data.username).first()
+    user = db.query(models.User).filter(models.User.username == token_data.username).first() # Asumiendo models.User
     if user is None:
-        # Si el usuario extraído del token ya no existe en la DB
         raise credentials_exception
-    # Podrías añadir una comprobación de usuario activo aquí si tuvieras user.is_active
+    # Aquí podrías añadir comprobaciones como user.is_active si es necesario
     # if not user.is_active:
-    #     raise HTTPException(status_code=400, detail="Usuario inactivo")
-    return user # Devuelve el objeto User de SQLAlchemy
+    #     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Usuario inactivo")
+    return user
+
+# --- NUEVA: Dependencia para obtener el usuario actual (autenticación OPCIONAL) ---
+async def get_optional_current_user(
+    token: Optional[str] = Depends(oauth2_scheme_optional), # Usa el esquema opcional
+    db: Session = Depends(get_db)
+) -> Optional[models.User]: # El tipo de retorno es Optional[models.User]
+    """
+    Decodifica el token JWT si se proporciona y devuelve el usuario.
+    Si no se proporciona token o es inválido, devuelve None (invitado).
+    Se usa para rutas que pueden ser accedidas por invitados o usuarios autenticados.
+    """
+    if not token:
+        # No se proporcionó token, el usuario es un invitado
+        return None
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: Optional[str] = payload.get("sub")
+        if username is None:
+            # Token proporcionado pero malformado (sin 'sub')
+            return None # Tratar como invitado, no lanzar error
+        token_data = schemas.TokenData(username=username)
+    except JWTError:
+        # Token inválido (expirado, firma incorrecta, etc.)
+        return None # Tratar como invitado, no lanzar error
+
+    user = db.query(models.User).filter(models.User.username == token_data.username).first()
+    # Si el usuario existe en la BD, devuélvelo.
+    # Si el token era válido pero el usuario ya no existe, devuelve None (como invitado).
+    # Aquí también podrías añadir user.is_active si es relevante y no quieres que un usuario
+    # inactivo, incluso con token válido, acceda. Pero para "opcional", None es lo más simple.
+    return user
