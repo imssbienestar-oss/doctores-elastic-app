@@ -58,7 +58,6 @@ body {
 
 .modal-form {
   padding: 20px;
-  background-color: #c666669e; /* Un fondo ligeramente diferente */
   border-radius: 8px;
   color: #333; /* Asegurar texto oscuro sobre fondo claro */
 }
@@ -113,18 +112,19 @@ body {
 }
 
 .form-button.primary {
-  background-color: #007bff; /* Azul primario */
+  background-color: #306298; /* Azul primario */
   color: white;
 }
 .form-button.primary:hover:not(:disabled) {
-  background-color: #0056b3;
+  background-color: #306298a9;
 }
 .form-button.primary:disabled {
-  background-color: #a0cfff;
+  background-color: #a9a3a0;
   cursor: not-allowed;
 }
 
 .form-button.secondary {
+  padding: 10px 15px;
   background-color: #6c757d; /* Gris secundario */
   color: white;
   margin-left: 10px; /* Espacio entre botones */
@@ -159,7 +159,7 @@ body {
 
 .doctors-table th,
 .doctors-table td {
-  border: 1px solid #444;
+  border: 2px solid #000000;
   padding: 10px 12px;
   text-align: center;
   vertical-align: middle;
@@ -169,12 +169,11 @@ body {
 }
 
 .doctors-table th{
-  background-color: #3a3a3a;
+  background-color: #235B4E;
   color: #eee;
   font-weight: bold;
   text-align: center; 
 }
-
 
 /* --- Estilos para Columna Fija (Sticky) --- */
 
@@ -189,10 +188,9 @@ body {
 }
 
 /* Fondo para el encabezado fijo */
-.doctors-table th.sticky-col.action-header { background-color: #3a3a3a; }
-.doctors-table tbody tr td.sticky-col.action-cell { background-color: #222; }
-.doctors-table tbody tr:nth-child(even) td.sticky-col.action-cell { background-color: #2f2f2f; }
-.doctors-table tbody tr:hover td.sticky-col.action-cell { background-color: #454545; }
+.doctors-table th.sticky-col.action-header { background-color: #691C32; }
+.doctors-table tbody tr td.sticky-col.action-cell { background-color: #acabab; }
+.doctors-table tbody tr:nth-child(even) td.sticky-col.action-cell { background-color: #484848; }
 
 /* Ancho y alineación para la columna de acciones fija (Columna 1) */
 .doctors-table th:nth-child(1), /* Primera columna (Acciones) */
@@ -370,3 +368,6 @@ body {
    width: 60px;
 }
 /* --- Fin Estilos Sticky --- */
+.paginacion{
+
+}
