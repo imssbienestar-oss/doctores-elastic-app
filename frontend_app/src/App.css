@@ -1,8 +1,21 @@
 #root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
+  margin: 0 auto; /* <--- CENTRA EL #root */
+  width: 100%;
   text-align: center;
+}
+
+body {
+  margin: 0; /* Correcto */
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  /* ... */
+}
+
+.container{
+  max-width: 100%; /* Define el ancho máximo del contenido principal */
+  margin: 20px auto; /* Centra horizontalmente y añade margen vertical de 20px */
+  padding: 0 2rem;  /* Añade padding SOLO a izquierda y derecha (ej: 2rem) */
+  padding-top: 70px;
+  /* text-align: left; */ /* Probablemente quieras que el texto dentro se alinee a la izq. */
 }
 
 .logo {
@@ -129,3 +142,231 @@
  .ReactModal__Overlay { 
    background-color: rgba(0, 0, 0, 0.552) !important;
  } 
+
+ /* --- Estilos para la Tabla de Doctores --- */
+
+ .doctors-table {
+   /* <<< Permitir que la tabla sea más ancha que el contenedor */
+  width: 2500px;  /* O un ancho fijo muy grande */
+  min-width: 100%;          /* Que como mínimo ocupe el contenedor */
+  border-collapse: collapse;
+  margin-top: 20px;
+  margin-bottom: 20px;
+  font-size: 0.9em;
+  border: 1px solid #555;
+  table-layout: fixed;       /* Mantenemos layout fijo para wrapping */
+}
+
+.doctors-table th,
+.doctors-table td {
+  border: 1px solid #444;
+  padding: 10px 12px;
+  text-align: center;
+  vertical-align: middle;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal; 
+}
+
+.doctors-table th{
+  background-color: #3a3a3a;
+  color: #eee;
+  font-weight: bold;
+  text-align: center; 
+}
+
+
+/* --- Estilos para Columna Fija (Sticky) --- */
+
+.doctors-table th.sticky-col,
+.doctors-table td.sticky-col {
+  position: -webkit-sticky; /* Para Safari */
+  position: sticky;         /* Estándar */
+  left: 0;                  /* Fija la columna al borde izquierdo */
+  z-index: 2;               /* Asegura que esté por encima del resto al hacer scroll */
+
+  /* Fondo es VITAL para que no se transparente el contenido de atrás */
+}
+
+/* Fondo para el encabezado fijo */
+.doctors-table th.sticky-col.action-header { background-color: #3a3a3a; }
+.doctors-table tbody tr td.sticky-col.action-cell { background-color: #222; }
+.doctors-table tbody tr:nth-child(even) td.sticky-col.action-cell { background-color: #2f2f2f; }
+.doctors-table tbody tr:hover td.sticky-col.action-cell { background-color: #454545; }
+
+/* Ancho y alineación para la columna de acciones fija (Columna 1) */
+.doctors-table th:nth-child(1), /* Primera columna (Acciones) */
+.doctors-table td:nth-child(1) {
+  width: 100px; /* Ancho fijo para botones */
+  min-width: 100px;
+  max-width: 150px;
+  text-align: center; /* Centrar botones */
+}
+.doctors-table td.sticky-col.action-cell button { /* Estilos botones */
+   display: inline-block;
+   margin: 2px;
+}
+
+
+/* --- AJUSTE DE ANCHOS OTRAS COLUMNAS (Ejemplos) --- */
+/* Ajusta estos según el orden y el ancho deseado */
+/* Recuerda: nth-child(1) es Acciones ahora */
+
+/* Columna 2: ej. ID IMSS */
+.doctors-table th:nth-child(2),
+.doctors-table td:nth-child(2) {
+   width: 100px;
+}
+
+/* Columna 3: ej. Nombre Completo */
+.doctors-table th:nth-child(3),
+.doctors-table td:nth-child(3) {
+   width: 200px; /* Más ancha */
+}
+
+/* Columna 4: ej. Estatus */
+.doctors-table th:nth-child(4),
+.doctors-table td:nth-child(4) {
+   width: 100px; /* Más estrecha */
+   text-align: center; /* Centrar si quieres */
+}
+
+/* Columna 5: ej. ID Matrimonio */
+.doctors-table th:nth-child(5),
+.doctors-table td:nth-child(5) {
+   width: 100px;
+}
+
+/* Columna 6: ej. CURP */
+.doctors-table th:nth-child(6),
+.doctors-table td:nth-child(6) {
+   width: 150px;
+}
+
+/* Columna 7: ej. CEDULA ESP. */
+.doctors-table th:nth-child(7),
+.doctors-table td:nth-child(7) {
+   width: 100px;
+}
+
+/* Columna 8: ej. CEDULA LIC. */
+.doctors-table th:nth-child(8),
+.doctors-table td:nth-child(8) {
+   width: 100px;
+}
+
+/* Columna 9: ej. Especialidad */
+.doctors-table th:nth-child(9), /* <-- ¡OJO! Ajusta el número según el orden real de tus columnas */
+.doctors-table td:nth-child(9) { /* en el array todasLasColumnas de DoctorTable.jsx      */
+   width: 200px;
+}
+
+/* Columna 10: ej. Entidad */
+.doctors-table th:nth-child(10), /* <-- ¡OJO! Ajusta el número según el orden real de tus columnas */
+.doctors-table td:nth-child(10) { /* en el array todasLasColumnas de DoctorTable.jsx      */
+   width: 100px;
+}
+
+/* Columna 11: ej. Clues SSA  */
+.doctors-table th:nth-child(11), /* <-- ¡OJO! Ajusta el número según el orden real de tus columnas */
+.doctors-table td:nth-child(11) { /* en el array todasLasColumnas de DoctorTable.jsx      */
+   width: 100px;
+}
+
+/* Columna 12: ej. Notificacion Baja  */
+.doctors-table th:nth-child(12), /* <-- ¡OJO! Ajusta el número según el orden real de tus columnas */
+.doctors-table td:nth-child(12) { /* en el array todasLasColumnas de DoctorTable.jsx      */
+   width: 100px;
+}
+
+/* Columna 13: ej. Motivo Baja  */
+.doctors-table th:nth-child(13), /* <-- ¡OJO! Ajusta el número según el orden real de tus columnas */
+.doctors-table td:nth-child(13) { /* en el array todasLasColumnas de DoctorTable.jsx      */
+   width: 100px;
+}
+
+/* Columna 14: ej. Extraccion  */
+.doctors-table th:nth-child(14), /* <-- ¡OJO! Ajusta el número según el orden real de tus columnas */
+.doctors-table td:nth-child(14) { /* en el array todasLasColumnas de DoctorTable.jsx      */
+   width: 100px;
+}
+
+/* Columna 15: ej. F. Notificacion  */
+.doctors-table th:nth-child(15), /* <-- ¡OJO! Ajusta el número según el orden real de tus columnas */
+.doctors-table td:nth-child(15) { /* en el array todasLasColumnas de DoctorTable.jsx      */
+   width: 100px;
+}
+
+
+/* Columna 16: ej. Sexo  */
+.doctors-table th:nth-child(16), /* <-- ¡OJO! Ajusta el número según el orden real de tus columnas */
+.doctors-table td:nth-child(16) { /* en el array todasLasColumnas de DoctorTable.jsx      */
+   width: 60px;
+}
+
+
+/* Columna 17: ej. Turno  */
+.doctors-table th:nth-child(17), /* <-- ¡OJO! Ajusta el número según el orden real de tus columnas */
+.doctors-table td:nth-child(17) { /* en el array todasLasColumnas de DoctorTable.jsx      */
+   width: 80px;
+}
+
+
+/* Columna 18: ej. Clues IMB  */
+.doctors-table th:nth-child(18), /* <-- ¡OJO! Ajusta el número según el orden real de tus columnas */
+.doctors-table td:nth-child(18) { /* en el array todasLasColumnas de DoctorTable.jsx      */
+   width: 100px;
+}
+
+
+/* Columna 19: ej. Nombre Unidad  */
+.doctors-table th:nth-child(19), /* <-- ¡OJO! Ajusta el número según el orden real de tus columnas */
+.doctors-table td:nth-child(19) { /* en el array todasLasColumnas de DoctorTable.jsx      */
+   width: 150px;
+}
+
+
+/* Columna 20: ej.  Municipio  */
+.doctors-table th:nth-child(20), /* <-- ¡OJO! Ajusta el número según el orden real de tus columnas */
+.doctors-table td:nth-child(20) { /* en el array todasLasColumnas de DoctorTable.jsx      */
+   width: 100px;
+}
+
+
+/* Columna 21: ej. Nivel Atención  */
+.doctors-table th:nth-child(21), /* <-- ¡OJO! Ajusta el número según el orden real de tus columnas */
+.doctors-table td:nth-child(21) { /* en el array todasLasColumnas de DoctorTable.jsx      */
+   width: 100px;
+}
+
+
+/* Columna 22: ej. F. Estatus  */
+.doctors-table th:nth-child(22), /* <-- ¡OJO! Ajusta el número según el orden real de tus columnas */
+.doctors-table td:nth-child(22) { /* en el array todasLasColumnas de DoctorTable.jsx      */
+   width: 100px;
+}
+
+/* Columna 23: ej. Despliegue  */
+.doctors-table th:nth-child(23), /* <-- ¡OJO! Ajusta el número según el orden real de tus columnas */
+.doctors-table td:nth-child(23) { /* en el array todasLasColumnas de DoctorTable.jsx      */
+   width: 100px;
+}
+
+/* Columna 24: ej. F. Vuelo  */
+.doctors-table th:nth-child(24), /* <-- ¡OJO! Ajusta el número según el orden real de tus columnas */
+.doctors-table td:nth-child(24) { /* en el array todasLasColumnas de DoctorTable.jsx      */
+   width: 80px;
+}
+
+/* Columna 25: ej. Estrato  */
+.doctors-table th:nth-child(25), /* <-- ¡OJO! Ajusta el número según el orden real de tus columnas */
+.doctors-table td:nth-child(25) { /* en el array todasLasColumnas de DoctorTable.jsx      */
+   width: 60px;
+}
+
+/* Columna 26: ej. Acuerdo  */
+.doctors-table th:nth-child(26), /* <-- ¡OJO! Ajusta el número según el orden real de tus columnas */
+.doctors-table td:nth-child(26) { /* en el array todasLasColumnas de DoctorTable.jsx      */
+   width: 60px;
+}
+/* --- Fin Estilos Sticky --- */
