@@ -1,5 +1,6 @@
 // src/components/DoctorTable.jsx
 import React from 'react';
+import "../src/App.css"; // Estilos generales (puedes personalizarlos)
 
 // Recibe la lista de doctores como una prop
 function DoctorTable({ doctores, onEdit, onDelete }) {
@@ -9,38 +10,74 @@ function DoctorTable({ doctores, onEdit, onDelete }) {
   }
 
   // Decide qué columnas mostrar inicialmente (usa los nombres LIMPIOS del backend/schema)
-  const columnasVisibles = [
-    { key: 'id', label: 'ID' },
+  const todasLasColumnas = [
+    // { key: 'id', label: 'ID' }, // Puedes incluir el ID si quieres
+    { key: 'identificador_imss', label: 'ID IMSS' },
     { key: 'nombre_completo', label: 'Nombre Completo' },
-    { key: 'especialidad', label: 'Especialidad' },
     { key: 'estatus', label: 'Estatus' },
+    { key: 'matrimonio_id', label: 'ID Matrimonio' }, // Ajusta el label si es necesario
+    { key: 'curp', label: 'CURP' },
+    { key: 'cedula_esp', label: 'Cédula Esp.' },
+    { key: 'cedula_lic', label: 'Cédula Lic.' },
+    { key: 'especialidad', label: 'Especialidad' },
     { key: 'entidad', label: 'Entidad' },
-    // Añade más objetos { key: 'nombre_columna', label: 'Titulo Columna' } si quieres mostrar más
+    { key: 'clues_ssa', label: 'CLUES SSA' },
+    { key: 'notificacion_baja', label: 'Notificación Baja' },
+    { key: 'motivo_baja', label: 'Motivo Baja' },
+    { key: 'fecha_extraccion', label: 'Fecha de Extracción' }, // Asumiendo que es TEXT
+    { key: 'fecha_notificacion', label: 'Fecha de Notificación' }, // Asumiendo que es TEXT
+    { key: 'sexo', label: 'Sexo' },
+    { key: 'turno', label: 'Turno' },
+    { key: 'clues_ib', label: 'CLUES IB' },
+    { key: 'nombre_unidad', label: 'Nombre Unidad' },
+    { key: 'municipio', label: 'Municipio' },
+    { key: 'nivel_atencion', label: 'Nivel Atención' },
+    { key: 'fecha_estatus', label: 'Fecha de Estatus' }, // Asumiendo que es TEXT
+    { key: 'despliegue', label: 'Despliegue' },
+    { key: 'fecha_vuelo', label: 'Fecha de Vuelo' }, // Asumiendo que es TEXT
+    { key: 'estrato', label: 'Estrato' },
+    { key: 'acuerdo', label: 'Acuerdo' }, // Asumiendo que es TEXT/VARCHAR
   ];
 
   return (
-    <div style={{ width: '100%', overflowX: 'auto' }}> {/* Contenedor para scroll horizontal */}
-      <table>
+    // Contenedor div para habilitar el scroll horizontal
+    <div style={{ width: '100%', overflowX: 'auto', border: '1px solid #444' /* Borde opcional para ver límites */ }}>
+      <table className="doctors-table">
         <thead>
           <tr>
-            {columnasVisibles.map(col => <th key={col.key}>{col.label}</th>)}
-            <th>Acciones</th> {/* Columna extra para botones */}
+            {/* --- Columna de Acciones AHORA VA PRIMERO --- */}
+            {/* Le añadimos clases para poder fijarla con CSS */}
+            <th className="sticky-col action-header">Acciones</th>
+
+            {/* Resto de encabezados */}
+            {todasLasColumnas.map(col => <th key={col.key}>{col.label}</th>)}
           </tr>
         </thead>
         <tbody>
           {doctores.map((doctor) => (
             <tr key={doctor.id}>
-              {columnasVisibles.map(col => (
+              {/* --- Celda de Acciones AHORA VA PRIMERO --- */}
+              {/* Le añadimos clases para poder fijarla con CSS */}
+              <td className="sticky-col action-cell">
+                <button
+                   onClick={() => onEdit(doctor)}
+                   className="table-action-button edit">
+                   Editar
+                </button>
+                <button
+                   onClick={() => onDelete(doctor.id, doctor.nombre_completo)}
+                   className="table-action-button delete">
+                   Borrar
+                </button>
+              </td>
+
+              {/* Resto de celdas de datos */}
+              {todasLasColumnas.map(col => (
                 <td key={`<span class="math-inline">\{doctor\.id\}\-</span>{col.key}`}>
-                  {/* Manejar valores null/undefined */}
-                  {doctor[col.key] !== null && doctor[col.key] !== undefined ? String(doctor[col.key]) : ''}
+                  {/* Usamos ?? '' para mostrar cadena vacía si el valor es null o undefined */}
+                  {doctor[col.key] ?? ''}
                 </td>
               ))}
-              <td>
-                {/* Llama a onEdit pasando el objeto 'doctor' completo */}
-                <button onClick={() => onEdit(doctor)} style={{marginRight: '5px'}}>Editar</button>
-                <button onClick={() => onDelete(doctor.id, doctor.nombre_completo)}>Borrar</button>
-              </td>
             </tr>
           ))}
         </tbody>
@@ -48,5 +85,4 @@ function DoctorTable({ doctores, onEdit, onDelete }) {
     </div>
   );
 }
-
-export default DoctorTable;
+export default DoctorTable
