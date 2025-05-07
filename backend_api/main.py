@@ -1,10 +1,12 @@
 # backend_api/main.py
 from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import text # Si no la tienes ya
 from typing import List, Optional # Para especificar listas en los tipos de retorno
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from datetime import timedelta
 from fastapi.middleware.cors import CORSMiddleware
+import traceback # Para errores
 import security # Importa nuestro nuevo módulo de seguridad
 
 # Importaciones locales (usando . por estar en el mismo directorio)
@@ -242,7 +244,7 @@ async def login_for_access_token(
     return {"access_token": access_token, "token_type": "bearer"}
 
 # --- Endpoint para Reporte Excel ---
-@app.get("/api/reporte/excel")
+@app.get("/api/reporte/xlsx")
 async def generar_reporte_excel(
     db: Session = Depends(get_db_session),
     current_user: schemas.User = Depends(security.get_current_user) # Protegido
@@ -287,67 +289,156 @@ async def generar_reporte_excel(
 
 # --- Endpoint para Reporte PDF ---
 @app.get("/api/reporte/pdf")
-async def generar_reporte_pdf(
+async def generar_reporte_resumen_pdf(
     db: Session = Depends(get_db_session),
-    current_user: schemas.User = Depends(security.get_current_user) # Protegido
+    current_user: schemas.User = Depends(security.get_current_user)
 ):
     try:
-        print("Generando reporte PDF...")
-        # 1. Obtener TODOS los datos (igual que en Excel)
-        doctores_db = db.query(models.Doctor).order_by(models.Doctor.id).all()
-        if not doctores_db:
-            raise HTTPException(status_code=404, detail="No hay doctores para generar el reporte.")
+        print("Generando reporte PDF Resumido (por Estado y Especialidad)...")
 
-         # Convertir a lista de diccionarios (simplificado)
-        doctores_list = [schemas.Doctor.from_orm(doc).dict() for doc in doctores_db]
+        # 1. Obtener datos para Doctores por Estado
+        query_estado = text("SELECT entidad, COUNT(*) as total FROM doctores WHERE entidad IS NOT NULL AND entidad != '' GROUP BY entidad ORDER BY entidad;")
+        result_estado = db.execute(query_estado)
+        data_por_estado = [{"label": row[0], "total": row[1]} for row in result_estado]
 
-        print(f"Datos obtenidos ({len(doctores_list)} filas). Generando PDF...")
+        # 2. Obtener datos para Doctores por Especialidad
+        query_especialidad = text("SELECT especialidad, COUNT(*) as total FROM doctores WHERE especialidad IS NOT NULL AND especialidad != '' GROUP BY especialidad ORDER BY especialidad;")
+        result_especialidad = db.execute(query_especialidad)
+        data_por_especialidad = [{"label": row[0], "total": row[1]} for row in result_especialidad]
 
-        # 2. Crear PDF con FPDF
-        pdf = FPDF(orientation='L', unit='mm', format='A4') # L=Landscape (Horizontal)
+        if not data_por_estado and not data_por_especialidad:
+            raise HTTPException(status_code=404, detail="No hay datos para generar los resúmenes del reporte.")
+
+        print("Datos para resúmenes obtenidos. Generando PDF...")
+
+        # 3. Crear PDF
+        pdf = FPDF(orientation='P', unit='mm', format='A4')
         pdf.add_page()
-        pdf.set_font('Arial', 'B', 14) # Fuente para el título
-        pdf.cell(277, 10, 'Reporte de Doctores', 0, 1, 'C') # Ancho A4-márgenes, alto, texto, borde, salto línea, align
-        pdf.ln(5) # Salto de línea
+        pdf.set_auto_page_break(auto=True, margin=15) # Evitar que el contenido se corte
 
-        # Encabezados de la tabla (¡AJUSTA ESTOS Y SUS ANCHOS!)
-        pdf.set_font('Arial', 'B', 8) # Fuente más pequeña para tabla
-        headers = ['ID', 'Nombre Completo', 'Especialidad', 'Estatus', 'Entidad', 'CURP', 'Cedula Esp.'] # Ejemplo
-        col_widths = [10, 60, 40, 20, 30, 40, 30] # Ancho de cada columna en mm (¡DEBEN SUMAR MENOS DE 277!)
-        for header, width in zip(headers, col_widths):
-            pdf.cell(width, 7, header, 1, 0, 'C', fill=True) # Borde 1, sin salto, centrado, con relleno
-        pdf.ln() # Salto de línea después de encabezados
+        # Título General
+        pdf.set_font('Arial', 'B', 16)
+        pdf.cell(0, 10, 'Reporte Resumido de Doctores', 0, 1, 'C')
+        pdf.ln(5)
 
-        # Datos de la tabla (¡AJUSTA LOS CAMPOS A MOSTRAR!)
-        pdf.set_font('Arial', '', 8)
-        for doctor in doctores_list:
-            # Asegúrate que las claves coincidan con tu schema/modelo
-            # y que manejes valores None (usamos '??' o get con default)
-            row = [
-                str(doctor.get('id', '')),
-                str(doctor.get('nombre_completo', '')),
-                str(doctor.get('especialidad', '')),
-                str(doctor.get('estatus', '')),
-                str(doctor.get('entidad', '')),
-                str(doctor.get('curp', '')),
-                str(doctor.get('cedula_esp', '')),
-                # Añade más campos aquí si es necesario, ajustando headers y col_widths
-            ]
-            for item, width in zip(row, col_widths):
-                pdf.cell(width, 6, item, 1, 0) # Borde 1, sin salto
-            pdf.ln() # Salto al final de la fila
+        # --- Sección: Doctores por Estado ---
+        if data_por_estado:
+            pdf.set_font('Arial', 'B', 12)
+            pdf.cell(0, 10, 'Doctores por Estado', 0, 1, 'L')
+            pdf.set_font('Arial', 'B', 10)
+            col_widths_estado = [130, 40] # Anchos para "Estado" y "Total"
+            headers_estado = ['Estado', 'Total Doctores']
+            pdf.set_fill_color(220, 220, 220) # Gris claro para encabezados
+            for header, width in zip(headers_estado, col_widths_estado):
+                pdf.cell(width, 7, header, 1, 0, 'C', fill=True)
+            pdf.ln()
 
-        print("PDF generado. Enviando respuesta...")
+            pdf.set_font('Arial', '', 10)
+            for item in data_por_estado:
+                row_data = [str(item['label']), str(item['total'])]
+                for data_cell, width in zip(row_data, col_widths_estado):
+                    pdf.cell(width, 6, data_cell, 1, 0)
+                pdf.ln()
+            pdf.ln(10) # Espacio después de la tabla de estados
 
-        # 3. Devolver PDF como respuesta descargable
-        pdf_output = BytesIO(pdf.output(dest='S').encode('latin-1')) # Guardar en memoria como bytes
+        # --- Sección: Doctores por Especialidad ---
+        if data_por_especialidad:
+            pdf.set_font('Arial', 'B', 12)
+            pdf.cell(0, 10, 'Doctores por Especialidad', 0, 1, 'L')
+            pdf.set_font('Arial', 'B', 10)
+            col_widths_especialidad = [130, 40] # Anchos para "Especialidad" y "Total"
+            headers_especialidad = ['Especialidad', 'Total Doctores']
+            pdf.set_fill_color(220, 220, 220) # Gris claro para encabezados
+            for header, width in zip(headers_especialidad, col_widths_especialidad):
+                pdf.cell(width, 7, header, 1, 0, 'C', fill=True)
+            pdf.ln()
 
-        headers = {
-            'Content-Disposition': 'attachment; filename="reporte_doctores.pdf"'
+            pdf.set_font('Arial', '', 10)
+            for item in data_por_especialidad:
+                row_data = [str(item['label']), str(item['total'])]
+                for data_cell, width in zip(row_data, col_widths_especialidad):
+                    pdf.cell(width, 6, data_cell, 1, 0)
+                pdf.ln()
+            pdf.ln(10) # Espacio después de la tabla de especialidades
+
+        print("PDF resumido generado. Enviando respuesta...")
+
+        pdf_bytes = pdf.output(dest='S')
+        if isinstance(pdf_bytes, str): # Para compatibilidad con versiones viejas
+            pdf_bytes = pdf_bytes.encode('latin-1')
+        pdf_output_stream = BytesIO(pdf_bytes)
+
+        response_headers = {
+            'Content-Disposition': 'attachment; filename="reporte_resumido_doctores.pdf"'
         }
-        return StreamingResponse(pdf_output, headers=headers, media_type='application/pdf')
+        return StreamingResponse(pdf_output_stream, headers=response_headers, media_type='application/pdf')
 
     except Exception as e:
-        print(f"Error generando reporte PDF: {e}")
+        print(f"Error generando reporte PDF resumido: {e}")
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Error interno al generar el reporte PDF: {e}")
+        raise HTTPException(status_code=500, detail=f"Error interno al generar el reporte PDF resumido: {e}")
+    
+
+@app.get("/api/graficas/doctores_por_estado", response_model=List[schemas.DataGraficaItem]) # Cambiado response_model
+async def get_data_grafica_doctores_por_estado(
+    db: Session = Depends(get_db_session),
+    current_user: schemas.User = Depends(security.get_current_user)
+):
+    query = text("SELECT entidad as label, COUNT(*) as value FROM doctores WHERE entidad IS NOT NULL AND entidad != '' GROUP BY entidad ORDER BY value DESC;")
+    result = db.execute(query)
+    # Asegurarse que el nombre de la columna coincida con 'label' y 'value'
+    data_items = [{"label": row.label, "value": row.value} for row in result]
+    return data_items # Devolver directamente la lista de items
+
+# Similar para /api/graficas/doctores_por_especialidad
+@app.get("/api/graficas/doctores_por_especialidad", response_model=List[schemas.DataGraficaItem])
+async def get_data_grafica_doctores_por_especialidad(
+    db: Session = Depends(get_db_session),
+    current_user: schemas.User = Depends(security.get_current_user)
+):
+    query = text("SELECT especialidad as label, COUNT(*) as value FROM doctores WHERE especialidad IS NOT NULL AND especialidad != '' GROUP BY especialidad ORDER BY value DESC;")
+    result = db.execute(query)
+    data_items = [{"label": row.label, "value": row.value} for row in result]
+    return data_items
+
+@app.get("/api/graficas/doctores_por_estatus", response_model=List[schemas.DataGraficaItem])
+async def get_data_grafica_doctores_por_estatus(
+    db: Session = Depends(get_db_session),
+    current_user: schemas.User = Depends(security.get_current_user)
+):
+    # Asume que tienes una columna 'estatus' en tu tabla 'doctores'
+    # y que los valores podrían ser "Activo", "Inactivo", etc.
+    query = text("""
+        SELECT 
+            estatus as label, 
+            COUNT(*) as value 
+        FROM doctores 
+        WHERE estatus IS NOT NULL AND estatus != '' 
+        GROUP BY estatus 
+        ORDER BY value DESC;
+    """)
+    result = db.execute(query)
+    
+    data_items = []
+    for row in result:
+        if row.label: # Asegurarse que la etiqueta (estatus) no sea None o vacía
+            data_items.append({
+                "id": row.label,    # Usar el estatus como ID
+                "label": row.label, # Usar el estatus como Label
+                "value": row.value
+            })
+            
+    # Ejemplo de cómo podrías querer mapear a nombres más específicos si es necesario
+    # O si quieres asegurar solo "Activos" e "Inactivos"
+    # mapped_data_items = []
+    # for item in data_items:
+    #     display_label = item["label"] # Por defecto
+    #     if item["label"].lower() == "activo": # Normalizar
+    #         display_label = "Activos"
+    #     elif item["label"].lower() == "inactivo": # Normalizar
+    #         display_label = "Inactivos"
+    #     # Puedes añadir más mapeos o una categoría 'Otros' si hay muchos estatus
+    #     mapped_data_items.append({"id": display_label, "label": display_label, "value": item["value"]})
+    # return mapped_data_items
+    
+    return data_items
