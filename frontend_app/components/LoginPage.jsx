@@ -259,7 +259,6 @@ const styles = {
     margin: '20px 0',
     color: '#999',
     width: '100%', /* Asegura que el contenedor tome todo el ancho */
-  color: '#999', 
   },
   separatorText: {
     padding: '0 170px', 
