@@ -1,333 +1,235 @@
 // frontend_app/src/App.jsx
 
 import React, { useState, useEffect } from "react";
-import LoginPage from "../components/LoginPage"; // Componente para el formulario de login
-import DoctorTable from "../components/DoctorTable"; // Componente para mostrar la tabla de doctores
-import "./App.css"; // Estilos generales (puedes personalizarlos)
-import Modal from "react-modal"; // <--- NUEVA IMPORTACIÓN
-import EditDoctorModal from "../components/EditDoctorModal"; // <--- NUEVA IMPORTACIÓN (lo crearemos después)
+import { useAuth } from "./contexts/AuthContext"; // Asegúrate que la ruta sea correcta
+import LoginPage from "../components/LoginPage";
+import DoctorTable from "../components/DoctorTable";
+import "./App.css";
+import Modal from "react-modal";
+import EditDoctorModal from "../components/EditDoctorModal";
 import Navbar from "../components/Navbar";
 import GraficasPage from "../components/GraficasPage";
+// Si usas react-router-dom para navegación programática, también lo importarías
+// import { useNavigate } from "react-router-dom";
 
-// Configuración inicial para react-modal (ayuda con accesibilidad)
-Modal.setAppElement("#root"); // #root es el id del div principal en public/index.html o similar
+Modal.setAppElement("#root");
 
 function App() {
-  // --- ESTADOS ---
-  // Guarda el token JWT. Intenta leerlo de localStorage al inicio.
-  const [token, setToken] = useState(localStorage.getItem("accessToken"));
-  // Guarda la lista de doctores de la página actual.
+  const { isAuthenticated, isGuestMode, token: authToken, logout: authLogout } = useAuth(); // Usar token y logout del contexto
+  // const navigate = useNavigate(); // Descomentar si necesitas navegación programática aquí
+
   const [doctores, setDoctores] = useState([]);
-  // Indica si se están cargando datos.
   const [isLoading, setIsLoading] = useState(false);
-  // Guarda mensajes de error al obtener datos.
   const [fetchError, setFetchError] = useState("");
-  // Guarda el número de la página actual que se está mostrando.
   const [currentPage, setCurrentPage] = useState(1);
-  // Define cuántos doctores mostrar por página.
-  const [itemsPerPage, setItemsPerPage] = useState(20); // Puedes ajustar este número
-  // Guarda el número total de doctores (devuelto por la API).
+  const [itemsPerPage, setItemsPerPage] = useState(20);
   const [totalDoctores, setTotalDoctores] = useState(0);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingDoctor, setEditingDoctor] = useState(null);
+  const [vistaActual, setVistaActual] = useState("tabla");
 
-  const [searchTerm, setSearchTerm] = useState(""); // <--- NUEVO: Término de búsqueda
-
-  const [isModalOpen, setIsModalOpen] = useState(false); // <--- NUEVO: ¿Está abierto el modal?
-  const [editingDoctor, setEditingDoctor] = useState(null); // <--- NUEVO: Qué doctor se edita (o null)
-  const [vistaActual, setVistaActual] = useState("tabla"); // 'tabla' o 'graficas' <-- NUEVO ESTADO
-
-  // Nueva función para cambiar a la vista de gráficas
-  const handleVerGraficas = () => {
-    setVistaActual("graficas");
-  };
-
-  // Nueva función para volver a la tabla (la necesitarás en Navbar o GraficasPage)
-  const handleVerTabla = () => {
-    setVistaActual("tabla");
-  };
-
-  // Calcula el número total de páginas necesarias.
   const totalPages = Math.ceil(totalDoctores / itemsPerPage);
 
-  // --- FUNCIÓN PARA OBTENER DOCTORES DE LA API WorkspaceDoctores ---
+  const handleVerGraficas = () => setVistaActual("graficas");
+  const handleVerTabla = () => setVistaActual("tabla");
+
   const fetchDoctores = async (page = 1, currentSearchTerm = searchTerm) => {
-    // No intentar si no hay token
-    console.log("--- fetchDoctores INICIO ---"); // DEBUG
-    console.log(
-      "Recibido: page =",
-      page,
-      ", currentSearchTerm =",
-      currentSearchTerm,
-      "(Tipo:",
-      typeof currentSearchTerm,
-      ")"
-    ); // DEBUG
-    if (!token) {
-      console.log("fetchDoctores: No hay token, saliendo."); // DEBUG
+    // Solo proceder si está autenticado o es invitado
+    if (!isAuthenticated && !isGuestMode) {
+      setDoctores([]); // Limpiar datos si no debe haber acceso
+      setTotalDoctores(0);
       return;
     }
 
-    setIsLoading(true); // Iniciar indicador de carga
-    setFetchError(""); // Limpiar errores previos
+    setIsLoading(true);
+    setFetchError("");
 
-    // Calcular 'skip' para la API basado en la página y items por página
     const skip = (page - 1) * itemsPerPage;
     const limit = itemsPerPage;
-    const apiUrlBase =
-      import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000"; // URL Base API
+    const apiUrlBase = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
     let url = `${apiUrlBase}/api/doctores?skip=${skip}&limit=${limit}`;
-    console.log("URL base:", url);
 
-    // Condición para añadir el filtro de nombre
     if (currentSearchTerm && String(currentSearchTerm).trim() !== "") {
-      // Convertir a String por si acaso y trim()
-      console.log("CONDICIÓN 'if searchTerm' CUMPLIDA. Añadiendo nombre."); // DEBUG
-      const encodedSearchTerm = encodeURIComponent(
-        String(currentSearchTerm).trim()
-      );
+      const encodedSearchTerm = encodeURIComponent(String(currentSearchTerm).trim());
       url += `&nombre=${encodedSearchTerm}`;
-    } else {
-      console.log(
-        "CONDICIÓN 'if searchTerm' NO cumplida. currentSearchTerm:",
-        currentSearchTerm
-      ); // DEBUG
     }
-
-    console.log("URL FINAL a usar en fetch:", url); // DEBUG FINAL URL
+    //console.log("URL FINAL a usar en fetch:", url);
 
     try {
-      // Obtener token actual (por seguridad, aunque ya está en el estado)
-      const currentToken = localStorage.getItem("accessToken");
-      if (!currentToken) {
-        console.log(
-          "fetchDoctores: No hay token en localStorage antes de fetch."
-        ); // DEBUG
-        throw new Error("Token no encontrado al intentar obtener doctores.");
-      }
-      console.log("Realizando fetch a:", url); // DEBUG
-      // Llamada a la API Backend (asegúrate que la URL y puerto sean correctos)
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          // ¡Enviar el token para autenticación!
-          Authorization: `Bearer ${currentToken}`,
-          "Content-Type": "application/json",
-        },
-      });
-      console.log("Respuesta recibida, status:", response.status);
-
-      // Procesar la respuesta
-      if (response.ok) {
-        const data = await response.json(); // Esperamos { total_count, doctores }
-        console.log("Datos recibidos ok:", data);
-        setDoctores(data.doctores); // Actualizar la lista de doctores
-        setTotalDoctores(data.total_count); // Actualizar el contador total
-        setCurrentPage(page); // Confirmar la página actual
-      } else if (response.status === 401) {
-        // Error de autenticación (token inválido/expirado)
-        console.error("Error de autenticación (401)");
-        setFetchError(
-          "Tu sesión ha expirado o es inválida. Por favor, cierra sesión e inicia de nuevo."
-        );
-        handleLogout(); // Forzar cierre de sesión
+      const headers = { "Content-Type": "application/json" };
+      // Añadir token solo si está autenticado
+      if (isAuthenticated && authToken) {
+        headers["Authorization"] = `Bearer ${authToken}`;
       } else {
-        // Otros errores del servidor
-        console.error(
-          "Error al obtener doctores:",
-          response.status,
-          response.statusText
-        );
-        setFetchError(
-          `Error del servidor: ${response.status} ${response.statusText}`
-        );
+        // Si es invitado, no se añade el header Authorization.
+        // El backend con get_optional_current_user lo permitirá para este endpoint.
+        //console.log("Realizando fetch como invitado (sin token de autorización).");
+      }
+
+      //console.log("Realizando fetch a:", url, "con headers:", headers);
+      const response = await fetch(url, { method: "GET", headers });
+      //console.log("Respuesta recibida, status:", response.status);
+
+      if (response.ok) {
+        const data = await response.json();
+        //console.log("Datos recibidos ok:", data);
+        setDoctores(data.doctores);
+        setTotalDoctores(data.total_count);
+        setCurrentPage(page);
+      } else if (response.status === 401 && isAuthenticated) {
+        // Si falla con 401 Y ESTABA AUTENTICADO, entonces la sesión expiró.
+        //console.error("Error de autenticación (401) estando autenticado.");
+        setFetchError("Tu sesión ha expirado. Por favor, inicia sesión de nuevo.");
+        authLogout(); // Usar logout del contexto
+      } else {
+        //console.error("Error al obtener doctores:", response.status, response.statusText);
+        const errorData = await response.json().catch(() => null);
+        setFetchError(`Error del servidor: ${response.status} ${response.statusText} ${errorData?.detail ? '- '+errorData.detail : ''}`);
       }
     } catch (err) {
-      // Errores de red o conexión
-      console.error("Error de red o conexión al obtener doctores:", err);
-      setFetchError(
-        "Error de conexión al obtener datos. Revisa el backend y tu conexión."
-      );
+      //console.error("Error de red o conexión al obtener doctores:", err);
+      setFetchError("Error de conexión al obtener datos. Revisa el backend y tu conexión.");
     } finally {
-      setIsLoading(false); // Terminar indicador de carga
-      console.log("--- fetchDoctores FIN ---"); // DEBUG
+      setIsLoading(false);
+      //console.log("--- fetchDoctores FIN ---");
     }
   };
 
-  // --- EFECTO PARA CARGAR DATOS ---
-  // Se ejecuta cuando el componente se monta y cada vez que 'token' o 'currentPage' cambian.
   useEffect(() => {
-    if (token) {
-      // Si hay token, obtener los doctores para la página actual
+    if (isAuthenticated || isGuestMode) {
       fetchDoctores(currentPage, searchTerm);
     } else {
-      // Si no hay token (logout), limpiar los datos
+      // No autenticado y no invitado (ej. después de logout o estado inicial)
       setDoctores([]);
       setTotalDoctores(0);
-      setCurrentPage(1); // Resetear a la página 1
-      setSearchTerm(""); // Limpiar búsqueda en logout
+      setCurrentPage(1);
+      setSearchTerm("");
+      setVistaActual("tabla"); // Resetear vista
+      setFetchError(""); // Limpiar errores
     }
-  }, [token, currentPage]); // Dependencias del efecto
+  }, [isAuthenticated, isGuestMode, currentPage, authToken]); // authToken aquí asegura que si el token cambia (aunque improbable sin re-login), se recargue.
 
-  // --- MANEJADORES DE EVENTOS ---
-  // Se llama desde LoginPage cuando el login es exitoso
-  const handleLoginSuccess = () => {
-    setToken(localStorage.getItem("accessToken"));
-    setCurrentPage(1); // Ir a la primera página después de iniciar sesión
-    // fetchDoctores se llamará automáticamente por el useEffect al cambiar 'token'
+  const handleLogoutClick = () => {
+    authLogout(); // Llama al logout del AuthContext
+    // AuthContext se encarga de limpiar localStorage y estados.
+    // El useEffect se encargará de limpiar los datos de la tabla.
+    // La redirección a LoginPage (o el cambio de vista) ocurrirá por el renderizado condicional.
   };
 
-  // Se llama al hacer clic en el botón "Cerrar Sesión"
-  const handleLogout = () => {
-    localStorage.removeItem("accessToken"); // Eliminar token
-    setToken(null); // Actualizar estado (esto disparará el useEffect)
-  };
-
-  // --- NUEVAS FUNCIONES PARA MANEJAR EL MODAL ---
   const handleOpenEditModal = (doctor) => {
-    console.log("Editando doctor:", doctor);
-    setEditingDoctor(doctor); // Guarda el doctor a editar
-    setIsModalOpen(true); // Abre el modal
+    if (!isAuthenticated) return; // Doble chequeo, aunque Navbar ya lo haría
+    //console.log("Editando doctor:", doctor);
+    setEditingDoctor(doctor);
+    setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
-    setIsModalOpen(false); // Cierra el modal
-    setEditingDoctor(null); // Limpia el doctor en edición
+    setIsModalOpen(false);
+    setEditingDoctor(null);
   };
 
-  // Función que se llamará desde el modal cuando se guarde exitosamente
   const handleDoctorSave = () => {
-    handleCloseModal(); // Cierra el modal
-    fetchDoctores(currentPage); // Vuelve a cargar los doctores de la página actual
+    handleCloseModal();
+    fetchDoctores(currentPage, searchTerm); // Volver a cargar con el término de búsqueda actual
   };
 
-  // Función que se llama desde DoctorTable al hacer clic en "Borrar"
   const handleDeleteClick = (doctorId, doctorNombre) => {
-    // Mostrar un diálogo de confirmación nativo del navegador
-    if (
-      window.confirm(
-        `¿Estás seguro de que quieres eliminar al doctor "${doctorNombre}" (ID: ${doctorId})?`
-      )
-    ) {
-      // Si el usuario hace clic en "Aceptar", llamar a la función que hace el borrado
+    if (!isAuthenticated) return; // Doble chequeo
+    if (window.confirm(`¿Estás seguro de que quieres eliminar al doctor "${doctorNombre}" (ID: ${doctorId})?`)) {
       deleteDoctor(doctorId);
     }
-    // Si hace clic en "Cancelar", no se hace nada
   };
 
   const deleteDoctor = async (doctorId) => {
-    if (!token) return;
+    if (!isAuthenticated || !authToken) return; // Necesita estar autenticado y tener token para borrar
 
     setFetchError("");
-    console.log(`Intentando eliminar doctor con ID: ${doctorId}`);
-
-    // --- CORRECCIÓN: Usar variable de entorno para la URL del backend ---
-    const apiUrl = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000"; // Obtener URL base
+    //console.log(`Intentando eliminar doctor con ID: ${doctorId}`);
+    const apiUrl = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
     const deleteUrl = `${apiUrl}/api/doctores/${doctorId}`;
-
-    console.log("Llamando a DELETE en:", deleteUrl); // DEBUG
+    //console.log("Llamando a DELETE en:", deleteUrl);
 
     try {
-      const currentToken = localStorage.getItem("accessToken");
-      if (!currentToken) throw new Error("Token no encontrado");
-
-      // Usa la variable 'deleteUrl' construida
       const response = await fetch(deleteUrl, {
-        // <--- USA la variable deleteUrl
-        method: "DELETE", // Método HTTP DELETE
-        headers: {
-          Authorization: `Bearer ${currentToken}`, // ¡Enviar token!
-        },
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${authToken}` },
       });
-      // --- FIN CORRECCIÓN ---
 
       if (response.ok) {
-        console.log(`Doctor con ID ${doctorId} eliminado exitosamente.`);
-        // Refrescar datos (pasando searchTerm por si acaso)
+        //console.log(`Doctor con ID ${doctorId} eliminado exitosamente.`);
         fetchDoctores(currentPage, searchTerm);
       } else if (response.status === 401) {
-        console.error("Error de autenticación (401) al borrar");
-        setFetchError(
-          "Tu sesión ha expirado o es inválida. Por favor, cierra sesión e inicia de nuevo."
-        );
-        handleLogout();
+        //console.error("Error de autenticación (401) al borrar");
+        setFetchError("Tu sesión ha expirado. Por favor, inicia sesión de nuevo.");
+        authLogout();
       } else if (response.status === 404) {
-        console.error("Error al borrar: Doctor no encontrado (404)");
-        setFetchError(
-          `Error: No se encontró el doctor con ID ${doctorId}. Refresca la lista.`
-        );
-        fetchDoctores(currentPage, searchTerm); // Refrescar igualmente
+        //console.error("Error al borrar: Doctor no encontrado (404)");
+        setFetchError(`Error: No se encontró el doctor con ID ${doctorId}. Refresca la lista.`);
+        fetchDoctores(currentPage, searchTerm);
       } else {
-        console.error(
-          "Error al borrar doctor:",
-          response.status,
-          response.statusText
-        );
-        let errorDetail = `Error del servidor al borrar: ${response.status}`;
-        try {
-          const errorData = await response.json();
-          if (errorData.detail) errorDetail += ` - ${errorData.detail}`;
-        } catch (e) {}
+        const errorData = await response.json().catch(() => null);
+        const errorDetail = `Error del servidor al borrar: ${response.status} ${errorData?.detail ? '- '+errorData.detail : ''}`;
+        //console.error("Error al borrar doctor:", response.status, response.statusText, errorDetail);
         setFetchError(errorDetail);
       }
     } catch (err) {
-      console.error("Error de red o conexión al borrar doctor:", err);
-      setFetchError(
-        "Error de conexión al borrar. Revisa el backend y tu conexión."
-      );
-    } finally {
-      // setIsLoading(false); // Si añades estado isDeleting
+      //console.error("Error de red o conexión al borrar doctor:", err);
+      setFetchError("Error de conexión al borrar. Revisa el backend y tu conexión.");
     }
-  }; // Fin de deleteDoctor
-  // --- FIN NUEVAS FUNCIONES ---
-
-  // Maneja el clic en el botón "Buscar"
-  const handleSearch = () => {
-    setCurrentPage(1); // Volver a la página 1 al hacer una nueva búsqueda
-    console.log("Valor de searchTerm en handleSearch:", searchTerm); // <--- AÑADE ESTA LÍNEA
-    fetchDoctores(1, searchTerm); // Pasar searchTerm explícitamente
   };
 
-  // Maneja el clic en el botón "Limpiar"
+  const handleSearch = () => {
+    setCurrentPage(1);
+    fetchDoctores(1, searchTerm);
+  };
+
   const handleClearSearch = () => {
-    setSearchTerm(""); // Limpiar el estado del término de búsqueda
-    setCurrentPage(1); // Volver a la página 1
-    fetchDoctores(1, ""); // Llamar a fetchDoctores con término vacío
+    setSearchTerm("");
+    setCurrentPage(1);
+    fetchDoctores(1, "");
   };
 
   // --- RENDERIZADO DEL COMPONENTE ---
+  // Si no está autenticado y no es invitado, muestra LoginPage
+  if (!isAuthenticated && !isGuestMode) {
+    // LoginPage fue actualizado para usar useAuth y useNavigate internamente,
+    // por lo que no necesita onLoginSuccess ni onGuestLogin aquí.
+    return (
+      <div style={{ padding: "20px" }}>
+        <LoginPage />
+      </div>
+    );
+  }
+
+  // Si está autenticado o es invitado, muestra el Navbar y el contenido principal
   return (
     <>
-      {token && (
+      {(isAuthenticated || isGuestMode) && ( // Navbar visible para autenticados e invitados
         <Navbar
           title="Sistema Doctores"
-          onAddDoctorClick={handleOpenEditModal}
-          onLogoutClick={handleLogout}
+          // onAddDoctorClick solo se mostrará/funcionará si está autenticado (lógica interna de Navbar)
+          onAddDoctorClick={isAuthenticated ? handleOpenEditModal : undefined}
+          onLogoutClick={isAuthenticated ? handleLogoutClick : undefined} // Logout solo para autenticados
           onVerGraficasClick={handleVerGraficas}
           onVerTablaClick={handleVerTabla}
           vistaActual={vistaActual}
-          // Añade aquí props para los botones "Generar Reporte", "Ver Graficas" si la lógica está en App.jsx
-          // Ejemplo: onGenerarReporte={() => console.log('Generar Reporte...')}
+          isAuthenticated={isAuthenticated} // Pasar isAuthenticated a Navbar
+          isGuestMode={isGuestMode} // Pasar isGuestMode a Navbar
         />
       )}
 
-      {/* Contenedor principal para el resto del contenido */}
       <div className="container">
-        {!token ? (
-          // --- VISTA CUANDO NO ESTÁ LOGUEADO ---
-          <div style={{ padding: "20px" }}>
-            <LoginPage onLoginSuccess={handleLoginSuccess} />
-          </div>
-        ) : vistaActual === "tabla" ? (
-          // --- VISTA DE TABLA CUANDO ESTÁ LOGUEADO ---
+        {vistaActual === "tabla" ? (
           <div>
-            <div
-              style={{
-                marginBottom: "15px",
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-              }}
-            >
-              <label htmlFor="search-nombre" style={{ fontWeight: "bold" }}>
+            <h1 style={{ marginTop: "20px" }}>Lista de Doctores</h1>
+            {isGuestMode && !isAuthenticated && ( // Mensaje específico para invitados
+                <p style={{ backgroundColor: '#fff3cd', color: '#856404', border: '1px solid #ffeeba', padding: '10px', borderRadius: '5px', marginBottom: '15px' }}>
+                    Estás navegando como invitado. Las opciones de modificación están desactivadas.
+                </p>
+            )}
+            <div style={{ marginBottom: "15px", display: "flex", alignItems: "center", gap: "12px" }}>
+              <label htmlFor="search-nombre" style={{ fontWeight: "bold", fontSize: "20px" }}>
                 Buscar por Nombre:
               </label>
               <input
@@ -336,48 +238,25 @@ function App() {
                 placeholder="Escribe un nombre..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSearch()} // Opcional: buscar con Enter
+                onKeyPress={(e) => e.key === "Enter" && handleSearch()}
                 style={{ padding: "12px", width: "340px" }}
               />
-              <button onClick={handleSearch} className="form-button primary">
-                Buscar
-              </button>
-              <button
-                onClick={handleClearSearch}
-                className="form-button secondary"
-              >
-                Limpiar
-              </button>
+              <button onClick={handleSearch} className="form-button primary">Buscar</button>
+              <button onClick={handleClearSearch} className="form-button secondary">Limpiar</button>
             </div>
-
-            <h2>Lista de Doctores</h2>
 
             {isLoading && <p>Cargando doctores...</p>}
             {fetchError && <p style={{ color: "red" }}>{fetchError}</p>}
 
-            {!isLoading && !fetchError && totalPages > 1 && (
-              <div
-                style={{
-                  marginTop: "20px",
-                  marginBottom: "20px", // Reducido un poco para que no se pegue a la tabla
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
-              >
-                <button
-                  onClick={() => setCurrentPage(currentPage - 1)}
-                  disabled={currentPage === 1}
-                >
+            {!isLoading && !fetchError && totalPages > 0 && ( // Corregido para mostrar paginación incluso si doctores.length es 0 en la página actual pero hay otras páginas
+              <div style={{ marginTop: "20px", marginBottom: "20px", display: "flex", justifyContent: "center", alignItems: "center" }}>
+                <button className="form-button primary" onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage === 1}>
                   Anterior
                 </button>
-                <span style={{ margin: "0 15px" }}>
+                <span style={{ margin: "0 15px", fontSize: "18px", fontWeight: "bold" }}>
                   Página {currentPage} de {totalPages} (Total: {totalDoctores})
                 </span>
-                <button
-                  onClick={() => setCurrentPage(currentPage + 1)}
-                  disabled={currentPage === totalPages || totalPages === 0} // Añadir totalPages === 0
-                >
+                <button className="form-button primary" onClick={() => setCurrentPage(currentPage + 1)} disabled={currentPage === totalPages || totalPages === 0}>
                   Siguiente
                 </button>
               </div>
@@ -386,33 +265,33 @@ function App() {
             {!isLoading && !fetchError && doctores.length > 0 && (
               <DoctorTable
                 doctores={doctores}
-                onEdit={handleOpenEditModal}
-                onDelete={handleDeleteClick}
+                onEdit={isAuthenticated ? handleOpenEditModal : undefined} // Solo pasar si está autenticado
+                onDelete={isAuthenticated ? handleDeleteClick : undefined} // Solo pasar si está autenticado
               />
             )}
-            {!isLoading &&
-              !fetchError &&
-              doctores.length === 0 &&
-              totalDoctores === 0 && ( // Mostrar solo si el total es 0 realmente, no solo la página actual
-                <p>No se encontraron doctores.</p>
-              )}
+            {!isLoading && !fetchError && doctores.length === 0 && totalDoctores === 0 && (
+              <p>No se encontraron doctores.</p>
+            )}
+             {!isLoading && !fetchError && doctores.length === 0 && totalDoctores > 0 && currentPage > 1 && ( // Caso: página vacía pero hay datos en otras
+              <p>No hay doctores en esta página. Prueba una página anterior.</p>
+            )}
           </div>
         ) : vistaActual === "graficas" ? (
-          // --- VISTA DE GRÁFICAS CUANDO ESTÁ LOGUEADO ---
           <GraficasPage
-            onVolverATabla={handleVerTabla} // Para un botón de "Volver" en GraficasPage
-            token={token} // Pasar el token si GraficasPage necesita hacer sus propios fetches
+            onVolverATabla={handleVerTabla}
+            // token={authToken} // GraficasPage puede usar useAuth() para obtener el token si lo necesita
           />
-        ) : null} {/* Fallback por si vistaActual tiene un valor inesperado */}
+        ) : null}
       </div>
 
-      {/* --- Renderizar el Modal --- */}
-      <EditDoctorModal
-        isOpen={isModalOpen}
-        onRequestClose={handleCloseModal}
-        doctorData={editingDoctor} // Pasa el doctor seleccionado
-        onSave={handleDoctorSave} // Pasa la función para refrescar datos
-      />
+      {isAuthenticated && ( // El modal de edición solo tiene sentido si está autenticado
+        <EditDoctorModal
+          isOpen={isModalOpen}
+          onRequestClose={handleCloseModal}
+          doctorData={editingDoctor}
+          onSave={handleDoctorSave}
+        />
+      )}
     </>
   );
 }
