@@ -1,298 +1,458 @@
 // frontend_app/src/App.jsx
-
 import React, { useState, useEffect } from "react";
-import { useAuth } from "./contexts/AuthContext"; // Asegúrate que la ruta sea correcta
+import { Routes, Route, Navigate, Outlet, useNavigate } from "react-router-dom"; // BrowserRouter NO se importa aquí
+import { useAuth } from "./contexts/AuthContext"; // Ajusta la ruta si es necesario
+import { ModalProvider, useModal } from "./contexts/ModalContext";
+
+// Importa tus componentes existentes desde su ubicación correcta
 import LoginPage from "../components/LoginPage";
 import DoctorTable from "../components/DoctorTable";
-import "./App.css";
-import Modal from "react-modal";
 import EditDoctorModal from "../components/EditDoctorModal";
 import Navbar from "../components/Navbar";
 import GraficasPage from "../components/GraficasPage";
-// Si usas react-router-dom para navegación programática, también lo importarías
-// import { useNavigate } from "react-router-dom";
+import AdminUsersPage from "../components/AdminUsersPage"; // O '../pages/AdminUsersPage' si lo moviste
 
+import "./App.css"; // Tu CSS global o específico de App
+import Modal from "react-modal";
+
+// Configuración de React Modal (generalmente se hace una vez)
 Modal.setAppElement("#root");
 
-function App() {
-  const { isAuthenticated, isGuestMode, token: authToken, logout: authLogout } = useAuth(); // Usar token y logout del contexto
-  // const navigate = useNavigate(); // Descomentar si necesitas navegación programática aquí
+// --- COMPONENTES INTERNOS DEFINIDOS AQUÍ ---
 
+// 1. COMPONENTE LAYOUT (para páginas con Navbar)
+function Layout({ navbarProps }) {
+  // Recibe las props para el Navbar
+  const { isAuthenticated, isGuestMode } = useAuth();
+  const showNavbar = isAuthenticated || isGuestMode;
+
+  // DEBUG (Opcional, puedes quitarlo si ya funciona)
+  // console.log("Layout.jsx - navbarProps recibidas:", navbarProps);
+
+  return (
+    <>
+      {/* Renderiza Navbar si el usuario está autenticado o es invitado, pasando las props recibidas */}
+      {showNavbar && <Navbar {...navbarProps} />}
+      {/* Contenedor principal con padding superior si el Navbar es visible (ajusta '80px' si es necesario) */}
+      <div
+        className="container"
+        style={{ paddingTop: showNavbar ? "80px" : "20px" }}
+      >
+        {/* Outlet renderiza el componente hijo de la ruta actual (HomePageContent o AdminUsersPage) */}
+        <Outlet />
+      </div>
+    </>
+  );
+}
+
+// 2. COMPONENTE PARA LA PÁGINA PRINCIPAL (Tabla de Doctores / Gráficas)
+// Recibe vistaActual como prop desde App
+function HomePageContent({ vistaActualProp }) {
+  const {
+    isAuthenticated,
+    isGuestMode,
+    token: authToken,
+    logout: authLogout,
+  } = useAuth();
+  const { isModalOpen, editingDoctor, openModal, closeModal } = useModal();
+  // Estados específicos de esta página (doctores, carga, paginación, modal, etc.)
   const [doctores, setDoctores] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [fetchError, setFetchError] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [itemsPerPage, setItemsPerPage] = useState(20); // Puedes ajustar esto
   const [totalDoctores, setTotalDoctores] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingDoctor, setEditingDoctor] = useState(null);
-  const [vistaActual, setVistaActual] = useState("tabla");
+
+ 
+  // El estado vistaActual y sus handlers YA NO ESTÁN AQUÍ, vienen de App
 
   const totalPages = Math.ceil(totalDoctores / itemsPerPage);
 
-  const handleVerGraficas = () => setVistaActual("graficas");
-  const handleVerTabla = () => setVistaActual("tabla");
-
+  // Función para obtener doctores (sin cambios respecto a tu versión original)
   const fetchDoctores = async (page = 1, currentSearchTerm = searchTerm) => {
-    // Solo proceder si está autenticado o es invitado
     if (!isAuthenticated && !isGuestMode) {
-      setDoctores([]); // Limpiar datos si no debe haber acceso
+      setDoctores([]);
       setTotalDoctores(0);
       return;
     }
-
     setIsLoading(true);
     setFetchError("");
-
     const skip = (page - 1) * itemsPerPage;
     const limit = itemsPerPage;
-    const apiUrlBase = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+    const apiUrlBase =
+      import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
     let url = `${apiUrlBase}/api/doctores?skip=${skip}&limit=${limit}`;
-
     if (currentSearchTerm && String(currentSearchTerm).trim() !== "") {
-      const encodedSearchTerm = encodeURIComponent(String(currentSearchTerm).trim());
-      url += `&nombre=${encodedSearchTerm}`;
+      url += `&nombre=${encodeURIComponent(String(currentSearchTerm).trim())}`;
     }
-    //console.log("URL FINAL a usar en fetch:", url);
-
     try {
       const headers = { "Content-Type": "application/json" };
-      // Añadir token solo si está autenticado
       if (isAuthenticated && authToken) {
         headers["Authorization"] = `Bearer ${authToken}`;
-      } else {
-        // Si es invitado, no se añade el header Authorization.
-        // El backend con get_optional_current_user lo permitirá para este endpoint.
-        //console.log("Realizando fetch como invitado (sin token de autorización).");
       }
-
-      //console.log("Realizando fetch a:", url, "con headers:", headers);
       const response = await fetch(url, { method: "GET", headers });
-      //console.log("Respuesta recibida, status:", response.status);
-
       if (response.ok) {
         const data = await response.json();
-        //console.log("Datos recibidos ok:", data);
         setDoctores(data.doctores);
         setTotalDoctores(data.total_count);
         setCurrentPage(page);
       } else if (response.status === 401 && isAuthenticated) {
-        // Si falla con 401 Y ESTABA AUTENTICADO, entonces la sesión expiró.
-        //console.error("Error de autenticación (401) estando autenticado.");
-        setFetchError("Tu sesión ha expirado. Por favor, inicia sesión de nuevo.");
-        authLogout(); // Usar logout del contexto
+        setFetchError("Tu sesión ha expirado.");
+        authLogout();
       } else {
-        //console.error("Error al obtener doctores:", response.status, response.statusText);
         const errorData = await response.json().catch(() => null);
-        setFetchError(`Error del servidor: ${response.status} ${response.statusText} ${errorData?.detail ? '- '+errorData.detail : ''}`);
+        setFetchError(
+          `Error del servidor: ${response.status} ${
+            errorData?.detail ? "- " + errorData.detail : ""
+          }`
+        );
       }
     } catch (err) {
-      //console.error("Error de red o conexión al obtener doctores:", err);
-      setFetchError("Error de conexión al obtener datos. Revisa el backend y tu conexión.");
+      setFetchError("Error de conexión al obtener datos.");
     } finally {
       setIsLoading(false);
-      //console.log("--- fetchDoctores FIN ---");
     }
   };
 
+  // useEffect para cargar doctores cuando cambian dependencias relevantes
   useEffect(() => {
     if (isAuthenticated || isGuestMode) {
       fetchDoctores(currentPage, searchTerm);
     } else {
-      // No autenticado y no invitado (ej. después de logout o estado inicial)
+      // Limpia estados si no está autenticado/invitado
       setDoctores([]);
       setTotalDoctores(0);
       setCurrentPage(1);
       setSearchTerm("");
-      setVistaActual("tabla"); // Resetear vista
-      setFetchError(""); // Limpiar errores
+      setFetchError("");
     }
-  }, [isAuthenticated, isGuestMode, currentPage, authToken]); // authToken aquí asegura que si el token cambia (aunque improbable sin re-login), se recargue.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, isGuestMode, currentPage, authToken]); // No incluir searchTerm aquí directamente si fetchDoctores ya lo usa
 
-  const handleLogoutClick = () => {
-    authLogout(); // Llama al logout del AuthContext
-    // AuthContext se encarga de limpiar localStorage y estados.
-    // El useEffect se encargará de limpiar los datos de la tabla.
-    // La redirección a LoginPage (o el cambio de vista) ocurrirá por el renderizado condicional.
-  };
-
+  // Funciones para manejar el modal de edición/creación
   const handleOpenEditModal = (doctor) => {
-    if (!isAuthenticated) return; // Doble chequeo, aunque Navbar ya lo haría
-    //console.log("Editando doctor:", doctor);
-    setEditingDoctor(doctor);
-    setIsModalOpen(true);
+    if (!isAuthenticated) return;
+    openModal(doctor);
   };
-
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingDoctor(null);
   };
-
   const handleDoctorSave = () => {
-    handleCloseModal();
-    fetchDoctores(currentPage, searchTerm); // Volver a cargar con el término de búsqueda actual
+    closeModal(); // <--- Usa closeModal del contexto
+    fetchDoctores(currentPage, searchTerm); // Recarga después de guardar
   };
 
+  // Funciones para eliminar doctor
   const handleDeleteClick = (doctorId, doctorNombre) => {
-    if (!isAuthenticated) return; // Doble chequeo
-    if (window.confirm(`¿Estás seguro de que quieres eliminar al doctor "${doctorNombre}" (ID: ${doctorId})?`)) {
+    if (!isAuthenticated) return;
+    if (
+      window.confirm(
+        `¿Estás seguro de que quieres eliminar al doctor "${doctorNombre}" (ID: ${doctorId})?`
+      )
+    ) {
       deleteDoctor(doctorId);
     }
   };
-
   const deleteDoctor = async (doctorId) => {
-    if (!isAuthenticated || !authToken) return; // Necesita estar autenticado y tener token para borrar
-
+    if (!isAuthenticated || !authToken) return;
     setFetchError("");
-    //console.log(`Intentando eliminar doctor con ID: ${doctorId}`);
     const apiUrl = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
     const deleteUrl = `${apiUrl}/api/doctores/${doctorId}`;
-    //console.log("Llamando a DELETE en:", deleteUrl);
-
     try {
       const response = await fetch(deleteUrl, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${authToken}` },
       });
-
       if (response.ok) {
-        //console.log(`Doctor con ID ${doctorId} eliminado exitosamente.`);
-        fetchDoctores(currentPage, searchTerm);
+        fetchDoctores(currentPage, searchTerm); // Recarga después de borrar
       } else if (response.status === 401) {
-        //console.error("Error de autenticación (401) al borrar");
-        setFetchError("Tu sesión ha expirado. Por favor, inicia sesión de nuevo.");
+        setFetchError("Tu sesión ha expirado.");
         authLogout();
       } else if (response.status === 404) {
-        //console.error("Error al borrar: Doctor no encontrado (404)");
-        setFetchError(`Error: No se encontró el doctor con ID ${doctorId}. Refresca la lista.`);
-        fetchDoctores(currentPage, searchTerm);
+        setFetchError(`Error: No se encontró el doctor con ID ${doctorId}.`);
+        fetchDoctores(currentPage, searchTerm); // Refresca lista
       } else {
         const errorData = await response.json().catch(() => null);
-        const errorDetail = `Error del servidor al borrar: ${response.status} ${errorData?.detail ? '- '+errorData.detail : ''}`;
-        //console.error("Error al borrar doctor:", response.status, response.statusText, errorDetail);
-        setFetchError(errorDetail);
+        setFetchError(
+          `Error del servidor al borrar: ${response.status} ${
+            errorData?.detail ? "- " + errorData.detail : ""
+          }`
+        );
       }
     } catch (err) {
-      //console.error("Error de red o conexión al borrar doctor:", err);
-      setFetchError("Error de conexión al borrar. Revisa el backend y tu conexión.");
+      setFetchError("Error de conexión al borrar.");
     }
   };
 
+  // Funciones para búsqueda
   const handleSearch = () => {
     setCurrentPage(1);
-    fetchDoctores(1, searchTerm);
+    fetchDoctores(1, searchTerm); // Va a la página 1 al buscar
   };
-
   const handleClearSearch = () => {
     setSearchTerm("");
     setCurrentPage(1);
-    fetchDoctores(1, "");
+    fetchDoctores(1, ""); // Limpia y va a pág 1
   };
 
-  // --- RENDERIZADO DEL COMPONENTE ---
-  // Si no está autenticado y no es invitado, muestra LoginPage
-  if (!isAuthenticated && !isGuestMode) {
-    // LoginPage fue actualizado para usar useAuth y useNavigate internamente,
-    // por lo que no necesita onLoginSuccess ni onGuestLogin aquí.
+  // Renderiza Tabla o Gráficas basado en la prop vistaActualProp recibida de App
+  if (vistaActualProp === "tabla") {
     return (
-      <div style={{ padding: "20px" }}>
-        <LoginPage />
-      </div>
-    );
-  }
+      <>
+        <div>
+          <h1 style={{ marginTop: "0px" }}>Lista de Doctores</h1>
+          {isGuestMode && !isAuthenticated && (
+            <p
+              style={{
+                backgroundColor: "#fff3cd",
+                color: "#856404",
+                border: "1px solid #ffeeba",
+                padding: "10px",
+                borderRadius: "5px",
+                marginBottom: "15px",
+              }}
+            >
+              Estás navegando como invitado. Las opciones de modificación están
+              desactivadas.
+            </p>
+          )}
+          {/* --- Controles de Búsqueda --- */}
+          <div
+            style={{
+              marginBottom: "15px",
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+            }}
+          >
+            <label
+              htmlFor="search-nombre"
+              style={{ fontWeight: "bold", fontSize: "20px" }}
+            >
+              Buscar por Nombre:
+            </label>
+            <input
+              type="search"
+              id="search-nombre"
+              placeholder="Escribe un nombre..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+              style={{ padding: "12px", width: "340px" }}
+            />
+            <button onClick={handleSearch} className="form-button primary">
+              Buscar
+            </button>
+            <button
+              onClick={handleClearSearch}
+              className="form-button secondary"
+            >
+              Limpiar
+            </button>
+          </div>
 
-  // Si está autenticado o es invitado, muestra el Navbar y el contenido principal
-  return (
-    <>
-      {(isAuthenticated || isGuestMode) && ( // Navbar visible para autenticados e invitados
-        <Navbar
-          title="Sistema Doctores"
-          // onAddDoctorClick solo se mostrará/funcionará si está autenticado (lógica interna de Navbar)
-          onAddDoctorClick={isAuthenticated ? handleOpenEditModal : undefined}
-          onLogoutClick={isAuthenticated ? handleLogoutClick : undefined} // Logout solo para autenticados
-          onVerGraficasClick={handleVerGraficas}
-          onVerTablaClick={handleVerTabla}
-          vistaActual={vistaActual}
-          isAuthenticated={isAuthenticated} // Pasar isAuthenticated a Navbar
-          isGuestMode={isGuestMode} // Pasar isGuestMode a Navbar
-        />
-      )}
+          {isLoading && <p>Cargando doctores...</p>}
+          {fetchError && <p style={{ color: "red" }}>{fetchError}</p>}
 
-      <div className="container">
-        {vistaActual === "tabla" ? (
-          <div>
-            <h1 style={{ marginTop: "20px" }}>Lista de Doctores</h1>
-            {isGuestMode && !isAuthenticated && ( // Mensaje específico para invitados
-                <p style={{ backgroundColor: '#fff3cd', color: '#856404', border: '1px solid #ffeeba', padding: '10px', borderRadius: '5px', marginBottom: '15px' }}>
-                    Estás navegando como invitado. Las opciones de modificación están desactivadas.
-                </p>
-            )}
-            <div style={{ marginBottom: "15px", display: "flex", alignItems: "center", gap: "12px" }}>
-              <label htmlFor="search-nombre" style={{ fontWeight: "bold", fontSize: "20px" }}>
-                Buscar por Nombre:
-              </label>
-              <input
-                type="search"
-                id="search-nombre"
-                placeholder="Escribe un nombre..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                style={{ padding: "12px", width: "340px" }}
-              />
-              <button onClick={handleSearch} className="form-button primary">Buscar</button>
-              <button onClick={handleClearSearch} className="form-button secondary">Limpiar</button>
+          {/* --- Controles de Paginación --- */}
+          {!isLoading && !fetchError && totalPages > 0 && (
+            <div
+              style={{
+                marginTop: "20px",
+                marginBottom: "20px",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              <button
+                className="form-button primary"
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                Anterior
+              </button>
+              <span
+                style={{
+                  margin: "0 15px",
+                  fontSize: "18px",
+                  fontWeight: "bold",
+                }}
+              >
+                Página {currentPage} de {totalPages} (Total: {totalDoctores})
+              </span>
+              <button
+                className="form-button primary"
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage === totalPages || totalPages === 0}
+              >
+                Siguiente
+              </button>
             </div>
+          )}
 
-            {isLoading && <p>Cargando doctores...</p>}
-            {fetchError && <p style={{ color: "red" }}>{fetchError}</p>}
-
-            {!isLoading && !fetchError && totalPages > 0 && ( // Corregido para mostrar paginación incluso si doctores.length es 0 en la página actual pero hay otras páginas
-              <div style={{ marginTop: "20px", marginBottom: "20px", display: "flex", justifyContent: "center", alignItems: "center" }}>
-                <button className="form-button primary" onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage === 1}>
-                  Anterior
-                </button>
-                <span style={{ margin: "0 15px", fontSize: "18px", fontWeight: "bold" }}>
-                  Página {currentPage} de {totalPages} (Total: {totalDoctores})
-                </span>
-                <button className="form-button primary" onClick={() => setCurrentPage(currentPage + 1)} disabled={currentPage === totalPages || totalPages === 0}>
-                  Siguiente
-                </button>
-              </div>
-            )}
-
-            {!isLoading && !fetchError && doctores.length > 0 && (
-              <DoctorTable
-                doctores={doctores}
-                onEdit={isAuthenticated ? handleOpenEditModal : undefined} // Solo pasar si está autenticado
-                onDelete={isAuthenticated ? handleDeleteClick : undefined} // Solo pasar si está autenticado
-              />
-            )}
-            {!isLoading && !fetchError && doctores.length === 0 && totalDoctores === 0 && (
-              <p>No se encontraron doctores.</p>
-            )}
-             {!isLoading && !fetchError && doctores.length === 0 && totalDoctores > 0 && currentPage > 1 && ( // Caso: página vacía pero hay datos en otras
+          {/* --- Tabla de Doctores --- */}
+          {!isLoading && !fetchError && doctores.length > 0 && (
+            <DoctorTable
+              doctores={doctores}
+              onEdit={isAuthenticated ? handleOpenEditModal : undefined} // Pasar la función para abrir modal
+              onDelete={isAuthenticated ? handleDeleteClick : undefined} // Pasar la función para borrar
+            />
+          )}
+          {/* --- Mensajes si no hay doctores --- */}
+          {!isLoading &&
+            !fetchError &&
+            doctores.length === 0 &&
+            totalDoctores === 0 && <p>No se encontraron doctores.</p>}
+          {!isLoading &&
+            !fetchError &&
+            doctores.length === 0 &&
+            totalDoctores > 0 &&
+            currentPage > 1 && (
               <p>No hay doctores en esta página. Prueba una página anterior.</p>
             )}
-          </div>
-        ) : vistaActual === "graficas" ? (
-          <GraficasPage
-            onVolverATabla={handleVerTabla}
-            // token={authToken} // GraficasPage puede usar useAuth() para obtener el token si lo necesita
+        </div>
+        {/* --- Modal de Edición --- */}
+        {isAuthenticated && (
+          <EditDoctorModal
+            isOpen={isModalOpen}
+            onRequestClose={closeModal}
+            doctorData={editingDoctor}
+            onSave={handleDoctorSave}
           />
-        ) : null}
-      </div>
+        )}
+      </>
+    );
+  } else if (vistaActualProp === "graficas") {
+    // Renderiza la página de gráficas.
+    // onVolverATabla se pasa desde App -> Layout -> Navbar, por lo que GraficasPage no necesita recibirla aquí.
+    return <GraficasPage />;
+  }
+  // Fallback por si acaso vistaActualProp es un valor inesperado
+  return <div>Vista no reconocida</div>;
+}
 
-      {isAuthenticated && ( // El modal de edición solo tiene sentido si está autenticado
-        <EditDoctorModal
-          isOpen={isModalOpen}
-          onRequestClose={handleCloseModal}
-          doctorData={editingDoctor}
-          onSave={handleDoctorSave}
+// 3. COMPONENTE PARA LA PÁGINA DE ADMINISTRACIÓN DE USUARIOS (Necesitas implementar su contenido)
+function AdminUsersPagePlaceholder() {
+  // Renombrado para claridad
+  return (
+    <div>
+      <h1>Gestión de Usuarios (Admin)</h1>
+      <p>
+        Aquí se mostrará la lista de usuarios y el formulario para agregar
+        nuevos.
+      </p>
+      {/* IMPLEMENTAR: Lógica para fetch de usuarios, tabla, formulario de registro, etc. */}
+    </div>
+  );
+}
+
+// 4. COMPONENTE PARA PROTEGER RUTAS
+function ProtectedRoute({ adminOnly = false, children }) {
+  const { isAuthenticated, currentUser } = useAuth();
+
+  if (!isAuthenticated) {
+    // Si no está autenticado, redirige a login
+    return <Navigate to="/login" replace />;
+  }
+  if (adminOnly && (!currentUser || currentUser.role !== "admin")) {
+    // Si requiere admin pero no lo es, redirige a la página principal
+    return <Navigate to="/" replace />;
+  }
+  // Si cumple las condiciones, renderiza el componente hijo (la página protegida)
+  return children;
+}
+
+// 5. COMPONENTE APP PRINCIPAL (CONFIGURA RUTAS)
+function App() {
+  const { isAuthenticated, isGuestMode } = useAuth();
+  const navigate = useNavigate();
+
+  // --- Estado y Handlers para la vista Tabla/Gráficas (VIVEN AQUÍ) ---
+  const [vistaActual, setVistaActual] = useState("tabla"); // Inicia en "tabla"
+  const handleVerGraficas = () => {
+    setVistaActual("graficas");
+    navigate("/"); // <--- CAMBIO NECESARIO: Añadir navegación
+  };
+  const handleVerTabla = () => {
+    setVistaActual("tabla");
+    navigate("/"); // <--- CAMBIO NECESARIO: Añadir navegación
+  };
+  // -----------------------------------------------------------------
+
+  // --- Props que se pasarán al Navbar a través del Layout ---
+  // Incluye el estado y los handlers para que Navbar pueda mostrarlos/usarlos
+  const navbarProps = {
+    title: "Sistema Doctores",
+    vistaActual: vistaActual,
+    onVerGraficasClick: handleVerGraficas,
+    onVerTablaClick: handleVerTabla,
+  };
+
+  return (
+    <ModalProvider>
+      <Routes>
+        {/* Ruta de Login: Si ya está autenticado o es invitado, redirige a home, si no, muestra Login */}
+        <Route
+          path="/login"
+          element={
+            isAuthenticated || isGuestMode ? (
+              <Navigate to="/" replace />
+            ) : (
+              <LoginPage />
+            )
+          }
         />
-      )}
-    </>
+
+        {/* Rutas que usan el Layout (con Navbar) */}
+        {/* Protegidas para que solo se muestren si está autenticado o es invitado */}
+        <Route
+          element={
+            isAuthenticated || isGuestMode ? (
+              <Layout
+                navbarProps={navbarProps}
+              /> /* Pasa las props al Layout */
+            ) : (
+              <Navigate to="/login" replace />
+            ) /* Si no, redirige a login */
+          }
+        >
+          {/* Ruta Principal: Renderiza HomePageContent si está autenticado/invitado */}
+          <Route
+            path="/"
+            element={<HomePageContent vistaActualProp={vistaActual} />}
+          />{" "}
+          {/* Pasa vistaActual a HomePageContent */}
+          {/* Ruta de Administración: Protegida y solo para admins */}
+          <Route
+            path="/admin/users"
+            element={
+              <ProtectedRoute adminOnly={true}>
+                <AdminUsersPage />{" "}
+                {/* Usa el componente placeholder */}
+              </ProtectedRoute>
+            }
+          />
+          {/* Puedes añadir más rutas aquí que quieras que usen el Navbar y estén protegidas */}
+          {/* Ejemplo: <Route path="/perfil" element={<ProtectedRoute><UserProfilePage /></ProtectedRoute>} /> */}
+        </Route>
+
+        {/* Ruta para cualquier URL no encontrada */}
+        <Route
+          path="*"
+          element={
+            <div style={{ padding: "50px", textAlign: "center" }}>
+              <h1>404 - Página No Encontrada</h1>
+              <p>Lo sentimos, la página que buscas no existe.</p>
+              {/* Opcional: Redirigir a home o login según el estado */}
+              {/* <Navigate to={ (isAuthenticated || isGuestMode) ? "/" : "/login" } replace /> */}
+            </div>
+          }
+        />
+      </Routes>
+    </ModalProvider>
   );
 }
 
