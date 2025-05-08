@@ -490,7 +490,7 @@ const styles = {
   },
   resetButton: {
     padding: '5px 10px',
-    backgroundColor: '#BC955C',
+    backgroundColor: '#A57F2C',
     color: '#FFF',
     border: 'none',
     borderRadius: '4px',
