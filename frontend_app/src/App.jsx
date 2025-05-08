@@ -202,7 +202,7 @@ function HomePageContent({ vistaActualProp }) {
     return (
       <>
         <div>
-          <h1 style={{ marginTop: "0px" }}>Lista de Doctores</h1>
+          <h1 style={{ marginTop: "30px" }}>Lista de Doctores</h1>
           {isGuestMode && !isAuthenticated && (
             <p
               style={{
