@@ -162,7 +162,7 @@ const styles = {
     justifyContent: 'center',
     alignItems: 'center',
     minHeight: '100vh',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#235B4E',
     fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
   },
   loginContainer: {
@@ -241,7 +241,7 @@ const styles = {
   button: {
     width: '100%',
     padding: '12px',
-    backgroundColor: '#4a90e2',
+    backgroundColor: '#235B4E',
     color: 'white',
     border: 'none',
     borderRadius: '5px',
