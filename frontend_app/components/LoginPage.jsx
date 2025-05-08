@@ -12,6 +12,7 @@ function LoginPage({ onLoginSuccess, onGuestLogin }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); // NUEVO: Estado para mostrar/ocultar contraseña
 
   const navigate = useNavigate();
   const auth = useAuth(); // Obtener el contexto de autenticación
@@ -28,8 +29,6 @@ function LoginPage({ onLoginSuccess, onGuestLogin }) {
     const apiUrl = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
     const tokenUrl = `${apiUrl}/api/token`;
 
-    //console.log("Intentando login en:", tokenUrl);
-
     try {
       const response = await fetch(tokenUrl, {
         method: "POST",
@@ -41,16 +40,12 @@ function LoginPage({ onLoginSuccess, onGuestLogin }) {
 
       if (response.ok) {
         const data = await response.json();
-        //console.log("Login exitoso:", data);
-
-        // Usar la función 'login' del AuthContext
-        // AuthContext se encargará de guardar el token y actualizar el estado global
         auth.login(data.access_token);
 
         if (onLoginSuccess) {
-          onLoginSuccess(); // Llama a la prop si el padre necesita reaccionar
+          onLoginSuccess();
         }
-        navigate("/doctores"); // Redirige a la página principal o dashboard
+        navigate("/doctores");
       } else {
         let errorDetail = "Usuario o contraseña incorrectos.";
         try {
@@ -60,25 +55,25 @@ function LoginPage({ onLoginSuccess, onGuestLogin }) {
           // No hacer nada si el error no es JSON
         }
         setError(errorDetail);
-        //console.error("Error de login:", response.status, response.statusText, errorDetail);
       }
     } catch (err) {
       setError("Error de conexión con el servidor. Intenta de nuevo.");
-      //console.error("Error de red o conexión:", err);
     } finally {
       setLoading(false);
     }
   };
 
   const handleGuestLogin = () => {
-    // Usar la función 'enterGuestMode' del AuthContext
-    // AuthContext se encargará de limpiar cualquier token y actualizar el estado global
     auth.enterGuestMode();
-
     if (onGuestLogin) {
-      onGuestLogin(); // Llama a la prop si el padre necesita reaccionar
+      onGuestLogin();
     }
-    navigate("/doctores"); // Redirige a la página principal o dashboard
+    navigate("/doctores");
+  };
+
+  // NUEVO: Función para alternar la visibilidad de la contraseña
+  const toggleShowPassword = () => {
+    setShowPassword(!showPassword);
   };
 
   return (
@@ -111,20 +106,30 @@ function LoginPage({ onLoginSuccess, onGuestLogin }) {
             />
           </div>
 
+          {/* MODIFICADO: Grupo de input para contraseña con botón de mostrar/ocultar */}
           <div style={styles.inputGroup}>
             <label htmlFor="password" style={styles.label}>
               Contraseña:
             </label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              style={styles.input}
-              placeholder="Ingresa tu contraseña"
-              autoComplete="current-password"
-            />
+            <div style={styles.passwordInputContainer}> {/* NUEVO: Contenedor para input y botón */}
+              <input
+                type={showPassword ? "text" : "password"} // MODIFICADO: Tipo dinámico
+                id="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                style={styles.inputFieldInGroup} // MODIFICADO: Usar nuevo estilo
+                placeholder="Ingresa tu contraseña"
+                autoComplete="current-password"
+              />
+              <button
+                type="button" // NUEVO: Importante para no enviar el formulario
+                onClick={toggleShowPassword}
+                style={styles.togglePasswordButton} // NUEVO: Estilo para el botón
+              >
+                {showPassword ? "Ocultar" : "Mostrar"}
+              </button>
+            </div>
           </div>
 
           {error && <p style={styles.error}>{error}</p>}
@@ -150,7 +155,7 @@ function LoginPage({ onLoginSuccess, onGuestLogin }) {
   );
 }
 
-// Tus estilos permanecen igual
+// Tus estilos
 const styles = {
   container: {
     display: 'flex',
@@ -174,10 +179,9 @@ const styles = {
     justifyContent: 'center',
   },
   logo: {
-    width: '150px', // Ajustado ligeramente para que no sea tan grande
-    height: '150px',// Ajustado ligeramente para que no sea tan grande
-    // borderRadius: '50%', // Comentado si tu logo no es circular y quieres que se vea completo
-    objectFit: 'contain', // Cambiado a contain para asegurar que todo el logo sea visible
+    width: '150px',
+    height: '150px',
+    objectFit: 'contain',
   },
   title: {
     color: '#333',
@@ -197,7 +201,7 @@ const styles = {
     color: '#555',
     fontWeight: '500',
   },
-  input: {
+  input: { // Estilo para inputs que ocupan todo el ancho del inputGroup
     width: '100%',
     padding: '12px',
     border: '1px solid #ddd',
@@ -206,27 +210,50 @@ const styles = {
     boxSizing: 'border-box',
     transition: 'border 0.3s',
   },
-  // inputFocus (puedes añadir esto con un estado de 'focus' en el input si lo deseas)
-  // inputFocus: {
-  //   borderColor: '#4a90e2',
-  //   outline: 'none',
-  // },
+  passwordInputContainer: { // NUEVO: Contenedor para el input de contraseña y el botón
+    display: 'flex',
+    alignItems: 'center',
+    width: '100%', // Para que ocupe el ancho del inputGroup
+  },
+  inputFieldInGroup: { // NUEVO: Estilo para el input cuando está junto a un botón
+    flexGrow: 1, // Para que ocupe el espacio restante
+    padding: '12px',
+    border: '1px solid #ddd',
+    borderRadius: '5px 0 0 5px', // Redondear solo esquinas izquierdas
+    fontSize: '14px',
+    boxSizing: 'border-box',
+    transition: 'border 0.3s',
+    // Se elimina width: '100%' porque flexGrow lo maneja
+  },
+  togglePasswordButton: { // NUEVO: Estilo para el botón de mostrar/ocultar
+    padding: '12px', // Misma altura que el input
+    border: '1px solid #ddd',
+    borderLeft: 'none', // Quitar borde izquierdo para que se una al input
+    borderRadius: '0 5px 5px 0', // Redondear solo esquinas derechas
+    backgroundColor: '#f0f0f0', // Un color de fondo sutil
+    cursor: 'pointer',
+    fontSize: '12px', // Un poco más pequeño
+    color: '#333', // Color de texto
+    height: 'auto', // Ajustar altura al contenido
+    lineHeight: 'normal', // Asegurar alineación vertical del texto
+    whiteSpace: 'nowrap', // Para que "Mostrar" / "Ocultar" no se parta
+  },
   button: {
     width: '100%',
     padding: '12px',
-    backgroundColor: '#4a90e2', // Un azul un poco más estándar
+    backgroundColor: '#4a90e2',
     color: 'white',
     border: 'none',
     borderRadius: '5px',
     fontSize: '16px',
     fontWeight: '600',
     cursor: 'pointer',
-    transition: 'background-color 0.3s ease', // Transición más suave
+    transition: 'background-color 0.3s ease',
   },
   buttonLoading: {
     width: '100%',
     padding: '12px',
-    backgroundColor: '#a0c4ff', // Un azul más claro para el estado de carga
+    backgroundColor: '#a0c4ff',
     color: 'white',
     border: 'none',
     borderRadius: '5px',
@@ -237,18 +264,18 @@ const styles = {
   guestButton: {
     width: '100%',
     padding: '12px',
-    backgroundColor: '#6c757d', // Un gris más estándar para botón secundario
-    color: 'white', // Texto blanco para mejor contraste
+    backgroundColor: '#6c757d',
+    color: 'white',
     border: 'none',
     borderRadius: '5px',
     fontSize: '16px',
     fontWeight: '600',
     cursor: 'pointer',
     transition: 'background-color 0.3s ease',
-    marginTop: '10px', // Pequeño margen superior
+    marginTop: '10px',
   },
   error: {
-    color: '#dc3545', // Un rojo más estándar para errores
+    color: '#dc3545',
     margin: '10px 0',
     fontSize: '14px',
   },
@@ -266,5 +293,22 @@ const styles = {
     color: '#6c757d',
   },
 };
+
+// Modificación para la línea del separador (opcional, pero mejora la estética)
+// Añade esto *después* de la definición del objeto `styles` si quieres que la línea pase por detrás del texto "o"
+styles.separator = {
+  ...styles.separator, // Mantiene las propiedades existentes
+  position: 'relative', // Necesario para el pseudo-elemento
+};
+styles.separator['::before'] = { // La línea del separador
+  content: '""',
+  position: 'absolute',
+  top: '50%',
+  left: 0,
+  right: 0,
+  borderBottom: '1px solid #ddd', // Color de la línea
+  zIndex: 0, // Detrás del texto
+};
+
 
 export default LoginPage;
