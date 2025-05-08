@@ -1,70 +1,61 @@
 // src/components/Navbar.jsx
 import React, { useState } from "react";
-import { useAuth } from "../src/contexts/AuthContext"; // Importar useAuth
+import { useAuth } from "../src/contexts/AuthContext"; // Ajusta la ruta si es necesario
+import { Link, useLocation } from "react-router-dom";
+import { useModal } from "../src/contexts/ModalContext";
 
 function Navbar({
   title,
-  onAddDoctorClick, // Sigue siendo útil para abrir el modal
-  // onLogoutClick, // Ya no se necesita como prop, usaremos logout del contexto
-  onVerGraficasClick,
-  onVerTablaClick,
-  vistaActual,
+  onVerGraficasClick, // Prop función para cambiar a vista gráficas
+  onVerTablaClick, // Prop función para cambiar a vista tabla
+  vistaActual, // Prop string que indica la vista actual ("tabla" o "graficas")
 }) {
-  const { isAuthenticated, isGuestMode, token, logout } = useAuth(); // Usar el contexto
+  const { isAuthenticated, isGuestMode, token, logout, currentUser } =
+    useAuth();
+  const { openModal } = useModal();
+  const location = useLocation();
+  const currentPath = location.pathname;
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState("");
-
   const handleDownload = async (reportType) => {
+    // Tu lógica de handleDownload parece estar bien.
+    // Solo asegúrate de que 'token' se esté obteniendo y usando correctamente si es necesario.
+    // El 'token' del hook useAuth() es el que deberías usar para las cabeceras.
     setDownloading(true);
     setDownloadError("");
-
-    // El token se obtiene del AuthContext.
-    // Se enviará condicionalmente más abajo.
-
-    const backendUrl = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+    const backendUrl =
+      import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
     let urlPath = "";
-    // let filenameDefault = ""; // No se usa filenameDefault aquí
 
     switch (reportType) {
       case "xlsx":
         urlPath = "/api/reporte/xlsx";
-        // filenameDefault = "reporte_doctores_completo.xlsx";
         break;
       case "pdf":
         urlPath = "/api/reporte/pdf";
-        // filenameDefault = "reporte_resumido_doctores.pdf";
         break;
       default:
         setDownloadError("Tipo de reporte no válido.");
         setDownloading(false);
         return;
     }
-
     const url = `${backendUrl}${urlPath}`;
-    //console.log(`Descargando reporte ${reportType} desde: ${url}`);
-
     try {
-      const headers = {}; // Iniciar headers vacíos
+      const headers = {};
       if (isAuthenticated && token) {
-        // Añadir token solo si está autenticado
+        // Usar el 'token' del hook useAuth
         headers["Authorization"] = `Bearer ${token}`;
-        //console.log("Descargando como usuario autenticado.");
       } else if (isGuestMode) {
-        // No añadir token si es invitado
-        // Asegúrate que el backend permite esto para los endpoints de reporte/gráficas
-        //console.log("Descargando como invitado (sin token de autorización).");
+        // Modo invitado, sin token
       } else {
-        // Ni autenticado ni invitado, no debería poder descargar (aunque los botones no deberían mostrarse)
         setDownloadError("Error: No autorizado para descargar.");
         setDownloading(false);
         return;
       }
-
       const response = await fetch(url, { method: "GET", headers });
-
       if (response.ok) {
         const disposition = response.headers.get("content-disposition");
-        let filename = `reporte.${reportType}`; // Nombre por defecto simplificado
+        let filename = `reporte.${reportType}`;
         if (disposition && disposition.indexOf("attachment") !== -1) {
           const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
           const matches = filenameRegex.exec(disposition);
@@ -72,113 +63,155 @@ function Navbar({
             filename = matches[1].replace(/['"]/g, "");
           }
         }
-
         const blob = await response.blob();
         const downloadUrl = window.URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = downloadUrl;
-        link.setAttribute("download", filename);
-        document.body.appendChild(link);
-        link.click();
-        link.parentNode.removeChild(link);
+        const linkDom = document.createElement("a"); // Renombrado para evitar confusión con el componente Link
+        linkDom.href = downloadUrl;
+        linkDom.setAttribute("download", filename);
+        document.body.appendChild(linkDom);
+        linkDom.click();
+        linkDom.parentNode.removeChild(linkDom);
         window.URL.revokeObjectURL(downloadUrl);
-        //console.log("Descarga iniciada:", filename);
       } else {
         let errorMsg = `Error al descargar reporte (${response.status})`;
         try {
           const errorData = await response.json();
           if (errorData.detail) errorMsg += `: ${errorData.detail}`;
-        } catch (e) { /* No hacer nada si el cuerpo del error no es JSON */ }
-        setDownloadError(errorMsg);
-        //console.error("Error en respuesta de descarga:", response.status, response.statusText, errorMsg);
-        if (response.status === 401 && isAuthenticated) {
-            // Si es 401 y estaba autenticado, la sesión pudo expirar
-            logout(); // Cerrar sesión
+        } catch (e) {
+          /* No hacer nada */
         }
+        setDownloadError(errorMsg);
+        if (response.status === 401 && isAuthenticated) logout();
       }
     } catch (err) {
       setDownloadError("Error de red al intentar descargar el reporte.");
-      //console.error("Error de fetch en descarga:", err);
     } finally {
       setDownloading(false);
     }
   };
 
   const handleLogoutOrExitGuest = () => {
-    logout(); // Esta función del AuthContext debe resetear isAuthenticated Y isGuestMode a false.
-              // App.jsx entonces mostrará LoginPage.
+    logout(); // Llama al logout del AuthContext
   };
-
-
-  // El Navbar solo debería mostrarse si isAuthenticated o isGuestMode es true (controlado en App.jsx)
-  // Aquí asumimos que si Navbar se renderiza, al menos uno de ellos es true.
 
   return (
     <nav style={styles.navbar}>
       <div style={styles.title}>
         {title || "Sistema Doctores"}
-        {isGuestMode && !isAuthenticated && <span style={styles.guestIndicator}> (Invitado)</span>}
+        {isGuestMode && !isAuthenticated && (
+          <span style={styles.guestIndicator}> (Invitado)</span>
+        )}
+        {/* Opcional: Mostrar nombre de usuario si está logueado */}
+        {isAuthenticated && currentUser && currentUser.username && (
+          <span
+            style={{
+              fontSize: "0.8em",
+              fontWeight: "normal",
+              marginLeft: "10px",
+            }}
+          >
+            ({currentUser.username})
+          </span>
+        )}
       </div>
 
       <div style={styles.actions}>
-        {/* Botones para cambiar entre Tabla y Gráficas (visibles para todos) */}
-        {vistaActual === "tabla" ? (
-          <button onClick={onVerGraficasClick} style={styles.button}>
-            Ver Gráficas
-          </button>
-        ) : (
-          <button onClick={onVerTablaClick} style={styles.button}>
-            Ver Tabla
-          </button>
-        )}
+        {
+          (isAuthenticated || isGuestMode) &&
+            typeof onVerGraficasClick === "function" &&
+            typeof onVerTablaClick === "function" &&
+            (currentPath === "/admin/users" ? (
+              // Si estamos en /admin/users, muestra AMBOS botones para volver a home
+              <>
+                <button onClick={onVerTablaClick} style={styles.button}>
+                  Ir a Tabla Doctores
+                </button>
+                <button onClick={onVerGraficasClick} style={styles.button}>
+                  Ir a Gráficas Doctores
+                </button>
+              </>
+            ) : currentPath === "/" ? (
+              // Si estamos en la home ("/"), muestra el botón de toggle normal
+              vistaActual === "tabla" ? (
+                <button onClick={onVerGraficasClick} style={styles.button}>
+                  Ver Gráficas
+                </button>
+              ) : (
+                <button onClick={onVerTablaClick} style={styles.button}>
+                  Ver Tabla
+                </button>
+              )
+            ) : null) // En otras rutas (si las hubiera) no mostramos estos botones
+        }
 
-        {/* Botones de descarga (visibles para todos, funcionalidad adaptada en handleDownload) */}
-        {vistaActual === "tabla" && (
+        {currentPath === "/" && vistaActual === "tabla" && (
+          <>
+            <button
+              onClick={() => handleDownload("xlsx")}
+              style={styles.button}
+              disabled={downloading}
+            >
+              {downloading ? "Generando Excel..." : "Generar Excel"}
+            </button>
+            {isAuthenticated && ( // Agregar solo si autenticado
+              <button onClick={() => openModal(null)} style={styles.button}>
+                Agregar Doctor
+              </button>
+            )}
+          </>
+        )}
+        {/* Mostrar PDF solo si estamos en la home Y la vista es graficas */}
+        {currentPath === "/" && vistaActual === "graficas" && (
           <button
-            onClick={() => handleDownload("xlsx")}
+            onClick={() => handleDownload("pdf")}
             style={styles.button}
             disabled={downloading}
           >
-            {downloading && downloadError === "" ? "Generando Excel..." : "Generar Excel"}
-          </button>
-        )}
-        {/* En la vista de gráficas, se asume que el reporte PDF es el relevante */}
-        {/* O puedes tener ambos botones siempre y no depender de vistaActual para esto */}
-        {vistaActual === "graficas" && ( // O simplemente tener siempre disponible el botón de reporte PDF
-             <button
-                onClick={() => handleDownload("pdf")}
-                style={styles.button}
-                disabled={downloading}
-            >
-                {downloading && downloadError === "" ? "Generando PDF..." : "Generar PDF Resumen"}
-            </button>
-        )}
-
-
-        {/* Botón Agregar Doctor (solo para usuarios autenticados y en vista de tabla) */}
-        {isAuthenticated && vistaActual === "tabla" && (
-          <button
-            onClick={() => onAddDoctorClick(null)}
-            style={styles.button}
-          >
-            Agregar Doctor
+            {downloading ? "Generando PDF..." : "Generar PDF Resumen"}
           </button>
         )}
 
         {/* Mensajes de descarga/error */}
         {downloading && downloadError === "" && (
-            <span style={{ color: "yellow", marginLeft: "10px", alignSelf: "center" }}>
-                Generando...
-            </span>
+          <span
+            style={{ color: "yellow", marginLeft: "10px", alignSelf: "center" }}
+          >
+            Generando...
+          </span>
         )}
         {downloadError && (
-            <span style={{ color: "red", marginLeft: "10px", alignSelf: "center", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                Error: {downloadError}
-            </span>
+          <span
+            style={{
+              color: "red",
+              marginLeft: "10px",
+              alignSelf: "center",
+              maxWidth: "200px",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Error: {downloadError}
+          </span>
         )}
 
+        {/* Botón Gestionar Usuarios (solo para admin) */}
+        {isAuthenticated && currentUser && currentUser.role === "admin" && (
+          <Link
+            to="/admin/users"
+            style={{
+              ...styles.button,
+              textDecoration: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            Gestionar Usuarios
+          </Link>
+        )}
 
-        {/* Botón Cerrar Sesión (si está autenticado) o Salir de Invitado (si es invitado) */}
+        {/* Botón Cerrar Sesión / Salir de Invitado */}
         {(isAuthenticated || isGuestMode) && (
           <button
             onClick={handleLogoutOrExitGuest}
@@ -192,11 +225,12 @@ function Navbar({
   );
 }
 
+// Tus estilos (no los he cambiado)
 const styles = {
   navbar: {
     position: "fixed",
     top: 0,
-    left: 0, // Asegurar que esté pegado a la izquierda
+    left: 0,
     zIndex: 1000,
     width: "100%",
     display: "flex",
@@ -220,7 +254,7 @@ const styles = {
   },
   actions: {
     display: "flex",
-    alignItems: "center", // Alinear verticalmente los items
+    alignItems: "center",
     gap: "15px",
   },
   button: {
@@ -232,12 +266,11 @@ const styles = {
     border: "none",
     borderRadius: "4px",
     transition: "background-color 0.2s ease",
-    whiteSpace: 'nowrap', // Evitar que el texto del botón se parta
+    whiteSpace: "nowrap",
   },
   logoutButton: {
     backgroundColor: "#9F2241",
   },
-  // Ya no se usa reportOptions porque los botones son directos
 };
 
 export default Navbar;
