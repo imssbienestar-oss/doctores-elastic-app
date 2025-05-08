@@ -20,6 +20,7 @@ function AdminUsersPage() {
   const [isSubmitting, setIsSubmitting] = useState(false); // Para deshabilitar botón de crear
   const [formError, setFormError] = useState(""); // Errores específicos del formulario
   const [formSuccess, setFormSuccess] = useState(""); // Mensajes de éxito del formulario
+  const [showNewUserPassword, setShowNewUserPassword] = useState(false); // NUEVO: Estado para mostrar/ocultar contraseña
 
   const apiUrlBase =
     import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
@@ -114,6 +115,7 @@ function AdminUsersPage() {
         // status 201 Created
         setFormSuccess(`Usuario '${data.username}' creado exitosamente.`);
         setNewUser({ username: "", password: "", role: "user" }); // Limpiar formulario
+        setShowNewUserPassword(false); // NUEVO: Asegurar que la contraseña vuelva a estar oculta
         fetchUsers(); // Recargar la lista de usuarios
       } else {
         console.error("Error handleCreateUser:", response.status, data);
@@ -133,7 +135,6 @@ function AdminUsersPage() {
   const handleDeleteUser = async (userId, username) => {
     if (!token) return;
 
-    // Confirmación antes de borrar
     if (
       !window.confirm(
         `¿Estás seguro de que quieres eliminar al usuario '${username}' (ID: ${userId})?`
@@ -142,13 +143,12 @@ function AdminUsersPage() {
       return;
     }
 
-    // Prevenir auto-eliminación (doble chequeo, backend también lo hace)
     if (currentUser && currentUser.id === userId) {
       setError("No puedes eliminar tu propia cuenta.");
       return;
     }
 
-    setError(""); // Limpiar errores/éxitos anteriores
+    setError("");
     setSuccess("");
 
     try {
@@ -159,12 +159,11 @@ function AdminUsersPage() {
         },
       });
 
-      const data = await response.json(); // Intenta leer siempre la respuesta
+      const data = await response.json();
 
       if (response.ok) {
-        // status 200 OK
         setSuccess(data.detail || `Usuario '${username}' eliminado.`);
-        fetchUsers(); // Recargar la lista de usuarios
+        fetchUsers();
       } else {
         console.error("Error handleDeleteUser:", response.status, data);
         setError(
@@ -177,30 +176,26 @@ function AdminUsersPage() {
     }
   };
 
+  // --- Manejador para Restablecer Contraseña ---
   const handleResetPassword = async (userId, username) => {
     if (!token) return;
 
-    // Pedir la nueva contraseña al administrador
     const newPassword = window.prompt(
       `Introduce la NUEVA contraseña TEMPORAL para el usuario '${username}' (ID: ${userId}):`
     );
 
-    // Validar si el admin canceló o dejó el campo vacío
     if (newPassword === null) {
-      // El usuario presionó Cancelar
       return;
     }
     if (newPassword.trim() === "" || newPassword.length < 4) {
-      // Validación simple (mínimo 4 chars)
       setError(
         `La nueva contraseña para '${username}' no puede estar vacía y debe tener al menos 4 caracteres.`
       );
-      // Limpiar mensaje después de un tiempo
       setTimeout(() => setError(""), 5000);
       return;
     }
 
-    setError(""); // Limpiar errores/éxitos anteriores
+    setError("");
     setSuccess("");
 
     try {
@@ -210,19 +205,18 @@ function AdminUsersPage() {
           method: "PUT",
           headers: {
             Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json", // Importante indicar el tipo de contenido
+            "Content-Type": "application/json",
           },
-          body: JSON.stringify({ new_password: newPassword }), // Enviar la contraseña en el cuerpo
+          body: JSON.stringify({ new_password: newPassword }),
         }
       );
 
-      const data = await response.json(); // Intenta leer siempre la respuesta
+      const data = await response.json();
 
       if (response.ok) {
         setSuccess(
           data.detail || `Contraseña para '${username}' restablecida.`
         );
-        // Limpiar mensaje después de un tiempo
         setTimeout(() => setSuccess(""), 5000);
       } else {
         console.error("Error handleResetPassword:", response.status, data);
@@ -231,17 +225,19 @@ function AdminUsersPage() {
             data.detail || response.statusText
           }`
         );
-        // Limpiar mensaje después de un tiempo
         setTimeout(() => setError(""), 5000);
       }
     } catch (err) {
       console.error("Error de red handleResetPassword:", err);
       setError("Error de red al restablecer la contraseña.");
-      // Limpiar mensaje después de un tiempo
       setTimeout(() => setError(""), 5000);
     }
   };
-  // --- FIN: Nueva Función para Restablecer Contraseña ---
+
+  // NUEVO: Función para alternar la visibilidad de la contraseña de nuevo usuario
+  const toggleShowNewUserPassword = () => {
+    setShowNewUserPassword(!showNewUserPassword);
+  };
 
   // --- Renderizado del Componente ---
   return (
@@ -267,20 +263,29 @@ function AdminUsersPage() {
               autoComplete="username"
             />
           </div>
-          <div style={styles.formGroup}>
+          <div style={styles.formGroup}> {/* MODIFICADO: Contenedor para input y botón */}
             <label htmlFor="password" style={styles.label}>
               Contraseña:
             </label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              value={newUser.password}
-              onChange={handleInputChange}
-              required
-              style={styles.input}
-              autoComplete="new-password"
-            />
+            <div style={styles.passwordInputContainer}> {/* NUEVO: Contenedor específico */}
+              <input
+                type={showNewUserPassword ? "text" : "password"} // MODIFICADO: Tipo dinámico
+                id="password"
+                name="password"
+                value={newUser.password}
+                onChange={handleInputChange}
+                required
+                style={styles.inputFieldInGroup} // MODIFICADO: Usar nuevo estilo para que ocupe el espacio disponible
+                autoComplete="new-password"
+              />
+              <button
+                type="button" // NUEVO: Importante para no enviar el formulario
+                onClick={toggleShowNewUserPassword}
+                style={styles.togglePasswordButton} // NUEVO: Estilo para el botón
+              >
+                {showNewUserPassword ? "Ocultar" : "Mostrar"}
+              </button>
+            </div>
           </div>
           <div style={styles.formGroup}>
             <label htmlFor="role" style={styles.label}>
@@ -334,7 +339,7 @@ function AdminUsersPage() {
                     <td style={styles.td}>
                       <button
                         onClick={() => handleDeleteUser(user.id, user.username)}
-                        disabled={currentUser && currentUser.id === user.id} // Deshabilita si es el usuario actual
+                        disabled={currentUser && currentUser.id === user.id}
                         style={styles.deleteButton}
                         title={
                           currentUser && currentUser.id === user.id
@@ -348,7 +353,7 @@ function AdminUsersPage() {
                         onClick={() =>
                           handleResetPassword(user.id, user.username)
                         }
-                        style={styles.resetButton} // Puedes definir un nuevo estilo si quieres
+                        style={styles.resetButton}
                         title={`Restablecer contraseña para ${user.username}`}
                       >
                         Restablecer Contraseña
@@ -392,17 +397,43 @@ const styles = {
   formGroup: {
     display: "flex",
     flexDirection: "column",
-    alignSelf: "center"
+    // alignSelf: "center" // MODIFICADO: Quitar para que el label y el input+botón se alineen al inicio
   },
   label: {
     marginBottom: "5px",
     fontWeight: "bold",
   },
-  input: {
+  input: { // Estilo para inputs que ocupan todo el ancho del formGroup
     padding: "10px",
     border: "1px solid #ccc",
     borderRadius: "4px",
     fontSize: "1em",
+    boxSizing: 'border-box', // Asegura que padding no aumente el ancho total
+    width: '100%', // NUEVO: Hacer que ocupe el ancho completo del formGroup
+  },
+  passwordInputContainer: { // NUEVO: Estilo para el div que contiene input de contraseña y botón
+    display: 'flex',
+    alignItems: 'center',
+    position: 'relative', // Para posicionar el botón absolutamente dentro de este div si es necesario
+    width: '100%', // Ocupar el ancho del formGroup
+  },
+  inputFieldInGroup: { // NUEVO: Estilo para el input de contraseña cuando está junto a un botón
+    padding: "10px",
+    border: "1px solid #ccc",
+    borderRadius: "4px 0 0 4px", // Redondear solo esquinas izquierdas
+    fontSize: "1em",
+    flexGrow: 1, // Para que ocupe el espacio restante
+    boxSizing: 'border-box',
+  },
+  togglePasswordButton: { // NUEVO: Estilo para el botón de mostrar/ocultar
+    padding: '10px',
+    border: '1px solid #ccc',
+    borderLeft: 'none', // Quitar borde izquierdo para que se una al input
+    borderRadius: '0 4px 4px 0', // Redondear solo esquinas derechas
+    backgroundColor: '#f0f0f0',
+    cursor: 'pointer',
+    fontSize: '0.9em', // Un poco más pequeño para que no sea tan prominente
+    whiteSpace: 'nowrap', // Para que "Mostrar" / "Ocultar" no se parta en dos líneas
   },
   button: {
     padding: "10px 15px",
@@ -440,6 +471,7 @@ const styles = {
   td: {
     borderBottom: "1px solid #dee2e6",
     padding: "12px",
+    textAlign: 'left', // MODIFICADO: Alineación izquierda para el contenido de las celdas
   },
   hr: {
     border: "none",
@@ -449,20 +481,23 @@ const styles = {
   errorMessage: {
     color: "red",
     marginTop: "10px",
+    textAlign: 'center', // MODIFICADO: Centrar mensajes
   },
   successMessage: {
     color: "green",
     marginTop: "10px",
+    textAlign: 'center', // MODIFICADO: Centrar mensajes
   },
-  resetButton: { // Nuevo estilo (puedes copiar de 'button' o personalizarlo)
+  resetButton: {
     padding: '5px 10px',
-    backgroundColor: '#BC955C', // Amarillo advertencia (ejemplo)
-    color: '#FFF', // Texto oscuro para fondo claro
+    backgroundColor: '#BC955C',
+    color: '#FFF',
     border: 'none',
     borderRadius: '4px',
     cursor: 'pointer',
     fontSize: '0.9em',
+    margin: '8px', // NUEVO: Añadir margen para separar de otros botones
   },
 };
 
-export default AdminUsersPage; // Asegúrate de exportar el componente
+export default AdminUsersPage;
