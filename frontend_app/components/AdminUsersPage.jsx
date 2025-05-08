@@ -471,7 +471,7 @@ const styles = {
   td: {
     borderBottom: "1px solid #dee2e6",
     padding: "12px",
-    textAlign: 'left', // MODIFICADO: Alineación izquierda para el contenido de las celdas
+    textAlign: 'center', // MODIFICADO: Alineación izquierda para el contenido de las celdas
   },
   hr: {
     border: "none",
