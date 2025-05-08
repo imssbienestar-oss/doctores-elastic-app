@@ -46,5 +46,6 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(100), unique=True, index=True, nullable=False) # Nombre de usuario único
     hashed_password = Column(String(255), nullable=False) # Contraseña almacenada de forma segura (hash)
+    role = Column(String, default="admin") 
     # is_active = Column(Boolean, default=True) # Opcional: para desactivar usuarios    
     __table_args__ = {'extend_existing': True}
