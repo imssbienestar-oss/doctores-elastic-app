@@ -91,4 +91,23 @@ class DoctoresPaginados(BaseModel):
 class DataGraficaItem(BaseModel):
     label: str           # La etiqueta que se muestra en el gráfico (ej. nombre del estado, especialidad, estatus)
     value: Union[int, float] # El valor numérico (ej. conteo de doctores)
-    
+
+
+class UserBase(BaseModel):
+    username: str
+    role: Optional[str] = None # Hacemos role opcional aquí por si acaso
+
+class UserAdminView(UserBase): # Lo que devolvemos al listar usuarios
+    id: int
+
+    class Config:
+        orm_mode = True # Para compatibilidad con SQLAlchemy
+
+# Schema para recibir datos al crear un usuario desde el panel de admin
+class UserCreateAdmin(BaseModel):
+    username: str
+    password: str # Recibimos la contraseña en texto plano
+    role: str = "user" # Default a 'user', pero se puede especificar 'admin'
+
+class UserResetPasswordPayload(BaseModel):
+    new_password: str # El único campo que necesitamos es la nueva contraseña
