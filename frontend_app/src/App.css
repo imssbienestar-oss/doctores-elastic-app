@@ -146,8 +146,6 @@ body {
  /* --- Estilos para la Tabla de Doctores --- */
 
  .doctors-table {
-   /* <<< Permitir que la tabla sea más ancha que el contenedor */
-  width: 2500px;  /* O un ancho fijo muy grande */
   min-width: 100%;          /* Que como mínimo ocupe el contenedor */
   border-collapse: collapse;
   margin-top: 20px;
@@ -188,7 +186,7 @@ body {
 }
 
 /* Fondo para el encabezado fijo */
-.doctors-table th.sticky-col.action-header { background-color: #691C32; }
+.doctors-table th.sticky-col.action-header { background-color: #691C32;}
 .doctors-table tbody tr td.sticky-col.action-cell { background-color: #acabab; }
 .doctors-table tbody tr:nth-child(even) td.sticky-col.action-cell { background-color: #484848; }
 
@@ -210,59 +208,59 @@ body {
 /* Ajusta estos según el orden y el ancho deseado */
 /* Recuerda: nth-child(1) es Acciones ahora */
 
-/* Columna 2: ej. ID IMSS */
+/* Columna 2: ej. Nombre Completo */
 .doctors-table th:nth-child(2),
 .doctors-table td:nth-child(2) {
-   width: 100px;
+   width: 80px;
 }
 
-/* Columna 3: ej. Nombre Completo */
+/* Columna 3: ej. Estatus */
 .doctors-table th:nth-child(3),
 .doctors-table td:nth-child(3) {
-   width: 200px; /* Más ancha */
+   width: 40px; /* Más ancha */
 }
 
-/* Columna 4: ej. Estatus */
+/* Columna 4: ej. CURP */
 .doctors-table th:nth-child(4),
 .doctors-table td:nth-child(4) {
-   width: 100px; /* Más estrecha */
+   width: 80px; /* Más estrecha */
    text-align: center; /* Centrar si quieres */
 }
 
-/* Columna 5: ej. ID Matrimonio */
+/* Columna 5: ej. Especialidad */
 .doctors-table th:nth-child(5),
 .doctors-table td:nth-child(5) {
    width: 100px;
 }
 
-/* Columna 6: ej. CURP */
+/* Columna 6: ej. Entidad */
 .doctors-table th:nth-child(6),
 .doctors-table td:nth-child(6) {
-   width: 150px;
+   width: 40px;
 }
 
-/* Columna 7: ej. CEDULA ESP. */
+/* Columna 7: ej. Turno. */
 .doctors-table th:nth-child(7),
 .doctors-table td:nth-child(7) {
-   width: 100px;
+   width: 40px;
 }
 
-/* Columna 8: ej. CEDULA LIC. */
+/* Columna 8: ej. Clues IMB */
 .doctors-table th:nth-child(8),
 .doctors-table td:nth-child(8) {
-   width: 100px;
+   width: 40px;
 }
 
-/* Columna 9: ej. Especialidad */
+/* Columna 9: ej. Nombre Unidad */
 .doctors-table th:nth-child(9), /* <-- ¡OJO! Ajusta el número según el orden real de tus columnas */
 .doctors-table td:nth-child(9) { /* en el array todasLasColumnas de DoctorTable.jsx      */
-   width: 200px;
+   width: 100px;
 }
 
-/* Columna 10: ej. Entidad */
+/* Columna 10: ej. Municipio */
 .doctors-table th:nth-child(10), /* <-- ¡OJO! Ajusta el número según el orden real de tus columnas */
 .doctors-table td:nth-child(10) { /* en el array todasLasColumnas de DoctorTable.jsx      */
-   width: 100px;
+   width: 40px;
 }
 
 /* Columna 11: ej. Clues SSA  */
