@@ -1,7 +1,7 @@
 // frontend_app/src/App.jsx
-import React, { useState, useEffect } from "react";
-import { Routes, Route, Navigate, Outlet, useNavigate } from "react-router-dom"; // BrowserRouter NO se importa aquí
-import { useAuth } from "./contexts/AuthContext"; // Ajusta la ruta si es necesario
+import React, { useState, useEffect, useCallback } from "react";
+import { Routes, Route, Navigate, Outlet, useNavigate } from "react-router-dom"; 
+import { useAuth } from "./contexts/AuthContext"; 
 import { ModalProvider, useModal } from "./contexts/ModalContext";
 
 // Importa tus componentes existentes desde su ubicación correcta
@@ -10,10 +10,10 @@ import DoctorTable from "../components/DoctorTable";
 import EditDoctorModal from "../components/EditDoctorModal";
 import Navbar from "../components/Navbar";
 import GraficasPage from "../components/GraficasPage";
-import AdminUsersPage from "../components/AdminUsersPage"; // O '../pages/AdminUsersPage' si lo moviste
-
+import AdminUsersPage from "../components/AdminUsersPage";
 import "./App.css"; // Tu CSS global o específico de App
 import Modal from "react-modal";
+import DoctorProfileView from "../components/DoctorProfileView";
 
 // Configuración de React Modal (generalmente se hace una vez)
 Modal.setAppElement("#root");
@@ -26,17 +26,12 @@ function Layout({ navbarProps }) {
   const { isAuthenticated, isGuestMode } = useAuth();
   const showNavbar = isAuthenticated || isGuestMode;
 
-  // DEBUG (Opcional, puedes quitarlo si ya funciona)
-  // console.log("Layout.jsx - navbarProps recibidas:", navbarProps);
-
   return (
     <>
-      {/* Renderiza Navbar si el usuario está autenticado o es invitado, pasando las props recibidas */}
       {showNavbar && <Navbar {...navbarProps} />}
-      {/* Contenedor principal con padding superior si el Navbar es visible (ajusta '80px' si es necesario) */}
       <div
         className="container"
-        style={{ paddingTop: showNavbar ? "80px" : "20px" }}
+        style={{ paddingTop: showNavbar ? "100px" : "20px" }}
       >
         {/* Outlet renderiza el componente hijo de la ruta actual (HomePageContent o AdminUsersPage) */}
         <Outlet />
@@ -46,7 +41,6 @@ function Layout({ navbarProps }) {
 }
 
 // 2. COMPONENTE PARA LA PÁGINA PRINCIPAL (Tabla de Doctores / Gráficas)
-// Recibe vistaActual como prop desde App
 function HomePageContent({ vistaActualProp }) {
   const {
     isAuthenticated,
@@ -63,14 +57,24 @@ function HomePageContent({ vistaActualProp }) {
   const [itemsPerPage, setItemsPerPage] = useState(20); // Puedes ajustar esto
   const [totalDoctores, setTotalDoctores] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("Activo"); // Default a "Activo"
+  const estatusDisponibles = [
+    "Activo",
+    "Baja",
+    "Incapacidad por Enfermedad",
+    "Retiro Temporal",
+    "Solicitud Personal",
+    "todos"
+  ];
 
- 
-  // El estado vistaActual y sus handlers YA NO ESTÁN AQUÍ, vienen de App
+  const [viewMode, setViewMode] = useState('table'); // 'table' o 'profile'
+  const [selectedDoctorProfile, setSelectedDoctorProfile] = useState(null);
 
   const totalPages = Math.ceil(totalDoctores / itemsPerPage);
 
+
   // Función para obtener doctores (sin cambios respecto a tu versión original)
-  const fetchDoctores = async (page = 1, currentSearchTerm = searchTerm) => {
+  const fetchDoctores = useCallback(async () => {
     if (!isAuthenticated && !isGuestMode) {
       setDoctores([]);
       setTotalDoctores(0);
@@ -78,14 +82,19 @@ function HomePageContent({ vistaActualProp }) {
     }
     setIsLoading(true);
     setFetchError("");
-    const skip = (page - 1) * itemsPerPage;
+    const skip = (currentPage - 1) * itemsPerPage;
     const limit = itemsPerPage;
     const apiUrlBase =
       import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+
     let url = `${apiUrlBase}/api/doctores?skip=${skip}&limit=${limit}`;
-    if (currentSearchTerm && String(currentSearchTerm).trim() !== "") {
-      url += `&nombre=${encodeURIComponent(String(currentSearchTerm).trim())}`;
+
+    if (searchTerm && String(searchTerm).trim() !== "") {
+      url += `&nombre=${encodeURIComponent(String(searchTerm).trim())}`;
     }
+
+    url += `&estatus=${encodeURIComponent(selectedStatus)}`;
+
     try {
       const headers = { "Content-Type": "application/json" };
       if (isAuthenticated && authToken) {
@@ -96,7 +105,6 @@ function HomePageContent({ vistaActualProp }) {
         const data = await response.json();
         setDoctores(data.doctores);
         setTotalDoctores(data.total_count);
-        setCurrentPage(page);
       } else if (response.status === 401 && isAuthenticated) {
         setFetchError("Tu sesión ha expirado.");
         authLogout();
@@ -113,32 +121,56 @@ function HomePageContent({ vistaActualProp }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [
+    isAuthenticated,
+    isGuestMode,
+    currentPage,
+    itemsPerPage,
+    searchTerm,
+    selectedStatus, // NUEVA DEPENDENCIA
+    authToken,
+    authLogout,
+  ]);
 
   // useEffect para cargar doctores cuando cambian dependencias relevantes
   useEffect(() => {
-    if (isAuthenticated || isGuestMode) {
-      fetchDoctores(currentPage, searchTerm);
-    } else {
+    if ((isAuthenticated || isGuestMode) && viewMode === 'table') {
+      fetchDoctores();
+    } else if (viewMode !== 'profile') {
       // Limpia estados si no está autenticado/invitado
       setDoctores([]);
       setTotalDoctores(0);
       setCurrentPage(1);
       setSearchTerm("");
+      setSelectedStatus("Activo");
       setFetchError("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, isGuestMode, currentPage, authToken]); // No incluir searchTerm aquí directamente si fetchDoctores ya lo usa
+  }, [fetchDoctores, isAuthenticated, isGuestMode, viewMode]);
+
+
+  const handleStatusChange = (event) => {
+    setSelectedStatus(event.target.value);
+    setCurrentPage(1);
+  };
+
+  const handleViewProfileClick = (doctor) => {
+    setSelectedDoctorProfile(doctor);
+    setViewMode('profile');
+  };
+
+  const handleBackToTable = () => {
+    setViewMode('table');
+    setSelectedDoctorProfile(null);
+    fetchDoctores();
+  };
 
   // Funciones para manejar el modal de edición/creación
   const handleOpenEditModal = (doctor) => {
     if (!isAuthenticated) return;
     openModal(doctor);
   };
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setEditingDoctor(null);
-  };
+
   const handleDoctorSave = () => {
     closeModal(); // <--- Usa closeModal del contexto
     fetchDoctores(currentPage, searchTerm); // Recarga después de guardar
@@ -186,19 +218,28 @@ function HomePageContent({ vistaActualProp }) {
     }
   };
 
+  {/*
   // Funciones para búsqueda
   const handleSearch = () => {
     setCurrentPage(1);
     fetchDoctores(1, searchTerm); // Va a la página 1 al buscar
   };
+  
   const handleClearSearch = () => {
     setSearchTerm("");
     setCurrentPage(1);
-    fetchDoctores(1, ""); // Limpia y va a pág 1
-  };
+    //fetchDoctores(1, ""); // Limpia y va a pág 1
+  };*/}
 
   // Renderiza Tabla o Gráficas basado en la prop vistaActualProp recibida de App
+  if (vistaActualProp === "graficas") {
+    return <GraficasPage />;
+  }
+
   if (vistaActualProp === "tabla") {
+    if (viewMode === 'profile' && selectedDoctorProfile) {
+      return <DoctorProfileView doctor={selectedDoctorProfile} onBack={handleBackToTable} />;
+    }
     return (
       <>
         <div>
@@ -225,6 +266,7 @@ function HomePageContent({ vistaActualProp }) {
               display: "flex",
               alignItems: "center",
               gap: "12px",
+              flexWrap: "wrap",
             }}
           >
             <label
@@ -239,18 +281,14 @@ function HomePageContent({ vistaActualProp }) {
               placeholder="Escribe un nombre..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-              style={{ padding: "12px", width: "340px" }}
+              onKeyPress={(e) => {
+                if (e.key === "Enter") {
+                  setCurrentPage(1);
+                }
+              }}
+              style={{ padding: "12px", width: "300px" }}
             />
-            <button onClick={handleSearch} className="form-button primary">
-              Buscar
-            </button>
-            <button
-              onClick={handleClearSearch}
-              className="form-button secondary"
-            >
-              Limpiar
-            </button>
+           
           </div>
 
           {isLoading && <p>Cargando doctores...</p>}
@@ -294,27 +332,18 @@ function HomePageContent({ vistaActualProp }) {
           )}
 
           {/* --- Tabla de Doctores --- */}
-          {!isLoading && !fetchError && doctores.length > 0 && (
+          {!isLoading && !fetchError && (
             <DoctorTable
               doctores={doctores}
-              onEdit={isAuthenticated ? handleOpenEditModal : undefined} // Pasar la función para abrir modal
-              onDelete={isAuthenticated ? handleDeleteClick : undefined} // Pasar la función para borrar
+              onEdit={isAuthenticated ? handleOpenEditModal : undefined} // Pasa la función para abrir modal
+              onDelete={isAuthenticated ? handleDeleteClick : undefined} // Pasa la función para borrar
+              onViewProfile={handleViewProfileClick}
+              selectedStatus={selectedStatus}
+              onStatusChange={handleStatusChange}
+              estatusDisponibles={estatusDisponibles}
             />
           )}
-          {/* --- Mensajes si no hay doctores --- */}
-          {!isLoading &&
-            !fetchError &&
-            doctores.length === 0 &&
-            totalDoctores === 0 && <p>No se encontraron doctores.</p>}
-          {!isLoading &&
-            !fetchError &&
-            doctores.length === 0 &&
-            totalDoctores > 0 &&
-            currentPage > 1 && (
-              <p>No hay doctores en esta página. Prueba una página anterior.</p>
-            )}
         </div>
-        {/* --- Modal de Edición --- */}
         {isAuthenticated && (
           <EditDoctorModal
             isOpen={isModalOpen}
@@ -325,29 +354,10 @@ function HomePageContent({ vistaActualProp }) {
         )}
       </>
     );
-  } else if (vistaActualProp === "graficas") {
-    // Renderiza la página de gráficas.
-    // onVolverATabla se pasa desde App -> Layout -> Navbar, por lo que GraficasPage no necesita recibirla aquí.
-    return <GraficasPage />;
-  }
-  // Fallback por si acaso vistaActualProp es un valor inesperado
-  return <div>Vista no reconocida</div>;
+  } 
+  return <div>Vista no reconocida o estado inesperado.</div>;
 }
 
-// 3. COMPONENTE PARA LA PÁGINA DE ADMINISTRACIÓN DE USUARIOS (Necesitas implementar su contenido)
-function AdminUsersPagePlaceholder() {
-  // Renombrado para claridad
-  return (
-    <div>
-      <h1>Gestión de Usuarios (Admin)</h1>
-      <p>
-        Aquí se mostrará la lista de usuarios y el formulario para agregar
-        nuevos.
-      </p>
-      {/* IMPLEMENTAR: Lógica para fetch de usuarios, tabla, formulario de registro, etc. */}
-    </div>
-  );
-}
 
 // 4. COMPONENTE PARA PROTEGER RUTAS
 function ProtectedRoute({ adminOnly = false, children }) {
@@ -380,10 +390,7 @@ function App() {
     setVistaActual("tabla");
     navigate("/"); // <--- CAMBIO NECESARIO: Añadir navegación
   };
-  // -----------------------------------------------------------------
 
-  // --- Props que se pasarán al Navbar a través del Layout ---
-  // Incluye el estado y los handlers para que Navbar pueda mostrarlos/usarlos
   const navbarProps = {
     title: "Sistema Doctores",
     vistaActual: vistaActual,
@@ -405,9 +412,6 @@ function App() {
             )
           }
         />
-
-        {/* Rutas que usan el Layout (con Navbar) */}
-        {/* Protegidas para que solo se muestren si está autenticado o es invitado */}
         <Route
           element={
             isAuthenticated || isGuestMode ? (
@@ -430,16 +434,12 @@ function App() {
             path="/admin/users"
             element={
               <ProtectedRoute adminOnly={true}>
-                <AdminUsersPage />{" "}
-                {/* Usa el componente placeholder */}
+                <AdminUsersPage /> {/* Usa el componente placeholder */}
               </ProtectedRoute>
             }
           />
-          {/* Puedes añadir más rutas aquí que quieras que usen el Navbar y estén protegidas */}
-          {/* Ejemplo: <Route path="/perfil" element={<ProtectedRoute><UserProfilePage /></ProtectedRoute>} /> */}
         </Route>
 
-        {/* Ruta para cualquier URL no encontrada */}
         <Route
           path="*"
           element={
