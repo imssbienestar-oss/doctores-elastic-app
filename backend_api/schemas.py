@@ -1,7 +1,7 @@
 # backend_api/schemas.py
 from pydantic import BaseModel
 from typing import List, Optional, Union  # <--- Importa List y Optional desde typing
-from datetime import date # Para importar el tipo date
+from datetime import date, datetime  # Para importar el tipo date
 
 # Schema base con los campos comunes
 class DoctorBase(BaseModel):
@@ -30,9 +30,8 @@ class DoctorBase(BaseModel):
     fecha_vuelo: Optional[date] = None # O Optional[str] si lo cambiaste a TEXT
     estrato: Optional[str] = None
     acuerdo: Optional[str] = None # Lo dejo como str, ajusta si es número
-
-    # Asegúrate de que todos los campos de tu modelo estén aquí con el tipo correcto
-    # Optional[...] = None significa que el campo puede ser omitido o ser None/NULL
+    profile_pic_url: Optional[str] = None
+    
 
 # Schema para leer un Doctor (incluye el ID y permite leer desde el modelo SQLAlchemy)
 class Doctor(DoctorBase):
@@ -58,6 +57,28 @@ class DoctorCreate(DoctorBase):
 
 # --- Schemas para Usuarios y Autenticación ---
 
+class DoctorAttachmentBase(BaseModel):
+    file_name: str
+    file_url: str
+    file_type: Optional[str] = None
+
+class DoctorAttachmentCreate(DoctorAttachmentBase):
+    doctor_id: int # Necesario al crear, pero no se devuelve al leer un attachment individual
+
+class DoctorAttachment(DoctorAttachmentBase):
+    id: int
+    doctor_id: int # Útil para saber a qué doctor pertenece
+    uploaded_at: datetime # Para mostrar cuándo se subió
+
+    class Config:
+        from_attributes = True
+
+class DoctorDetail(Doctor): # Hereda de Doctor (que ya tiene id y profile_pic_url)
+    attachments: List[DoctorAttachment] = [] # Lista de expedientes adjuntos
+
+    class Config:
+        from_attributes = True
+
 
 class UserBase(BaseModel):
     username: str
@@ -69,8 +90,8 @@ class UserBase(BaseModel):
 # Schema para leer datos de usuario desde la DB (NO incluye la contraseña)
 class User(UserBase):
     id: int
-    # is_active: bool # Descomenta si añades is_active al modelo
-
+    role: str
+    
     class Config:
         from_attributes = True
 
@@ -99,9 +120,10 @@ class UserBase(BaseModel):
 
 class UserAdminView(UserBase): # Lo que devolvemos al listar usuarios
     id: int
+    role: str
 
     class Config:
-        orm_mode = True # Para compatibilidad con SQLAlchemy
+        from_attributes = True # Para compatibilidad con SQLAlchemy
 
 # Schema para recibir datos al crear un usuario desde el panel de admin
 class UserCreateAdmin(BaseModel):
