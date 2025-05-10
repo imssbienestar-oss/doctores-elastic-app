@@ -1,12 +1,11 @@
 // src/components/DoctorProfileView.jsx
-import React from "react";
+import React, { useState, useEffect } from "react";
 
-// Estilos básicos para el perfil (puedes moverlos a tu App.css o un archivo CSS dedicado)
 const profileStyles = {
   container: {
     padding: "20px",
-    margin: "20px auto", // Centrado y con margen
-    maxWidth: "800px", // Ancho máximo para el expediente
+    margin: "20px auto",
+    maxWidth: "800px",
     border: "1px solid #e0e0e0",
     borderRadius: "8px",
     backgroundColor: "#ffffff",
@@ -29,24 +28,31 @@ const profileStyles = {
     padding: "8px 15px",
     fontSize: "0.9em",
     cursor: "pointer",
-    backgroundColor: "#6c757d", // Gris, similar a tu botón de "Salir de Invitado"
+    backgroundColor: "#6c757d",
     color: "white",
     border: "none",
     borderRadius: "4px",
     transition: "background-color 0.2s ease",
   },
+  uploadButton: { // Estilo un poco diferente para los botones de subir
+    padding: "8px 15px",
+    fontSize: "0.9em",
+    cursor: "pointer",
+    backgroundColor: "#28a745", // Verde
+    color: "white",
+    border: "none",
+    borderRadius: "4px",
+    transition: "background-color 0.2s ease",
+    marginLeft: '10px', // Espacio si hay varios botones
+  },
   sectionTitle: {
     fontSize: "20px",
-    color: "#235b4e", // Verde de tus botones primarios
+    color: "#235b4e",
     fontWeight: "bold",
     marginTop: "30px",
     marginBottom: "15px",
     borderBottom: "1px solid #e0e0e0",
     paddingBottom: "5px",
-  },
-  fieldGroup: {
-    marginBottom: "12px",
-    lineHeight: "1.6",
   },
   fieldLabel: {
     fontWeight: "bold",
@@ -60,63 +66,47 @@ const profileStyles = {
     wordBreak: "break-word",
   },
   gridContainer: {
-    // Para un layout de dos columnas si lo deseas
     display: "grid",
     gap: "20px",
   },
   fieldPair: {
-    // Nuevo estilo para el div que envuelve etiqueta y valor
     display: "grid",
-    gridTemplateColumns: "auto 1fr", // Columna etiqueta (ancho auto) y columna valor (resto del espacio)
-    gap: "0 10px", // Sin espacio vertical, 10px de espacio horizontal entre etiqueta y valor
-    alignItems: "baseline", // Alinea las líneas base del texto, bueno para multilínea
-    marginBottom: "10px", // Espacio debajo de cada par
+    gridTemplateColumns: "auto 1fr",
+    gap: "0 10px",
+    alignItems: "baseline",
+    marginBottom: "10px",
   },
   mainLayout: {
-    // NUEVO
     display: "grid",
-    gridTemplateColumns: "2fr 1fr", // Columna de info (más ancha) y columna de archivos (más angosta)
-    // Ajusta estas proporciones según necesites (ej. '3fr 1fr' o '60% 40%')
-    gap: "30px", // Espacio entre las dos columnas principales
+    gridTemplateColumns: "2fr 1fr",
+    gap: "30px",
     padding: "20px",
     margin: "20px auto",
-    maxWidth: "1200px", // Podrías necesitar un maxWidth mayor para acomodar la nueva columna
+    maxWidth: "1200px",
     border: "1px solid #e0e0e0",
     borderRadius: "8px",
     backgroundColor: "#ffffff",
     boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
   },
-  infoColumn: {
-    // NUEVO
-    // Podrías añadir estilos específicos si es necesario, o dejarlo vacío
-  },
+  infoColumn: {},
   filesColumn: {
-    // NUEVO
-    // Estilos para la columna derecha
-    borderLeft: "1px solid #eee", // Una línea sutil para separar visualmente
+    borderLeft: "1px solid #eee",
     paddingLeft: "30px",
   },
   profilePicSection: {
-    // NUEVO
     marginBottom: "30px",
-    textAlign: "center", // Para centrar la foto y el input
-    // ... más estilos para la imagen, placeholder, etc.
+    textAlign: "center",
   },
-  attachmentsSection: {
-    // NUEVO
-    // ... estilos para la lista de archivos, etc.
-  },
+  attachmentsSection: {},
   profileImage: {
-    // NUEVO
     width: "150px",
     height: "150px",
     objectFit: "cover",
-    borderRadius: "50%", // Para hacerla circular
+    borderRadius: "50%",
     marginBottom: "15px",
-    border: "2px solid #eee", // Un borde sutil
+    border: "2px solid #eee",
   },
   profileImagePlaceholder: {
-    // NUEVO
     width: "150px",
     height: "150px",
     borderRadius: "50%",
@@ -128,37 +118,238 @@ const profileStyles = {
     fontSize: "0.9em",
     marginBottom: "15px",
     border: "2px dashed #ccc",
-    marginLeft: "30%",
   },
   fileInput: {
-    // NUEVO - Para mejorar un poco el aspecto de los inputs de archivo
-    display: "block", // Para que ocupe su propia línea
-    margin: "10px auto", // Centrado si la sección está centrada
+    display: "block",
+    margin: "10px auto", // Centra el input de archivo si la sección está centrada
+    padding: "5px",
   },
   attachmentList: {
-    // NUEVO
     listStyle: "none",
     padding: 0,
-    textAlign: "left", // Alinea los items de la lista a la izquierda
+    textAlign: "left",
   },
   attachmentItem: {
-    // NUEVO
-    padding: "5px 0",
+    padding: "8px 5px", // Un poco más de padding
     borderBottom: "1px dotted #eee",
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    fontSize: '0.9em',
   },
   attachmentLink: {
-    // NUEVO
     textDecoration: "none",
-    color: "#007bff", // Color de enlace estándar
+    color: "#007bff",
+    flexGrow: 1, // Para que el nombre del archivo ocupe el espacio disponible
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    marginRight: '10px', // Espacio antes del botón de eliminar
+  },
+  deleteAttachmentButton: {
+    background: 'none',
+    border: 'none',
+    color: 'red',
+    cursor: 'pointer',
+    fontSize: '1.2em', // Un poco más grande para que sea fácil de clickear
+    padding: '0 5px',
+    fontWeight: 'bold',
   },
   noAttachments: {
-    // NUEVO
     color: "#777",
     fontStyle: "italic",
+    textAlign: 'center',
+    padding: '10px 0',
   },
+  loadingMessage: {
+    marginTop: "10px",
+    fontStyle: "italic",
+    color: "#555",
+    textAlign: 'center',
+  },
+  errorMessage: {
+    marginTop: "10px",
+    fontStyle: "italic",
+    color: "red",
+    textAlign: 'center',
+  },
+  successMessage: { // Nuevo estilo para mensaje de éxito
+    marginTop: "10px",
+    fontStyle: "italic",
+    color: "green",
+    textAlign: 'center',
+  }
 };
 
-function DoctorProfileView({ doctor, onBack }) {
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+
+function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
+  const [doctor, setDoctor] = useState(initialDoctor);
+  const [selectedProfilePicFile, setSelectedProfilePicFile] = useState(null);
+  const [profilePicPreviewUrl, setProfilePicPreviewUrl] = useState(null);
+  const [selectedAttachmentFile, setSelectedAttachmentFile] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
+  useEffect(() => {
+    setDoctor(initialDoctor);
+    setSelectedProfilePicFile(null);
+    setProfilePicPreviewUrl(null);
+    setSelectedAttachmentFile(null);
+  }, [initialDoctor]);
+
+  useEffect(() => {
+    if (successMessage || error) {
+      const timer = setTimeout(() => {
+        setSuccessMessage("");
+        setError("");
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage, error]);
+
+  const handleProfilePicSelect = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setSelectedProfilePicFile(file);
+      setProfilePicPreviewUrl(URL.createObjectURL(file));
+      setError("");
+      setSuccessMessage("");
+    }
+  };
+
+  const uploadProfilePic = async () => {
+    if (!selectedProfilePicFile || !doctor?.id) {
+      setError("Por favor, selecciona una foto y asegúrate de que haya un doctor cargado.");
+      return;
+    }
+    setIsLoading(true);
+    setError("");
+    setSuccessMessage("");
+    const formData = new FormData();
+    formData.append("file", selectedProfilePicFile);
+    const authToken = localStorage.getItem("authToken");
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/doctores/${doctor.id}/profile-picture`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${authToken}` },
+          body: formData,
+        }
+      );
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: "Error al subir la foto." }));
+        throw new Error(errorData.detail || `Error ${response.status}`);
+      }
+      const updatedDoctorData = await response.json();
+      setDoctor((prevDoctor) => ({
+        ...prevDoctor,
+        profile_pic_url: updatedDoctorData.profile_pic_url,
+      }));
+      setSelectedProfilePicFile(null);
+      setProfilePicPreviewUrl(null);
+      setSuccessMessage("Foto de perfil actualizada exitosamente.");
+      if (onProfileUpdate) onProfileUpdate(doctor.id);
+    } catch (err) {
+      console.error("Error al subir foto de perfil:", err);
+      setError(err.message || "Ocurrió un error al subir la foto.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAttachmentSelect = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setSelectedAttachmentFile(file);
+      setError("");
+      setSuccessMessage("");
+    }
+  };
+
+  const uploadAttachment = async () => {
+    if (!selectedAttachmentFile || !doctor?.id) {
+      setError("Por favor, selecciona un archivo y asegúrate de que haya un doctor cargado.");
+      return;
+    }
+    setIsLoading(true);
+    setError("");
+    setSuccessMessage("");
+    const formData = new FormData();
+    formData.append("file", selectedAttachmentFile);
+    const authToken = localStorage.getItem("authToken");
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/doctores/${doctor.id}/attachments`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${authToken}` },
+          body: formData,
+        }
+      );
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: "Error al subir el adjunto." }));
+        throw new Error(errorData.detail || `Error ${response.status}`);
+      }
+      const newAttachment = await response.json();
+      setDoctor((prevDoctor) => ({
+        ...prevDoctor,
+        attachments: [...(prevDoctor.attachments || []), newAttachment],
+      }));
+      setSelectedAttachmentFile(null);
+      const attachmentInput = document.getElementById("attachment-file-input");
+      if (attachmentInput) attachmentInput.value = ""; // Resetear el input
+      setSuccessMessage(`Archivo "${newAttachment.file_name}" subido exitosamente.`);
+      if (onProfileUpdate) onProfileUpdate(doctor.id);
+    } catch (err) {
+      console.error("Error al subir adjunto:", err);
+      setError(err.message || "Ocurrió un error al subir el adjunto.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId, attachmentName) => {
+    if (!doctor?.id) return;
+    if (!window.confirm(`¿Estás seguro de que quieres eliminar el archivo "${attachmentName}"? Esta acción no se puede deshacer.`)) {
+      return;
+    }
+    setIsLoading(true);
+    setError('');
+    setSuccessMessage('');
+    const token = localStorage.getItem("authToken");
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/doctores/${doctor.id}/attachments/${attachmentId}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: "Error al eliminar el adjunto." }));
+        throw new Error(errorData.detail || `Error ${response.status}`);
+      }
+      setDoctor((prevDoctor) => ({
+        ...prevDoctor,
+        attachments: prevDoctor.attachments.filter((att) => att.id !== attachmentId),
+      }));
+      setSuccessMessage(`Archivo "${attachmentName}" eliminado exitosamente.`);
+      if (onProfileUpdate) onProfileUpdate(doctor.id); // Notificar al padre que los datos cambiaron
+    } catch (err) {
+      console.error("Error al eliminar adjunto:", err);
+      setError(err.message || "Ocurrió un error al eliminar el adjunto.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (!doctor) {
     return (
       <div style={profileStyles.container}>
@@ -169,28 +360,6 @@ function DoctorProfileView({ doctor, onBack }) {
       </div>
     );
   }
-
-  const handleProfilePicUpload = (event) => {
-    const file = event.target.files[0]; // Obtiene el archivo seleccionado
-    if (file) {
-      console.log("Foto de perfil seleccionada:", file);
-      // Aquí irá la lógica para subir la foto de perfil
-      // Por ejemplo, crear un FormData, llamar a una API, etc.
-      alert(`Foto de perfil seleccionada: ${file.name}`); // Placeholder
-    }
-  };
-
-  const handleAttachmentUpload = (event) => {
-    const files = event.target.files; // Obtiene la lista de archivos seleccionados (puede ser multiple)
-    if (files && files.length > 0) {
-      console.log("Expedientes seleccionados:", files);
-      // Aquí irá la lógica para subir los expedientes
-      // Puede que necesites iterar sobre 'files' si permites subidas múltiples
-      alert(
-        `${files.length} expediente(s) seleccionado(s). El primero es: ${files[0].name}`
-      ); // Placeholder
-    }
-  };
 
   const displayField = (label, value) => (
     <div style={profileStyles.fieldPair}>
@@ -203,6 +372,8 @@ function DoctorProfileView({ doctor, onBack }) {
     </div>
   );
 
+  const currentProfilePicUrl = profilePicPreviewUrl || doctor.profile_pic_url;
+
   return (
     <div style={profileStyles.mainLayout}>
       <div style={profileStyles.infoColumn}>
@@ -212,20 +383,9 @@ function DoctorProfileView({ doctor, onBack }) {
             &larr; Volver a la Tabla
           </button>
         </div>
-
-        {/* Puedes organizar los campos en secciones o columnas */}
         <div style={profileStyles.sectionTitle}>Información Personal</div>
-        <div
-          style={{
-            ...profileStyles.gridContainer,
-            gridTemplateColumns: "1fr 1fr",
-          }}
-        >
-          {" "}
-          {/* 2 columnas principales */}
+        <div style={{ ...profileStyles.gridContainer, gridTemplateColumns: "1fr 1fr" }}>
           <div>
-            {" "}
-            {/* Columna 1 */}
             {displayField("Nombre Completo", doctor.nombre_completo)}
             {displayField("CURP", doctor.curp)}
             {displayField("RFC", doctor.rfc)}
@@ -233,26 +393,13 @@ function DoctorProfileView({ doctor, onBack }) {
             {displayField("Correo Electrónico", doctor.correo_electronico)}
           </div>
           <div>
-            {" "}
-            {/* Columna 2 */}
             {displayField("Fecha de Nacimiento", doctor.fecha_nacimiento)}
             {displayField("Sexo", doctor.sexo)}
             {displayField("Entidad de Nacimiento", doctor.entidad_nacimiento)}
-            {/* Agrega más campos personales aquí si los tienes */}
           </div>
         </div>
-
-        <div style={profileStyles.sectionTitle}>
-          Información Profesional y Adscripción
-        </div>
-        <div
-          style={{
-            ...profileStyles.gridContainer,
-            gridTemplateColumns: "1fr 1fr",
-          }}
-        >
-          {" "}
-          {/* 2 columnas principales */}
+        <div style={profileStyles.sectionTitle}>Información Profesional y Adscripción</div>
+        <div style={{ ...profileStyles.gridContainer, gridTemplateColumns: "1fr 1fr" }}>
           <div>
             {displayField("Especialidad", doctor.especialidad)}
             {displayField("Cédula Profesional", doctor.cedula_profesional)}
@@ -271,68 +418,74 @@ function DoctorProfileView({ doctor, onBack }) {
       </div>
 
       <div style={profileStyles.filesColumn}>
-        {/* Sección de Foto de Perfil */}
         <div style={profileStyles.profilePicSection}>
           <h2>Foto de Perfil</h2>
-          {doctor.profilePicUrl ? (
-            <img
-              src={doctor.profilePicUrl}
-              alt="Foto de perfil"
-              style={profileStyles.profileImage}
-            />
+          {currentProfilePicUrl ? (
+            <img src={currentProfilePicUrl} alt="Foto de perfil" style={profileStyles.profileImage} />
           ) : (
-            <div style={profileStyles.profileImagePlaceholder}>
-              <span>Sin Foto</span>
-            </div>
+            <div style={profileStyles.profileImagePlaceholder}><span>Sin Foto</span></div>
           )}
           <input
             type="file"
             accept="image/*"
-            onChange={handleProfilePicUpload}
+            onChange={handleProfilePicSelect}
             style={profileStyles.fileInput}
+            disabled={isLoading}
           />
+          {selectedProfilePicFile && (
+            <button onClick={uploadProfilePic} disabled={isLoading} style={profileStyles.uploadButton}>
+              {isLoading ? "Subiendo Foto..." : "Subir Foto"}
+            </button>
+          )}
         </div>
 
-        {/* Sección de Expedientes Adjuntos */}
         <div style={profileStyles.attachmentsSection}>
           <h2>Expedientes Adjuntos</h2>
-          {doctor.attachments && doctor.attachments.length > 0 ? (
+          {(doctor.attachments && doctor.attachments.length > 0) ? (
             <ul style={profileStyles.attachmentList}>
-              {doctor.attachments.map(
-                (
-                  file,
-                  index // Asumiendo que attachments es un array
-                ) => (
-                  <li
-                    key={file.id || index}
-                    style={profileStyles.attachmentItem}
+              {doctor.attachments.map((file) => (
+                <li key={file.id} style={profileStyles.attachmentItem}>
+                  <a
+                    href={file.file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={profileStyles.attachmentLink}
+                    title={file.file_name}
                   >
-                    <a
-                      href={file.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={profileStyles.attachmentLink}
-                    >
-                      {file.name || `Archivo ${index + 1}`}
-                    </a>
-                    {/* Podrías añadir más info como tipo de archivo, fecha, etc. */}
-                  </li>
-                )
-              )}
+                    {file.file_name && file.file_name.length > 35 ? `${file.file_name.substring(0, 32)}...` : file.file_name}
+                  </a>
+                  <button
+                    onClick={() => handleDeleteAttachment(file.id, file.file_name)}
+                    disabled={isLoading}
+                    style={profileStyles.deleteAttachmentButton}
+                    title={`Eliminar ${file.file_name}`}
+                  >
+                    &times;
+                  </button>
+                </li>
+              ))}
             </ul>
           ) : (
-            <p style={profileStyles.noAttachments}>
-              No hay expedientes adjuntos.
-            </p>
+            <p style={profileStyles.noAttachments}>No hay expedientes adjuntos.</p>
           )}
           <input
+            id="attachment-file-input"
             type="file"
-            accept=".pdf,image/*"
-            onChange={handleAttachmentUpload}
-            multiple
+            accept=".pdf,.doc,.docx,image/*" // Ampliado para incluir .doc y .docx
+            onChange={handleAttachmentSelect}
             style={profileStyles.fileInput}
+            disabled={isLoading}
           />
+          {selectedAttachmentFile && (
+            <button onClick={uploadAttachment} disabled={isLoading} style={profileStyles.uploadButton}>
+              {isLoading ? "Subiendo Adjunto..." : "Subir Adjunto"}
+            </button>
+          )}
         </div>
+
+        {isLoading && <p style={profileStyles.loadingMessage}>Procesando...</p>}
+        {error && <p style={profileStyles.errorMessage}>{error}</p>}
+        {successMessage && <p style={profileStyles.successMessage}>{successMessage}</p>}
       </div>
     </div>
   );
