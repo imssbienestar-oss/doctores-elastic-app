@@ -1,7 +1,7 @@
 // frontend_app/src/App.jsx
 import React, { useState, useEffect, useCallback } from "react";
-import { Routes, Route, Navigate, Outlet, useNavigate } from "react-router-dom"; 
-import { useAuth } from "./contexts/AuthContext"; 
+import { Routes, Route, Navigate, Outlet, useNavigate } from "react-router-dom";
+import { useAuth } from "./contexts/AuthContext";
 import { ModalProvider, useModal } from "./contexts/ModalContext";
 
 // Importa tus componentes existentes desde su ubicación correcta
@@ -64,14 +64,15 @@ function HomePageContent({ vistaActualProp }) {
     "Incapacidad por Enfermedad",
     "Retiro Temporal",
     "Solicitud Personal",
-    "todos"
+    "todos",
   ];
 
-  const [viewMode, setViewMode] = useState('table'); // 'table' o 'profile'
+  const [viewMode, setViewMode] = useState("table"); // 'table' o 'profile'
   const [selectedDoctorProfile, setSelectedDoctorProfile] = useState(null);
 
   const totalPages = Math.ceil(totalDoctores / itemsPerPage);
-
+  const API_BASE_URL =
+    import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 
   // Función para obtener doctores (sin cambios respecto a tu versión original)
   const fetchDoctores = useCallback(async () => {
@@ -84,15 +85,11 @@ function HomePageContent({ vistaActualProp }) {
     setFetchError("");
     const skip = (currentPage - 1) * itemsPerPage;
     const limit = itemsPerPage;
-    const apiUrlBase =
-      import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 
-    let url = `${apiUrlBase}/api/doctores?skip=${skip}&limit=${limit}`;
-
+    let url = `${API_BASE_URL}/api/doctores?skip=${skip}&limit=${limit}`;
     if (searchTerm && String(searchTerm).trim() !== "") {
       url += `&nombre=${encodeURIComponent(String(searchTerm).trim())}`;
     }
-
     url += `&estatus=${encodeURIComponent(selectedStatus)}`;
 
     try {
@@ -130,13 +127,14 @@ function HomePageContent({ vistaActualProp }) {
     selectedStatus, // NUEVA DEPENDENCIA
     authToken,
     authLogout,
+    API_BASE_URL,
   ]);
 
   // useEffect para cargar doctores cuando cambian dependencias relevantes
   useEffect(() => {
-    if ((isAuthenticated || isGuestMode) && viewMode === 'table') {
+    if ((isAuthenticated || isGuestMode) && viewMode === "table") {
       fetchDoctores();
-    } else if (viewMode !== 'profile') {
+    } else if (viewMode !== "profile") {
       // Limpia estados si no está autenticado/invitado
       setDoctores([]);
       setTotalDoctores(0);
@@ -148,21 +146,66 @@ function HomePageContent({ vistaActualProp }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchDoctores, isAuthenticated, isGuestMode, viewMode]);
 
+  // --- NUEVA FUNCIÓN PARA CARGAR EL PERFIL COMPLETO DEL DOCTOR ---
+  const fetchFullDoctorProfile = async (doctorId) => {
+    if (!doctorId) return;
+    // Podrías tener un estado de carga específico para el perfil si lo deseas
+    // setIsLoading(true); // O un nuevo estado como setIsLoadingProfile(true)
+    setFetchError(""); // Limpiar errores anteriores
+
+    try {
+      const headers = { "Content-Type": "application/json" };
+      if (isAuthenticated && authToken) {
+        // Usa el authToken del hook useAuth
+        headers["Authorization"] = `Bearer ${authToken}`;
+      }
+      const response = await fetch(`${API_BASE_URL}/api/doctores/${doctorId}`, {
+        method: "GET",
+        headers,
+      });
+
+      if (!response.ok) {
+        const errorData = await response
+          .json()
+          .catch(() => ({
+            detail: `Error al cargar el perfil del doctor ${doctorId}`,
+          }));
+        throw new Error(errorData.detail || `Error ${response.status}`);
+      }
+      const data = await response.json(); // data debe ser del tipo schemas.DoctorDetail
+      setSelectedDoctorProfile(data); // Actualiza el estado con los datos frescos y completos
+    } catch (err) {
+      console.error("Error al cargar perfil completo del doctor:", err);
+      setFetchError(err.message || "Ocurrió un error al cargar el perfil.");
+      // Opcional: si falla, podrías volver a la tabla o limpiar el perfil seleccionado
+      // setViewMode('table');
+      // setSelectedDoctorProfile(null);
+    } finally {
+      // setIsLoading(false); // O setIsLoadingProfile(false)
+    }
+  };
 
   const handleStatusChange = (event) => {
     setSelectedStatus(event.target.value);
     setCurrentPage(1);
   };
 
-  const handleViewProfileClick = (doctor) => {
-    setSelectedDoctorProfile(doctor);
-    setViewMode('profile');
+  const handleViewProfileClick = async (doctorToList) => {
+    setIsLoading(true);
+    await fetchFullDoctorProfile(doctorToList.id);
+    setIsLoading(false);
+    setViewMode("profile");
   };
 
   const handleBackToTable = () => {
-    setViewMode('table');
+    setViewMode("table");
     setSelectedDoctorProfile(null);
     fetchDoctores();
+  };
+
+  // --- NUEVA FUNCIÓN: CALLBACK PARA CUANDO EL PERFIL SE ACTUALIZA ---
+  const handleDoctorProfileWasUpdated = (doctorId) => {
+    fetchFullDoctorProfile(doctorId); // Vuelve a cargar los datos completos del doctor
   };
 
   // Funciones para manejar el modal de edición/creación
@@ -218,7 +261,8 @@ function HomePageContent({ vistaActualProp }) {
     }
   };
 
-  {/*
+  {
+    /*
   // Funciones para búsqueda
   const handleSearch = () => {
     setCurrentPage(1);
@@ -229,7 +273,8 @@ function HomePageContent({ vistaActualProp }) {
     setSearchTerm("");
     setCurrentPage(1);
     //fetchDoctores(1, ""); // Limpia y va a pág 1
-  };*/}
+  };*/
+  }
 
   // Renderiza Tabla o Gráficas basado en la prop vistaActualProp recibida de App
   if (vistaActualProp === "graficas") {
@@ -237,8 +282,14 @@ function HomePageContent({ vistaActualProp }) {
   }
 
   if (vistaActualProp === "tabla") {
-    if (viewMode === 'profile' && selectedDoctorProfile) {
-      return <DoctorProfileView doctor={selectedDoctorProfile} onBack={handleBackToTable} />;
+    if (viewMode === "profile" && selectedDoctorProfile) {
+      return (
+        <DoctorProfileView
+          doctor={selectedDoctorProfile}
+          onBack={handleBackToTable}
+          onProfileUpdate={handleDoctorProfileWasUpdated}
+        />
+      );
     }
     return (
       <>
@@ -288,7 +339,6 @@ function HomePageContent({ vistaActualProp }) {
               }}
               style={{ padding: "12px", width: "300px" }}
             />
-           
           </div>
 
           {isLoading && <p>Cargando doctores...</p>}
@@ -354,10 +404,9 @@ function HomePageContent({ vistaActualProp }) {
         )}
       </>
     );
-  } 
+  }
   return <div>Vista no reconocida o estado inesperado.</div>;
 }
-
 
 // 4. COMPONENTE PARA PROTEGER RUTAS
 function ProtectedRoute({ adminOnly = false, children }) {
@@ -427,9 +476,7 @@ function App() {
           <Route
             path="/"
             element={<HomePageContent vistaActualProp={vistaActual} />}
-          />{" "}
-          {/* Pasa vistaActual a HomePageContent */}
-          {/* Ruta de Administración: Protegida y solo para admins */}
+          />
           <Route
             path="/admin/users"
             element={
