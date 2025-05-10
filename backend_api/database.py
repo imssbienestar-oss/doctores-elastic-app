@@ -28,8 +28,6 @@ else:
     print("Error Fatal: La variable de entorno DATABASE_URL no fue encontrada o inyectada por Railway.")
     sys.exit("Configuración de base de datos ausente.")
 
-print(f"--- Iniciando conexión usando DATABASE_URL: {log_safe_db_url} ---")
-
 try:
     # Crear el motor SQLAlchemy con la URL obtenida
     engine = create_engine(DATABASE_URL)
