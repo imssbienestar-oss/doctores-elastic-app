@@ -1,5 +1,5 @@
 # backend_api/schemas.py
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
 from typing import List, Optional, Union  # <--- Importa List y Optional desde typing
 from datetime import date, datetime  # Para importar el tipo date
 
@@ -31,6 +31,9 @@ class DoctorBase(BaseModel):
     estrato: Optional[str] = None
     acuerdo: Optional[str] = None # Lo dejo como str, ajusta si es número
     profile_pic_url: Optional[str] = None
+    tel: Optional[str] = None
+    entidad_nacimiento: Optional[str] = None
+    correo_electronico: Optional[str] = Field(default=None)
     
 
 # Schema para leer un Doctor (incluye el ID y permite leer desde el modelo SQLAlchemy)
@@ -133,3 +136,38 @@ class UserCreateAdmin(BaseModel):
 
 class UserResetPasswordPayload(BaseModel):
     new_password: str # El único campo que necesitamos es la nueva contraseña
+
+class DoctorProfileUpdateSchema(BaseModel):
+    # Información Personal
+    nombre_completo: Optional[str] = Field(None, max_length=255)
+    curp: Optional[str] = Field(None, max_length=18, description="CURP del doctor. Debe ser único si se provee.")
+    tel: Optional[str] = Field(None, max_length=20)
+    correo_electronico: Optional[str] = Field(default=None)
+    fecha_nacimiento: Optional[date] = None
+    sexo: Optional[str] = Field(None, max_length=20) # Cambiado para admitir 'Masculino', 'Femenino', 'Otro'
+    entidad_nacimiento: Optional[str] = None
+    matrimonio_id: Optional[str] = Field(None, max_length = 20)
+    
+    # Información Profesional y Adscripción
+    especialidad: Optional[str] = Field(None, max_length=255) # Aumentado max_length
+    cedula_profesional: Optional[str] = Field(None, max_length=50)
+    estatus: Optional[str] = Field(None, max_length=50) # e.g., Activo, Inactivo
+    nombre_unidad: Optional[str] = Field(None, max_length=100)
+    consultorio: Optional[str] = Field(None, max_length=50)
+    turno: Optional[str] = Field(None, max_length=50) # e.g., Matutino, Vespertino
+    identificador_imss: Optional[str] = Field(None, max_length=50)
+    fecha_notificacion: Optional[date] = None
+    fecha_estatus: Optional[date] = None
+    fecha_vuelo: Optional[date] = None
+    cedula_esp: Optional[str] = Field(None, max_length=50)
+    cedula_lic: Optional[str] = Field(None, max_length=50)
+    nivel_atencion: Optional[str] = Field(None, max_length=50)
+    entidad: Optional[str] = Field(None, max_length = 50)
+
+
+    # Campo 'entidad' que aparece en tus reportes y podría ser relevante
+    entidad: Optional[str] = Field(None, max_length=100, description="Entidad Federativa de adscripción")
+
+
+    class Config:
+        orm_mode = True 
