@@ -34,6 +34,9 @@ class Doctor(Base):
     fecha_vuelo = Column(Date, nullable=True)
     estrato = Column(String(100), nullable=True)
     acuerdo = Column(String(255), nullable=True)
+    correo_electronico = Column(String(100), nullable=True)
+    tel = Column(String(255), nullable=True)
+    entidad_nacimiento= Column(String(255), nullable=True)
 
     # --- NUEVO CAMPO para la URL de la foto de perfil ---
     profile_pic_url = Column(String(1024), nullable=True, index=True) # Las URLs pueden ser largas
