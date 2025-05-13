@@ -1,5 +1,5 @@
 # backend_api/main.py
-from fastapi import FastAPI, Depends, HTTPException, status, Query, File, UploadFile
+from fastapi import FastAPI, Depends, HTTPException, status, Query, File, UploadFile, Body
 from sqlalchemy.orm import Session
 from sqlalchemy import text, func # Importar func para server_default
 import sqlalchemy.exc
@@ -127,7 +127,8 @@ async def upload_to_firebase(file: UploadFile, destination_path: str, optimize_i
         bucket = storage.bucket(bucket_name)
         
         filename, file_extension = os.path.splitext(file.filename)
-        unique_filename = f"{uuid.uuid4()}{file_extension}"
+        safe_filename = re.sub(r"[^a-zA-Z0-9_\-\.]", "_", filename) # Solo permitir caracteres seguros
+        unique_filename = f"{uuid.uuid4()}_{safe_filename}{file_extension}" # Añadir UUID y nombre original sanitizado
         blob_path = f"{destination_path}/{unique_filename}"
         blob = bucket.blob(blob_path)
         file_content = await file.read()
@@ -136,80 +137,107 @@ async def upload_to_firebase(file: UploadFile, destination_path: str, optimize_i
             try:
                 img_io = IOBytesIO_for_image(file_content)
                 img = Image.open(img_io)
-                img.thumbnail((1024, 1024))
-                output_buffer = IOBytesIO_for_image()
-                img_format = img.format if img.format and img.format.upper() in ["JPEG", "PNG", "WEBP"] else "JPEG"
-                if img_format.upper() == "PNG" and img.mode == "RGBA":
+                
+                # Convertir a RGB si es RGBA o P (paleta) para evitar problemas con JPEG
+                if img.mode == "RGBA":
                     background = Image.new("RGB", img.size, (255, 255, 255))
-                    background.paste(img, mask=img.split()[3])
+                    background.paste(img, mask=img.split()[3]) # Usar el canal alfa como máscara
                     img = background
-                    img_format = "JPEG"
-                save_kwargs = {'format': img_format, 'quality': 80}
-                if img_format.upper() != "WEBP":
+                elif img.mode == "P":
+                    img = img.convert("RGB")
+
+                img.thumbnail((1024, 1024)) # Redimensionar si es más grande
+                output_buffer = IOBytesIO_for_image()
+                
+                img_format = "JPEG" # Por defecto a JPEG para optimización
+                # Conservar PNG si es el formato original y no tiene alfa (o ya se convirtió)
+                # if img.format == "PNG" and img.mode != "RGBA":
+                #     img_format = "PNG"
+                
+                save_kwargs = {'format': img_format}
+                if img_format == "JPEG":
+                    save_kwargs['quality'] = 80
                     save_kwargs['optimize'] = True
+                
                 img.save(output_buffer, **save_kwargs)
                 file_content_to_upload = output_buffer.getvalue()
                 content_type_to_upload = f"image/{img_format.lower()}"
             except Exception as img_e:
+                print(f"Advertencia: Error al optimizar imagen '{file.filename}': {img_e}. Subiendo original.")
+                traceback.print_exc()
                 file_content_to_upload = file_content
                 content_type_to_upload = file.content_type
         else:
             file_content_to_upload = file_content
             content_type_to_upload = file.content_type
+        
         blob.upload_from_string(file_content_to_upload, content_type=content_type_to_upload)
-        blob.make_public()
-        return blob.public_url
+        signed_url = blob.generate_signed_url(version="v4", expiration=timedelta(days=7), method="GET")
+        return signed_url
     except firebase_admin.exceptions.FirebaseError as fb_e:
-        traceback.print_exc(); return None
+            print(f"Error de Firebase al subir archivo: {fb_e}")
+            traceback.print_exc()
+            return None
     except Exception as e:
-        traceback.print_exc(); return None
+            print(f"Error inesperado al subir archivo: {e}")
+            traceback.print_exc()
+            return None
 
 # --- Helper para eliminar archivos de Firebase Storage ---
 async def delete_from_firebase(file_url: Optional[str]) -> bool:
     try:
-        app_instance = firebase_admin.get_app() # Intenta obtener la app inicializada
+        app_instance = firebase_admin.get_app()
     except ValueError:
-        return False # No se puede continuar
+        print("Error: Firebase App no inicializada al intentar eliminar archivo.")
+        return False
     
     if not file_url:
-        return False
+        return False # No hay URL, no hay nada que borrar
 
     try:
+        # El bucket_name_from_app es el que se usó al inicializar y debe ser el correcto
         bucket_name_from_app = app_instance.options.get('storageBucket')
         if not bucket_name_from_app:
+            print("Error: Nombre del bucket de Firebase no configurado al intentar eliminar.")
             return False
+        
         bucket = storage.bucket(bucket_name_from_app)
-
         parsed_url = urlparse(file_url)
-        blob_path_encoded = None
+        
+        object_path_encoded = parsed_url.path
+        # Quitar el slash inicial si existe
+        if object_path_encoded.startswith('/'):
+            object_path_encoded = object_path_encoded[1:]
+        
+        # Si la URL es del tipo .../bucket_name/object_path... quitar bucket_name/
+        if object_path_encoded.startswith(f"{bucket_name_from_app}/"):
+            object_path = object_path_encoded[len(bucket_name_from_app)+1:]
+        else:
+            object_path = object_path_encoded
+            
+        object_path_decoded = unquote(object_path) # Decodificar caracteres como %2F
 
-        if parsed_url.scheme == 'https' and parsed_url.hostname == 'storage.googleapis.com':
-            # El path sería /BUCKET_NAME/OBJECT_PATH
-            # Necesitamos quitar el / inicial y el nombre del bucket del path
-            path_parts = parsed_url.path.strip('/').split('/', 1)
-            if len(path_parts) == 2:
-                url_bucket_name = path_parts[0]
-                object_path = path_parts[1]
-             
-                if url_bucket_name == FIREBASE_STORAGE_BUCKET_NAME_GLOBAL: # Usa la variable global definida al inicio
-                    blob_path = object_path 
-                else:
-                    print(f"DEBUG delete_from_firebase: El nombre del bucket en la URL ({url_bucket_name}) no coincide con el configurado ({FIREBASE_STORAGE_BUCKET_CONFIG}).")
-            else:
-                print(f"DEBUG delete_from_firebase: No se pudo extraer el nombre del bucket y la ruta del objeto de la URL: {parsed_url.path}")
-    
-            blob = bucket.blob(blob_path) # bucket es storage.bucket(bucket_name_from_app)
+        if not object_path_decoded:
+            print(f"Advertencia: No se pudo determinar la ruta del objeto para eliminar desde la URL: {file_url}")
+            return False # O True si prefieres que la DB se limpie igual
 
-            if blob.exists():
-                blob.delete()
+        blob_to_delete = bucket.blob(object_path_decoded)
+        if blob_to_delete.exists():
+            blob_to_delete.delete()
+            print(f"Archivo '{object_path_decoded}' eliminado de Firebase.")
             return True
         else:
-            return True # Considerar éxito para limpiar la BD
-
+            print(f"Advertencia: Archivo '{object_path_decoded}' no encontrado en Firebase para eliminar.")
+            return True # Considerar éxito para que la DB se limpie
+            
     except firebase_admin.exceptions.FirebaseError as fb_e:
-        traceback.print_exc(); return False
+        print(f"Error de Firebase al eliminar archivo: {fb_e}")
+        traceback.print_exc()
+        return False
     except Exception as e:
-        traceback.print_exc(); return False
+        print(f"Error inesperado al eliminar archivo de Firebase: {e}")
+        traceback.print_exc()
+        return False
 
 # --- Endpoints de la API ---
 @app.get("/")
@@ -226,14 +254,29 @@ async def subir_foto_perfil_doctor(
     db_doctor = db.query(models.Doctor).filter(models.Doctor.id == doctor_id).first()
     if not db_doctor:
         raise HTTPException(status_code=404, detail="Doctor no encontrado")
+    # Eliminar foto de perfil anterior si existe
+    if db_doctor.profile_pic_url:
+        await delete_from_firebase(db_doctor.profile_pic_url)
+        db_doctor.profile_pic_url = None # Limpiar en DB antes de intentar subir la nueva
+        try:
+            db.commit() # Guardar el null temporalmente
+        except Exception:
+            db.rollback() # No crucial si la subida falla igual
+
+
     destination_path = f"doctors/{doctor_id}/profile_pictures"
     file_url = await upload_to_firebase(file, destination_path, optimize_image=True)
+   
     if not file_url:
         raise HTTPException(status_code=500, detail="Error al subir la foto de perfil al almacenamiento.")
+    
     db_doctor.profile_pic_url = file_url
     try:
         db.add(db_doctor); db.commit(); db.refresh(db_doctor)
-        return db_doctor
+        attachments = db.query(models.DoctorAttachment).filter(models.DoctorAttachment.doctor_id == doctor_id).all()
+        doctor_detail_response = schemas.DoctorDetail.from_orm(db_doctor)
+        doctor_detail_response.attachments = [schemas.DoctorAttachment.from_orm(att) for att in attachments]
+        return doctor_detail_response
     except Exception as e:
         db.rollback(); traceback.print_exc()
         raise HTTPException(status_code=500, detail="Error al guardar info de foto.")
@@ -247,21 +290,32 @@ async def subir_expediente_doctor(
     db_doctor = db.query(models.Doctor).filter(models.Doctor.id == doctor_id).first()
     if not db_doctor:
         raise HTTPException(status_code=404, detail="Doctor no encontrado para adjuntar expediente.")
+    
     destination_path = f"doctors/{doctor_id}/attachments"
-    file_url = await upload_to_firebase(file, destination_path, optimize_image=False)
+    file_url = await upload_to_firebase(file, destination_path, optimize_image=False) # No optimizar PDFs, DOCs, etc.
+    
     if not file_url:
         raise HTTPException(status_code=500, detail="Error al subir el expediente al almacenamiento.")
+    
     attachment_data = schemas.DoctorAttachmentCreate(
-        doctor_id=doctor_id, file_name=file.filename,
-        file_url=file_url, file_type=file.content_type
+        doctor_id=doctor_id, 
+        file_name=file.filename, # Nombre original para mostrar
+        file_url=file_url,        # URL (potencialmente firmada) de Firebase
+        file_type=file.content_type
     )
-    db_attachment = models.DoctorAttachment(**attachment_data.model_dump()) # Usar model_dump()
+    db_attachment = models.DoctorAttachment(**attachment_data.model_dump())
     try:
-        db.add(db_attachment); db.commit(); db.refresh(db_attachment)
+        db.add(db_attachment)
+        db.commit()
+        db.refresh(db_attachment)
         return db_attachment
     except Exception as e:
-        db.rollback(); print(f"Error al guardar expediente en DB: {e}"); traceback.print_exc()
-        raise HTTPException(status_code=500, detail="Error al guardar info de expediente.")
+        db.rollback()
+        print(f"Error al guardar expediente en DB: {e}")
+        traceback.print_exc()
+        if file_url: # Intentar eliminar si la DB falla
+            await delete_from_firebase(file_url)
+        raise HTTPException(status_code=500, detail="Error al guardar la información del expediente en la base de datos.")
 
 @app.get("/api/doctores/{doctor_id}/attachments", response_model=List[schemas.DoctorAttachment], tags=["Doctores - Archivos"])
 async def listar_expedientes_doctor(
@@ -354,47 +408,82 @@ async def crear_doctor(
         db.rollback(); traceback.print_exc(); raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error inesperado.")
 
 @app.put("/api/doctores/{doctor_id}", response_model=schemas.Doctor, tags=["Doctores"])
-async def actualizar_doctor(
-    doctor_id: int, doctor_update: schemas.DoctorBase, db: Session = Depends(get_db_session),
-    current_user: models.User = Depends(security.get_current_user)
+async def actualizar_doctor_perfil_completo( # Renombrado para claridad, o puedes mantener el nombre anterior
+    doctor_id: int, 
+    doctor_update_data: schemas.DoctorProfileUpdateSchema = Body(...), # Usar el nuevo schema y Body
+    db: Session = Depends(get_db_session),
+    current_user: models.User = Depends(security.get_current_user) # Asumiendo que la edición requiere login
 ):
     # ... (tu código sin cambios, usando model_dump()) ...
     db_doctor = db.query(models.Doctor).filter(models.Doctor.id == doctor_id).first()
-    if db_doctor is None: raise HTTPException(status_code=404, detail="Doctor no encontrado")
-    update_data = doctor_update.model_dump(exclude_unset=True)
-    if update_data.get('curp') == '': update_data['curp'] = None
-    dateFields = ['fecha_notificacion', 'fecha_estatus', 'fecha_vuelo']
-    for field in dateFields:
-        if update_data.get(field) == '': update_data[field] = None
+    if db_doctor is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Doctor no encontrado")
+    
+    update_data = doctor_update_data.model_dump(exclude_unset=True) # Solo campos enviados
+    # Manejo especial para CURP si se envía y es string vacío -> convertir a None para evitar conflictos de unicidad con ''
+    if 'curp' in update_data and update_data['curp'] == '':
+        update_data['curp'] = None
+
+    for field_key in ['rfc', 'cedula_profesional', 'identificador_imss']:
+        if field_key in update_data and update_data[field_key] == '':
+            update_data[field_key] = None
+    
+    if 'curp' in update_data and update_data['curp'] is not None:
+        existing_doctor_curp = db.query(models.Doctor).filter(
+            models.Doctor.curp == update_data['curp'],
+            models.Doctor.id != doctor_id # Excluir al doctor actual de la comprobación
+        ).first()
+        if existing_doctor_curp:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"El CURP '{update_data['curp']}' ya está registrado para otro doctor."
+            )
+            
     for key, value in update_data.items():
-        if hasattr(db_doctor, key): setattr(db_doctor, key, value)
+        if hasattr(db_doctor, key):
+            setattr(db_doctor, key, value)
+        # else:
+            # Podrías loggear una advertencia si se envía un campo que no existe en el modelo Doctor
+            # print(f"Advertencia: El campo '{key}' no existe en el modelo Doctor y fue ignorado.")
+
     try:
-        db.add(db_doctor); db.commit(); db.refresh(db_doctor)
-        return db_doctor
+        db.add(db_doctor) # SQLAlchemy rastrea cambios, db.add() es idempotente para objetos ya en sesión
+        db.commit()
+        db.refresh(db_doctor) # Refrescar para obtener cualquier valor generado por la DB o defaults
+
+        # Construir y devolver la respuesta DoctorDetail completa
+        attachments = db.query(models.DoctorAttachment).filter(models.DoctorAttachment.doctor_id == doctor_id).all()
+        doctor_detail_response = schemas.DoctorDetail.from_orm(db_doctor)
+        doctor_detail_response.attachments = [schemas.DoctorAttachment.from_orm(att) for att in attachments]
+        
+        return doctor_detail_response
+        
     except sqlalchemy.exc.IntegrityError as e:
-        db.rollback(); error_info = str(e.orig) if hasattr(e, 'orig') else str(e)
-        if 'ix_doctores_curp' in error_info: raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="CURP duplicada.")
-        else: raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error DB al actualizar.")
+        db.rollback()
+        error_info = str(e.orig).lower() if hasattr(e, 'orig') else str(e).lower()
+        # Comprobación más genérica para violación de unicidad (puede variar por motor de DB)
+        if 'unique constraint' in error_info or 'duplicate key' in error_info:
+            detail_message = "Error de base de datos: Un campo único ya existe (ej. CURP, RFC)."
+            if 'curp' in error_info : # Podrías intentar ser más específico
+                 detail_message = f"El CURP '{update_data.get('curp', '')}' ya está registrado."
+            # Añade más if/elif para otros campos únicos si puedes identificar sus constraint names
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=detail_message
+            )
+        else:
+            traceback.print_exc()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error de base de datos al actualizar el doctor."
+            )
     except Exception as e:
-        db.rollback(); traceback.print_exc(); raise HTTPException(status_code=500, detail="Error inesperado.")
-
-@app.delete("/api/doctores/{doctor_id}", status_code=status.HTTP_200_OK, tags=["Doctores"])
-async def eliminar_doctor(
-    doctor_id: int, db: Session = Depends(get_db_session),
-    current_user: models.User = Depends(security.get_current_user)
-):
-    # ... (tu código sin cambios, con borrado de archivos de Firebase) ...
-    db_doctor_to_delete = db.query(models.Doctor).filter(models.Doctor.id == doctor_id).first()
-    if db_doctor_to_delete is None: raise HTTPException(status_code=404, detail="Doctor no encontrado")
-    if db_doctor_to_delete.profile_pic_url: await delete_from_firebase(db_doctor_to_delete.profile_pic_url)
-    attachments_to_delete = db.query(models.DoctorAttachment).filter(models.DoctorAttachment.doctor_id == doctor_id).all()
-    for att in attachments_to_delete: await delete_from_firebase(att.file_url)
-    try:
-        db.delete(db_doctor_to_delete); db.commit()
-        return {"detail": f"Doctor con ID {doctor_id} eliminado."}
-    except Exception as e:
-        db.rollback(); traceback.print_exc(); raise HTTPException(status_code=500, detail="Error al eliminar de DB.")
-
+        db.rollback()
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error inesperado al actualizar el doctor: {str(e)}"
+        )
 # --- Endpoint de Autenticación (Login) ---
 @app.post("/api/token", response_model=schemas.Token, tags=["Autenticación"])
 async def login_for_access_token(
