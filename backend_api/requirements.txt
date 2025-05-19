@@ -3,67 +3,71 @@ anyio==4.9.0
 bcrypt==4.3.0
 CacheControl==0.14.3
 cachetools==5.5.2
-certifi==2025.4.26
+certifi==2025.4.26 # Versión muy futura, asegúrate que sea la que necesitas
 cffi==1.17.1
 charset-normalizer==3.4.2
 click==8.1.8
 colorama==0.4.6
-cryptography==44.0.2
+cryptography==44.0.2 # Idem certifi
 defusedxml==0.7.1
 dnspython==2.7.0
 ecdsa==0.19.1
 email_validator==2.2.0
 et_xmlfile==2.0.0
-fastapi==0.115.12
+fastapi==0.115.12 # Idem certifi
 firebase-admin==6.8.0
 fonttools==4.57.0
 fpdf2==2.8.3
-google-api-core==2.25.0rc1
-google-api-python-client==2.169.0
-google-auth==2.40.1
+google-api-core==2.25.0rc1 # Idem certifi
+google-api-python-client==2.169.0 # Idem certifi
+google-auth==2.40.1 # Idem certifi
 google-auth-httplib2==0.2.0
 google-cloud-core==2.4.3
-google-cloud-firestore==2.20.2
+google-cloud-firestore==2.20.2 # Idem certifi
 google-cloud-storage==3.1.0
 google-crc32c==1.7.1
 google-resumable-media==2.7.2
-googleapis-common-protos==1.70.0
+googleapis-common-protos==1.70.0 # Idem certifi
 greenlet==3.2.1
-grpcio==1.71.0
-grpcio-status==1.71.0
+grpcio==1.71.0 # Idem certifi
+grpcio-status==1.71.0 # Idem certifi
 h11==0.16.0
 httplib2==0.22.0
 idna==3.10
 msgpack==1.1.0
-numpy==2.2.5
+numpy==2.2.5 # Idem certifi
 openpyxl==3.1.5
-pandas==2.2.3
+pandas==2.2.3 # Idem certifi
 passlib==1.7.4
-pillow==11.2.1
-proto-plus==1.26.1
-protobuf==5.29.4
+pillow==11.2.1 # Idem certifi
+proto-plus==1.26.1 # Idem certifi
+protobuf==5.29.4 # Idem certifi
 psycopg2-binary==2.9.10
 pycparser==2.22
-pydantic==2.11.4
-pydantic_core==2.33.2
+pydantic==2.11.4 # Idem certifi (core es 2.33.2)
+pydantic_core==2.33.2 # Idem certifi
 PyJWT==2.10.1
 pyparsing==3.2.3
-pyasn1-modules
-pyasn1
-python-jose
+
+# --- PINS SUGERIDOS para resolver el conflicto ---
+python-jose==3.3.0
+pyasn1==0.4.8
+pyasn1-modules==0.2.8
+# --- FIN DE PINS SUGERIDOS ---
+
 python-dateutil==2.9.0.post0
 python-dotenv==1.1.0
 python-multipart==0.0.20
-pytz==2025.2
-requests==2.32.3
+pytz==2025.2 # Idem certifi
+requests==2.32.3 # Idem certifi
 rsa==4.9.1
 six==1.17.0
 sniffio==1.3.1
-SQLAlchemy==2.0.40
-starlette==0.46.2
+SQLAlchemy==2.0.40 # Idem certifi
+starlette==0.46.2 # Idem certifi
 typing-inspection==0.4.0
-typing_extensions==4.13.2
-tzdata==2025.2
+typing_extensions==4.13.2 # Idem certifi
+tzdata==2025.2 # Idem certifi
 uritemplate==4.1.1
-urllib3==2.4.0
-uvicorn==0.34.2
+urllib3==2.4.0 # Idem certifi
+uvicorn==0.34.2 # Idem certifi
