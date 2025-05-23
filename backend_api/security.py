@@ -8,9 +8,9 @@ from dotenv import load_dotenv
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
-from database import get_db # Importa la función para obtener sesión de DB
-import models # Asegúrate que tus modelos SQLAlchemy estén aquí (ej. models.User)
-import schemas # Asegúrate que tus esquemas Pydantic estén aquí (ej. schemas.TokenData)
+from . database import get_db # Importa la función para obtener sesión de DB
+from . import models # El punto indica una importación desde el mismo paquete (backend_api)
+from . import schemas # Asegúrate que tus esquemas Pydantic estén aquí (ej. schemas.TokenData)
 
 load_dotenv() # Cargar variables de .env
 
@@ -118,3 +118,11 @@ async def get_optional_current_user(
     # Aquí también podrías añadir user.is_active si es relevante y no quieres que un usuario
     # inactivo, incluso con token válido, acceda. Pero para "opcional", None es lo más simple.
     return user
+
+async def get_current_admin_user(current_user: models.User = Depends(get_current_user)): # Llama a tu get_current_user
+    if not current_user or current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="No tiene permisos de administrador para acceder a este recurso."
+        )
+    return current_user
