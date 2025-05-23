@@ -4,7 +4,7 @@ import os
 import traceback # Para imprimir errores completos
 
 # --- BORRA O COMENTA ESTA LÍNEA si ejecutas desde la carpeta padre ---
-# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # --- FIN BORRADO ---
 
 try:
