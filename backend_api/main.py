@@ -1,32 +1,33 @@
 # backend_api/main.py
-from fastapi import FastAPI, Depends, HTTPException, status, Query, File, UploadFile, Body
+from fastapi import FastAPI, Depends, HTTPException, status, Query, File, UploadFile, Body, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import text, func # Importar func para server_default
 import sqlalchemy.exc
+from sqlalchemy.exc import IntegrityError
 from typing import List, Optional, Any
 from fastapi.security import OAuth2PasswordRequestForm
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta,timezone
 from fastapi.middleware.cors import CORSMiddleware
 import traceback
 import uuid
 import os
+from sqlalchemy.orm import selectinload # Importa selectinload
 from urllib.parse import urlparse, unquote
 import re
+import json
+import pytz 
 
 # Importaciones locales
-import security
-import models, schemas, database
+from . import security
+from . import models, schemas, database
 import pandas as pd
 from fpdf import FPDF
-from io import BytesIO as GlobalBytesIO
+from io import BytesIO
 from fastapi.responses import StreamingResponse
 
 # Credenciales de Firebase
 import firebase_admin
 from firebase_admin import credentials, storage
-
-# Importaciones para optimización de imágenes
-from io import BytesIO as IOBytesIO_for_image
 from PIL import Image
 
 # --- INICIALIZACIÓN DE DOTENV ---
@@ -34,7 +35,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 FIREBASE_STORAGE_BUCKET_NAME_GLOBAL: Optional[str] = None
-
+USER_TIMEZONE_STR = "America/Mexico_City" 
+try:
+    USER_TIMEZONE = pytz.timezone(USER_TIMEZONE_STR)
+except pytz.exceptions.UnknownTimeZoneError:
+    ##print((f"ADVERTENCIA: Zona horaria '{USER_TIMEZONE_STR}' desconocida. Usando UTC como fallback.")
+    USER_TIMEZONE = pytz.utc
 
 # --- FUNCIÓN DE INICIALIZACIÓN DE FIREBASE (SE LLAMARÁ AL INICIAR FASTAPI) ---
 def initialize_firebase():
@@ -75,12 +81,38 @@ def initialize_firebase():
 
     except Exception as e:
         print(f"Error CRÍTICO durante la inicialización de Firebase en STARTUP: {e}")
-        traceback.print_exc()
 
 # --- FIN FUNCIÓN DE INICIALIZACIÓN DE FIREBASE ---
-
 app = FastAPI(title="API de Doctores IMSS Bienestar")
 
+
+# En algún lugar accesible, quizás un archivo utils.py o dentro de main.py
+def log_action(db: Session, user: models.User, action_type: str, target_entity: str = None, target_id: int = None, details: str = None):
+    log_entry = models.AuditLog(
+        user_id=user.id if user else None,
+        username=user.username if user else "System",
+        action_type=action_type,
+        target_entity=target_entity,
+        target_id=target_id,
+        details=details
+    )
+    username_to_log = "System"
+    user_id_to_log = None
+    if user:
+        username_to_log = user.username
+        user_id_to_log = user.id
+    print(f"AUDIT LOGGING: User='{username_to_log}', Action='{action_type}', Entity='{target_entity}', ID='{target_id}', Details='{details}'")
+    log_entry = models.AuditLog(
+        user_id=user_id_to_log,
+        username=username_to_log,
+        action_type=action_type,
+        target_entity=target_entity,
+        target_id=target_id,
+        details=details,
+        timestamp=datetime.now(timezone.utc) # Establecer timestamp explícitamente
+    )
+    db.add(log_entry)
+    # El commit se hará como parte de la transacción principal
 # --- EVENTO DE INICIO DE FASTAPI ---
 @app.on_event("startup")
 async def startup_event():
@@ -163,7 +195,7 @@ async def upload_to_firebase(file: UploadFile, destination_path: str, optimize_i
                 file_content_to_upload = output_buffer.getvalue()
                 content_type_to_upload = f"image/{img_format.lower()}"
             except Exception as img_e:
-                print(f"Advertencia: Error al optimizar imagen '{file.filename}': {img_e}. Subiendo original.")
+                #print((f"Advertencia: Error al optimizar imagen '{file.filename}': {img_e}. Subiendo original.")
                 traceback.print_exc()
                 file_content_to_upload = file_content
                 content_type_to_upload = file.content_type
@@ -175,11 +207,11 @@ async def upload_to_firebase(file: UploadFile, destination_path: str, optimize_i
         signed_url = blob.generate_signed_url(version="v4", expiration=timedelta(days=7), method="GET")
         return signed_url
     except firebase_admin.exceptions.FirebaseError as fb_e:
-            print(f"Error de Firebase al subir archivo: {fb_e}")
+            #print((f"Error de Firebase al subir archivo: {fb_e}")
             traceback.print_exc()
             return None
     except Exception as e:
-            print(f"Error inesperado al subir archivo: {e}")
+            #print((f"Error inesperado al subir archivo: {e}")
             traceback.print_exc()
             return None
 
@@ -188,7 +220,7 @@ async def delete_from_firebase(file_url: Optional[str]) -> bool:
     try:
         app_instance = firebase_admin.get_app()
     except ValueError:
-        print("Error: Firebase App no inicializada al intentar eliminar archivo.")
+        #print(("Error: Firebase App no inicializada al intentar eliminar archivo.")
         return False
     
     if not file_url:
@@ -198,7 +230,7 @@ async def delete_from_firebase(file_url: Optional[str]) -> bool:
         # El bucket_name_from_app es el que se usó al inicializar y debe ser el correcto
         bucket_name_from_app = app_instance.options.get('storageBucket')
         if not bucket_name_from_app:
-            print("Error: Nombre del bucket de Firebase no configurado al intentar eliminar.")
+            #print(("Error: Nombre del bucket de Firebase no configurado al intentar eliminar.")
             return False
         
         bucket = storage.bucket(bucket_name_from_app)
@@ -218,25 +250,23 @@ async def delete_from_firebase(file_url: Optional[str]) -> bool:
         object_path_decoded = unquote(object_path) # Decodificar caracteres como %2F
 
         if not object_path_decoded:
-            print(f"Advertencia: No se pudo determinar la ruta del objeto para eliminar desde la URL: {file_url}")
+            #print((f"Advertencia: No se pudo determinar la ruta del objeto para eliminar desde la URL: {file_url}")
             return False # O True si prefieres que la DB se limpie igual
 
         blob_to_delete = bucket.blob(object_path_decoded)
         if blob_to_delete.exists():
             blob_to_delete.delete()
-            print(f"Archivo '{object_path_decoded}' eliminado de Firebase.")
+            #print((f"Archivo '{object_path_decoded}' eliminado de Firebase.")
             return True
         else:
-            print(f"Advertencia: Archivo '{object_path_decoded}' no encontrado en Firebase para eliminar.")
+            #print((f"Advertencia: Archivo '{object_path_decoded}' no encontrado en Firebase para eliminar.")
             return True # Considerar éxito para que la DB se limpie
             
     except firebase_admin.exceptions.FirebaseError as fb_e:
-        print(f"Error de Firebase al eliminar archivo: {fb_e}")
-        traceback.print_exc()
+        #print((f"Error de Firebase al eliminar archivo: {fb_e}")
         return False
     except Exception as e:
-        print(f"Error inesperado al eliminar archivo de Firebase: {e}")
-        traceback.print_exc()
+        #print((f"Error inesperado al eliminar archivo de Firebase: {e}")
         return False
 
 # --- Endpoints de la API ---
@@ -278,7 +308,7 @@ async def subir_foto_perfil_doctor(
         doctor_detail_response.attachments = [schemas.DoctorAttachment.from_orm(att) for att in attachments]
         return doctor_detail_response
     except Exception as e:
-        db.rollback(); traceback.print_exc()
+        db.rollback(); 
         raise HTTPException(status_code=500, detail="Error al guardar info de foto.")
 
 @app.post("/api/doctores/{doctor_id}/attachments", response_model=schemas.DoctorAttachment, tags=["Doctores - Archivos"])
@@ -297,13 +327,16 @@ async def subir_expediente_doctor(
     if not file_url:
         raise HTTPException(status_code=500, detail="Error al subir el expediente al almacenamiento.")
     
-    attachment_data = schemas.DoctorAttachmentCreate(
+    attachment_data_pydantic = schemas.DoctorAttachmentCreate(
         doctor_id=doctor_id, 
         file_name=file.filename, # Nombre original para mostrar
         file_url=file_url,        # URL (potencialmente firmada) de Firebase
         file_type=file.content_type
     )
-    db_attachment = models.DoctorAttachment(**attachment_data.model_dump())
+    db_attachment = models.DoctorAttachment(
+        **attachment_data_pydantic.model_dump(exclude={'doctor_id'}), # Excluir doctor_id del dump si se asigna explícitamente
+        doctor_id=doctor_id # Asignación explícita y segura
+    )
     try:
         db.add(db_attachment)
         db.commit()
@@ -311,7 +344,7 @@ async def subir_expediente_doctor(
         return db_attachment
     except Exception as e:
         db.rollback()
-        print(f"Error al guardar expediente en DB: {e}")
+        #print((f"Error al guardar expediente en DB: {e}")
         traceback.print_exc()
         if file_url: # Intentar eliminar si la DB falla
             await delete_from_firebase(file_url)
@@ -323,7 +356,7 @@ async def listar_expedientes_doctor(
     current_user: Optional[models.User] = Depends(security.get_optional_current_user)
 ):
     # ... (sin cambios) ...
-    print(f"--- Listando expedientes para doctor ID: {doctor_id} ---")
+    #print((f"--- Listando expedientes para doctor ID: {doctor_id} ---")
     db_doctor = db.query(models.Doctor).filter(models.Doctor.id == doctor_id).first()
     if not db_doctor:
         raise HTTPException(status_code=404, detail="Doctor no encontrado para listar expedientes.")
@@ -336,7 +369,7 @@ async def eliminar_expediente_doctor(
     current_user: models.User = Depends(security.get_current_user)
 ):
     # ... (sin cambios, asume que delete_from_firebase funciona) ...
-    print(f"--- Usuario '{current_user.username}' eliminando expediente ID: {attachment_id} para doctor ID: {doctor_id} ---")
+    #print((f"--- Usuario '{current_user.username}' eliminando expediente ID: {attachment_id} para doctor ID: {doctor_id} ---")
     db_attachment = db.query(models.DoctorAttachment).filter(
         models.DoctorAttachment.id == attachment_id,
         models.DoctorAttachment.doctor_id == doctor_id
@@ -360,17 +393,57 @@ async def eliminar_expediente_doctor(
 # --- Endpoints de Doctores CRUD ---
 @app.get("/api/doctores", response_model=schemas.DoctoresPaginados, tags=["Doctores"])
 async def leer_doctores(
-    skip: int = 0, limit: int = 30, nombre: Optional[str] = Query(None),
-    estatus: Optional[str] = Query("Activo"), db: Session = Depends(get_db_session),
-    current_user: Optional[models.User] = Depends(security.get_optional_current_user)
+    skip: int = Query(0, ge=0), 
+    limit: int = Query(30, ge=1, le=200),
+    nombre: Optional[str] = Query(None, min_length=1, max_length=100, description="Filtrar por nombre del doctor (búsqueda parcial)"),
+    estatus: Optional[str] = Query("Activo", min_length=1, max_length=50, description="Filtrar por estatus del doctor (ej. Activo, Baja, todos)"),
+    # El parámetro 'incluir_eliminados' se ha eliminado de este endpoint
+    db: Session = Depends(get_db_session),
+    current_user: Optional[models.User] = Depends(security.get_optional_current_user) # Se mantiene por si se usa para otra lógica
 ):
-    # ... (tu código sin cambios) ...
-    query = db.query(models.Doctor)
-    if nombre: query = query.filter(models.Doctor.nombre_completo.ilike(f'%{nombre}%'))
-    if estatus and estatus.lower() != "todos": query = query.filter(models.Doctor.estatus == estatus)
-    total_count = query.count()
-    doctores = query.order_by(models.Doctor.id).offset(skip).limit(limit).all()
+    query = db.query(models.Doctor) 
+    
+    # Aplicar SIEMPRE el filtro para excluir doctores eliminados
+    query = query.filter(models.Doctor.is_deleted == False)
+    print("DEBUG: Aplicando filtro permanente: models.Doctor.is_deleted == False")
+    
+    if nombre:
+        query = query.filter(models.Doctor.nombre_completo.ilike(f'%{nombre}%'))
+        print(f"DEBUG: Aplicando filtro por nombre: '%{nombre}%'")
+
+    if estatus:
+        if estatus.lower() == "todos":
+            print("DEBUG: Filtro de estatus: 'todos'. No se aplica filtro de estatus específico.")
+        else:
+            query = query.filter(models.Doctor.estatus == estatus)
+            print(f"DEBUG: Aplicando filtro por estatus: '{estatus}'")
+    
+    try:
+        total_count = query.count()
+        print(f"DEBUG: Total de doctores encontrados (después de todos los filtros): {total_count}")
+    except Exception as e:
+        print(f"ERROR al contar doctores: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error al contar los doctores: {str(e)}")
+
+    order_field = None
+    if hasattr(models.Doctor, 'id'):
+        order_field = models.Doctor.id
+    elif hasattr(models.Doctor, 'id_doctor'): 
+        order_field = models.Doctor.id_doctor
+    
+    if order_field is not None:
+        doctores_query = query.order_by(order_field).offset(skip).limit(limit)
+    else:
+        print("ADVERTENCIA: No se encontró campo de ID para ordenar.")
+        doctores_query = query.offset(skip).limit(limit)
+    
+    doctores = doctores_query.all()
+    print(f"DEBUG: Devolviendo {len(doctores)} doctores (skip: {skip}, limit: {limit}).")
+
     return {"total_count": total_count, "doctores": doctores}
+
+
+
 
 @app.get("/api/doctores/{doctor_id}", response_model=schemas.DoctorDetail, tags=["Doctores"])
 async def leer_doctor_por_id(
@@ -387,103 +460,262 @@ async def leer_doctor_por_id(
 
 @app.post("/api/doctores", response_model=schemas.Doctor, status_code=status.HTTP_201_CREATED, tags=["Doctores"])
 async def crear_doctor(
-    doctor_data: schemas.DoctorCreate, db: Session = Depends(get_db_session),
+    doctor_data: schemas.DoctorCreate, 
+    db: Session = Depends(get_db_session),
     current_user: models.User = Depends(security.get_current_user)
 ):
-    # ... (tu código sin cambios, usando model_dump()) ...
-    doctor_dict = doctor_data.model_dump()
-    if doctor_dict.get('curp') == '': doctor_dict['curp'] = None
-    dateFields = ['fecha_notificacion', 'fecha_estatus', 'fecha_vuelo']
-    for field in dateFields:
-        if doctor_dict.get(field) == '': doctor_dict[field] = None
-    db_doctor = models.Doctor(**doctor_dict)
-    db.add(db_doctor)
     try:
-        db.commit(); db.refresh(db_doctor); return db_doctor
-    except sqlalchemy.exc.IntegrityError as e:
-        db.rollback(); error_info = str(e.orig) if hasattr(e, 'orig') else str(e)
-        if 'ix_doctores_curp' in error_info: raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="CURP duplicada.")
-        else: raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error DB al crear.")
-    except Exception as e:
-        db.rollback(); traceback.print_exc(); raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error inesperado.")
+        #print((f"Datos recibidos para crear doctor: {doctor_data}")
 
-@app.put("/api/doctores/{doctor_id}", response_model=schemas.Doctor, tags=["Doctores"])
-async def actualizar_doctor_perfil_completo( # Renombrado para claridad, o puedes mantener el nombre anterior
-    doctor_id: int, 
-    doctor_update_data: schemas.DoctorProfileUpdateSchema = Body(...), # Usar el nuevo schema y Body
-    db: Session = Depends(get_db_session),
-    current_user: models.User = Depends(security.get_current_user) # Asumiendo que la edición requiere login
-):
-    # ... (tu código sin cambios, usando model_dump()) ...
-    db_doctor = db.query(models.Doctor).filter(models.Doctor.id == doctor_id).first()
-    if db_doctor is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Doctor no encontrado")
-    
-    update_data = doctor_update_data.model_dump(exclude_unset=True) # Solo campos enviados
-    # Manejo especial para CURP si se envía y es string vacío -> convertir a None para evitar conflictos de unicidad con ''
-    if 'curp' in update_data and update_data['curp'] == '':
-        update_data['curp'] = None
+        doctor_dict = doctor_data.model_dump()
+        
+        # Manejo de CURP vacío
+        if doctor_dict.get('curp') == '':
+            doctor_dict['curp'] = None
+            #print(("CURP recibido vacío, establecido a None.")
 
-    for field_key in ['rfc', 'cedula_profesional', 'identificador_imss']:
-        if field_key in update_data and update_data[field_key] == '':
-            update_data[field_key] = None
-    
-    if 'curp' in update_data and update_data['curp'] is not None:
-        existing_doctor_curp = db.query(models.Doctor).filter(
-            models.Doctor.curp == update_data['curp'],
-            models.Doctor.id != doctor_id # Excluir al doctor actual de la comprobación
-        ).first()
-        if existing_doctor_curp:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"El CURP '{update_data['curp']}' ya está registrado para otro doctor."
-            )
-            
-    for key, value in update_data.items():
-        if hasattr(db_doctor, key):
-            setattr(db_doctor, key, value)
-        # else:
-            # Podrías loggear una advertencia si se envía un campo que no existe en el modelo Doctor
-            # print(f"Advertencia: El campo '{key}' no existe en el modelo Doctor y fue ignorado.")
+        # Manejo de campos de fecha vacíos
+        dateFields = ['fecha_notificacion', 'fecha_estatus', 'fecha_vuelo']
+        for field in dateFields:
+            if field in doctor_dict and doctor_dict.get(field) == '':
+                doctor_dict[field] = None
+                #print((f"Campo de fecha '{field}' recibido vacío, establecido a None.")
+        
+        # Manejo de profile_pic_url no proporcionado
+        if 'profile_pic_url' not in doctor_dict or not doctor_dict.get('profile_pic_url'):
+            default_pic_url = "" # URL de placeholder
+            doctor_dict['profile_pic_url'] = default_pic_url
+            #print((f"profile_pic_url no proporcionado o vacío, establecido a predeterminado: {default_pic_url}")
+        
+        #print((f"Diccionario de doctor preparado para el modelo: {doctor_dict}")
 
-    try:
-        db.add(db_doctor) # SQLAlchemy rastrea cambios, db.add() es idempotente para objetos ya en sesión
+        db_doctor = models.Doctor(**doctor_dict)
+        
+        db.add(db_doctor)
+        db.flush() # Para obtener el ID del nuevo doctor si es generado por la BD
+        log_action(db, current_user, "Crear Doctor", "Doctor", db_doctor.id, f"Doctor creado: {db_doctor.nombre_completo}")
+        #print(("Doctor añadido a la sesión de base de datos.")
+
         db.commit()
-        db.refresh(db_doctor) # Refrescar para obtener cualquier valor generado por la DB o defaults
+        #print(("Commit a la base de datos realizado.")
 
-        # Construir y devolver la respuesta DoctorDetail completa
-        attachments = db.query(models.DoctorAttachment).filter(models.DoctorAttachment.doctor_id == doctor_id).all()
-        doctor_detail_response = schemas.DoctorDetail.from_orm(db_doctor)
-        doctor_detail_response.attachments = [schemas.DoctorAttachment.from_orm(att) for att in attachments]
-        
-        return doctor_detail_response
-        
+        db.refresh(db_doctor)
+        #print((f"Doctor creado exitosamente con ID: {db_doctor.id_doctor if hasattr(db_doctor, 'id_doctor') else 'N/A'}")
+
+        return db_doctor
+
     except sqlalchemy.exc.IntegrityError as e:
         db.rollback()
-        error_info = str(e.orig).lower() if hasattr(e, 'orig') else str(e).lower()
-        # Comprobación más genérica para violación de unicidad (puede variar por motor de DB)
-        if 'unique constraint' in error_info or 'duplicate key' in error_info:
-            detail_message = "Error de base de datos: Un campo único ya existe (ej. CURP, RFC)."
-            if 'curp' in error_info : # Podrías intentar ser más específico
-                 detail_message = f"El CURP '{update_data.get('curp', '')}' ya está registrado."
-            # Añade más if/elif para otros campos únicos si puedes identificar sus constraint names
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=detail_message
-            )
+        #print(("\n--- ERROR: sqlalchemy.exc.IntegrityError OCURRIÓ ---")
+        traceback.print_exc()
+        #print(("---------------------------------------------------\n")
+        
+        error_info_orig = e.orig.diag.message_detail if hasattr(e.orig, 'diag') and hasattr(e.orig.diag, 'message_detail') else str(e.orig)
+        error_info = str(e.orig) if hasattr(e, 'orig') and e.orig is not None else str(e)
+        
+        # Intentar obtener el nombre de la columna del detalle del error si es posible
+        column_name_match = sqlalchemy.re.search(r'column "([^"]+)"', error_info_orig)
+        column_name = column_name_match.group(1) if column_name_match else "desconocida"
+
+        if 'ix_doctores_curp' in error_info or (hasattr(e, 'detail') and e.detail and 'ix_doctores_curp' in e.detail):
+            #print(("Conflicto detectado: CURP duplicada.")
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="CURP duplicada.")
         else:
-            traceback.print_exc()
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Error de base de datos al actualizar el doctor."
-            )
+            #print((f"Error de integridad en DB no relacionado con CURP duplicada. Columna: {column_name}. Info: {error_info_orig}")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error de base de datos al crear: Problema de integridad en columna '{column_name}'. Detalles: {error_info_orig}")
+
+    except Exception as e:
+        db.rollback()
+        #print(("\n--- ERROR: Excepción general OCURRIÓ ---")
+        traceback.print_exc()
+        #print(("---------------------------------------\n")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error inesperado en el servidor: {str(e)}")
+
+@app.delete("/api/doctores/{doctor_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Doctores"])
+async def eliminar_doctor(
+    doctor_id: int,
+    db: Session = Depends(get_db_session), # Reemplaza con tu función real get_db
+    current_user: models.User = Depends(security.get_current_user) # Si la eliminación es protegida
+):
+
+    db_doctor = db.query(models.Doctor).filter(models.Doctor.id == doctor_id, models.Doctor.is_deleted == False).first()
+    if db_doctor is None:
+        # Verificar si existe pero ya está eliminado para dar un mensaje más específico
+        check_already_deleted = db.query(models.Doctor).filter(models.Doctor.id == doctor_id).first()
+        if check_already_deleted:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El doctor ya ha sido eliminado previamente.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Doctor no encontrado.")
+
+    try:
+        db_doctor.is_deleted = True
+        db_doctor.deleted_at = datetime.now(timezone.utc) # Usar UTC
+        db_doctor.deleted_by_user_id = current_user.id
+        
+        log_details = f"Doctor marcado como eliminado: {db_doctor.nombre_completo} (ID: {db_doctor.id})"
+        log_action(db, current_user, "Eliminar Doctor", "Doctor", doctor_id, log_details)
+        
+        db.commit()
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
     except Exception as e:
         db.rollback()
         traceback.print_exc()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error inesperado al actualizar el doctor: {str(e)}"
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error al marcar doctor como eliminado: {str(e)}")
+
+
+@app.put("/api/doctores/{doctor_id}", response_model=schemas.DoctorDetail, tags=["Doctores"])
+async def actualizar_doctor_perfil_completo(
+    doctor_id: int, 
+    doctor_update_data: schemas.DoctorProfileUpdateSchema = Body(...), # Los datos que vienen del frontend
+    db: Session = Depends(get_db_session),
+    current_user: models.User = Depends(security.get_current_user)
+):
+    db_doctor = db.query(models.Doctor).filter(models.Doctor.id == doctor_id).first()
+    if db_doctor is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Doctor no encontrado")
+    original_estatus_guardado = db_doctor.estatus
+    nuevo_estatus_payload = doctor_update_data.estatus if hasattr(doctor_update_data, 'estatus') else None
+
+    # REGLA: Solo Admin puede cambiar el estatus DESDE "Defunción" a OTRO estatus
+    if original_estatus_guardado == "Defunción":
+        if nuevo_estatus_payload is not None and nuevo_estatus_payload != "Defunción":
+            if current_user.role != "admin":
+                #print((f"ERROR BACKEND: Usuario '{current_user.username}' (Rol: {current_user.role}) intentó cambiar estatus 'Defunción'. Acceso denegado.")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Solo un administrador puede cambiar el estatus de un registro marcado como 'Defunción'."
+                )
+            #print((f"INFO BACKEND: Admin '{current_user.username}' cambiando estatus desde 'Defunción' a '{nuevo_estatus_payload}'.")
+    
+    if nuevo_estatus_payload == "Defunción" and original_estatus_guardado != "Defunción":
+        print(f"ALERTA BACKEND: Usuario '{current_user.username}' (Rol: {current_user.role}) está cambiando estatus a 'Defunción' para doctor ID {doctor_id}")
+
+    # 1. Obtener datos enviados por el cliente (SOLO UNA VEZ)
+    update_data_dict = doctor_update_data.model_dump(exclude_unset=True) # Solo campos que el cliente envió
+    changed_field_names = [] # Lista para guardar los nombres de los campos que realmente cambian
+
+    # 2. Sanear datos en update_data_dict ANTES de compararlos y aplicarlos
+    if 'curp' in update_data_dict and update_data_dict['curp'] == '':
+        update_data_dict['curp'] = None
+    if 'comentarios_estatus' in update_data_dict and update_data_dict['comentarios_estatus'] == '':
+        update_data_dict['comentarios_estatus'] = None
+    # Añade más saneamientos si es necesario
+
+    # 3. Comparar y aplicar actualizaciones. Registrar campos cambiados.
+    for key, new_value in update_data_dict.items():
+        if hasattr(db_doctor, key):
+            old_value = getattr(db_doctor, key)
+
+            # Normalizar para comparación (especialmente para fechas y None vs string vacío)
+            old_value_comp = old_value.isoformat() if isinstance(old_value, (date, datetime)) else (str(old_value) if old_value is not None else None)
+            new_value_comp = new_value.isoformat() if isinstance(new_value, (date, datetime)) else (str(new_value) if new_value is not None else None)
+            
+            if old_value_comp != new_value_comp:
+                # Transforma el nombre del campo a un formato más legible para el log si quieres
+                # legible_name = key.replace('_', ' ').title()
+                # changed_field_names.append(legible_name)
+                changed_field_names.append(key) # Guardar el nombre original del campo
+                #print((f"INFO BACKEND: Campo '{key}' cambiado de '{old_value_comp}' a '{new_value_comp}'")
+            
+            #print((f"INFO BACKEND: Aplicando setattr: db_doctor.{key} = {repr(new_value)}")
+            setattr(db_doctor, key, new_value) # Aplicar el nuevo valor
+
+    # 4. Lógica de Limpieza Basada en el ESTATUS FINAL que ahora tiene db_doctor
+    estatus_final_en_db_obj = db_doctor.estatus
+    #print((f"INFO BACKEND: Estatus en db_doctor DESPUÉS de aplicar update_data y ANTES de limpieza específica: '{estatus_final_en_db_obj}'")
+
+    if estatus_final_en_db_obj != "Baja":
+        if db_doctor.motivo_baja is not None: print(f"INFO BACKEND: Limpiando motivo_baja (era: '{db_doctor.motivo_baja}') porque estatus es '{estatus_final_en_db_obj}'")
+        db_doctor.motivo_baja = None
+    
+    if estatus_final_en_db_obj != "Defunción":
+        if db_doctor.fecha_fallecimiento is not None: print(f"INFO BACKEND: Limpiando fecha_fallecimiento (era: '{db_doctor.fecha_fallecimiento}') porque estatus es '{estatus_final_en_db_obj}'")
+        db_doctor.fecha_fallecimiento = None
+    
+    if estatus_final_en_db_obj == "Activo":
+        campos_a_limpiar_si_activo = ["notificacion_baja", "fecha_extraccion", "fecha_notificacion"] 
+        #print((f"INFO BACKEND: Estatus es 'Activo'. Limpiando campos: {campos_a_limpiar_si_activo}")
+        for campo in campos_a_limpiar_si_activo:
+            if hasattr(db_doctor, campo) and getattr(db_doctor, campo) is not None: 
+                #print((f"INFO BACKEND: Limpiando campo '{campo}' (era: {getattr(db_doctor, campo)})")
+                setattr(db_doctor, campo, None)
+    
+    elif estatus_final_en_db_obj in ["Baja", "Baja Definitiva", "Defunción"]: 
+        campos_a_limpiar_si_baja = ["nivel_atencion", "turno", "nombre_unidad"]
+        #print((f"INFO BACKEND: Estatus es '{estatus_final_en_db_obj}'. Limpiando campos: {campos_a_limpiar_si_baja}")
+        for campo in campos_a_limpiar_si_baja:
+            if hasattr(db_doctor, campo) and getattr(db_doctor, campo) is not None:
+                #print((f"INFO BACKEND: Limpiando campo '{campo}' (era: {getattr(db_doctor, campo)})")
+                setattr(db_doctor, campo, None)
+
+    # 5. Validación de Unicidad para CURP
+    if db_doctor.curp is not None: 
+        #print((f"INFO BACKEND: Verificando unicidad para CURP: '{db_doctor.curp}'")
+        existing_doctor_curp = db.query(models.Doctor).filter(
+            models.Doctor.curp == db_doctor.curp,
+            models.Doctor.id != doctor_id # Excluir el doctor actual de la búsqueda
+        ).first()
+        if existing_doctor_curp:
+            #print((f"ERROR BACKEND: CURP '{db_doctor.curp}' duplicado encontrado para doctor ID {existing_doctor_curp.id}.")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"El CURP '{db_doctor.curp}' ya está registrado para otro doctor."
+            )
+    
+    # 6. Commit a la base de datos y registro de auditoría
+    try:
+        db.add(db_doctor) # SQLAlchemy rastrea el objeto db_doctor y aplicará los cambios con setattr
+
+        if changed_field_names:
+            # Crear un string como "Campos actualizados: Nombre Completo, Estatus, Telefono"
+            details_for_log = f"Se actualizo Doctor:  {db_doctor.nombre_completo}: {', '.join(changed_field_names)}."
+        else:
+            # Si no hubo cambios de valor, aunque se haya hecho un PUT
+            details_for_log = "Actualización procesada, sin cambios de valor detectados en los campos enviados."
+        # --- FIN DE MODIFICACIÓN ---
+        
+        log_action(
+            db=db, 
+            user=current_user, 
+            action_type="Actualizar Doctor", 
+            target_entity="Doctor",
+            target_id=doctor_id,
+            details=details_for_log # Usar el nuevo string descriptivo
         )
+        db.commit()
+        #print(("INFO BACKEND: db.commit() EJECUTADO.")
+        
+        db.refresh(db_doctor)
+        #print(("INFO BACKEND: db.refresh(db_doctor) EJECUTADO.")
+        
+        # Preparar la respuesta (DoctorDetail incluye attachments)
+        # attachments = db.query(models.DoctorAttachment).filter(models.DoctorAttachment.doctor_id == doctor_id).all()
+        # db_doctor.attachments = attachments # Asignar si la relación no se carga automáticamente
+        
+        doctor_detail_response = schemas.DoctorDetail.from_orm(db_doctor)
+        
+        #print((f"DEBUG BACKEND (#print( 4): Estatus en RESPONSE OBJECT: '{doctor_detail_response.estatus}'")
+        #print((f"--- FIN ACTUALIZAR DOCTOR ID: {doctor_id} ---")
+        
+        return doctor_detail_response
+            
+    except IntegrityError as e:
+        db.rollback()
+        #print((f"ERROR BACKEND: IntegrityError - {e.orig}")
+        # ... (tu manejo de IntegrityError mejorado) ...
+        error_info_orig = e.orig.diag.message_detail if hasattr(e.orig, 'diag') and hasattr(e.orig.diag, 'message_detail') else str(e.orig)
+        detail_message = f"Error de integridad en base de datos. Detalles: {error_info_orig}"
+        if hasattr(e, 'orig') and e.orig is not None and getattr(e.orig, 'pgcode', '') == '23505': 
+            match = re.search(r'key \((.*?)\)=\((.*?)\) already exists', error_info_orig, re.IGNORECASE)
+            if match: detail_message = f"El valor '{match.group(2)}' para el campo '{match.group(1)}' ya existe."
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail_message)
+
+    except Exception as e:
+        db.rollback()
+        #print((f"ERROR BACKEND: Exception - {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error inesperado al actualizar: {str(e)}")
+
+
 # --- Endpoint de Autenticación (Login) ---
 @app.post("/api/token", response_model=schemas.Token, tags=["Autenticación"])
 async def login_for_access_token(
@@ -561,14 +793,103 @@ async def admin_reset_password(
 async def generar_reporte_excel(
     db: Session = Depends(get_db_session), current_user: Optional[models.User] = Depends(security.get_optional_current_user)
 ):
-    # ... (tu código sin cambios, usando model_dump()) ...
-    doctores_db = db.query(models.Doctor).order_by(models.Doctor.identificador_imss).all()
-    if not doctores_db: raise HTTPException(status_code=404, detail="No hay doctores.")
-    doctores_list = [schemas.Doctor.from_orm(doc).model_dump() for doc in doctores_db]
-    df = pd.DataFrame(doctores_list); output = GlobalBytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer: df.to_excel(writer, index=False, sheet_name='Doctores')
-    output.seek(0); headers = {'Content-Disposition': 'attachment; filename="reporte_doctores.xlsx"'}
-    return StreamingResponse(output, headers=headers, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    try:
+        # Construir la consulta base
+        query = db.query(models.Doctor)
+
+        # Aplicar filtros según la lógica de negocio para el reporte
+        # Por ejemplo, siempre excluir los eliminados para este reporte público
+        query = query.filter(models.Doctor.is_deleted == False)
+        print("DEBUG Reporte Excel: Aplicando filtro is_deleted == False")
+
+        # Aplicar otros filtros si se pasaron como parámetros
+        # if estatus and estatus.lower() != "todos":
+        #     query = query.filter(models.Doctor.estatus == estatus)
+        # if entidad:
+        #     query = query.filter(models.Doctor.entidad == entidad)
+        
+        # Ordenar los resultados si es necesario
+        if hasattr(models.Doctor, 'id'):
+            query = query.order_by(models.Doctor.id)
+        
+        doctores_orm = query.all()
+
+        if not doctores_orm:
+            # Considera devolver un 204 No Content o un Excel vacío con encabezados
+            # Por ahora, un error si no hay datos podría ser confuso, mejor un Excel vacío.
+            print("DEBUG Reporte Excel: No hay doctores para el reporte.")
+            # Crear un DataFrame vacío con las columnas esperadas para que el archivo no esté corrupto
+            column_names = [
+                "ID", "Identificador IMSS", "Nombre Completo", "Estatus", "CURP", 
+                "Especialidad", "Entidad", "Fecha de Nacimiento", "Sexo", "Turno",
+                "Unidad Médica", "Municipio", "Nivel de Atención", "Fecha de Estatus",
+                "Teléfono", "Correo Electrónico", "Cédula Licenciatura", "Cédula Especialidad",
+                # Añade todos los campos que quieras en el reporte
+            ]
+            df = pd.DataFrame(columns=column_names)
+
+        else:
+            # Convertir la lista de objetos SQLAlchemy a una lista de diccionarios
+            # Selecciona los campos que quieres en el reporte
+            doctores_data = []
+            for doc in doctores_orm:
+                doctores_data.append({
+                    "ID": doc.id,
+                    "Identificador IMSS": doc.identificador_imss,
+                    "Nombre Completo": doc.nombre_completo,
+                    "Estatus": doc.estatus,
+                    "CURP": doc.curp,
+                    "Especialidad": doc.especialidad,
+                    "Entidad": doc.entidad,
+                    "Fecha de Nacimiento": doc.fecha_nacimiento,
+                    "Sexo": doc.sexo,
+                    "Turno": doc.turno,
+                    "Unidad Médica": doc.nombre_unidad,
+                    "Municipio": doc.municipio,
+                    "Nivel de Atención": doc.nivel_atencion,
+                    "Fecha de Estatus": doc.fecha_estatus,
+                    "Teléfono": doc.tel,
+                    "Correo Electrónico": doc.correo_electronico,
+                    "Cédula Licenciatura": doc.cedula_lic,
+                    "Cédula Especialidad": doc.cedula_esp,
+                    "Fecha Notificación Baja": doc.fecha_notificacion,
+                    "Motivo Baja": doc.motivo_baja,
+                    "Comentarios Estatus": doc.comentarios_estatus,
+                    "Fecha Fallecimiento": doc.fecha_fallecimiento,
+                    # Asegúrate de incluir todos los campos que quieres
+                })
+            df = pd.DataFrame(doctores_data)
+
+        # --- CORRECCIÓN PARA DATETIMES CON TIMEZONE ---
+        for col in df.columns:
+            # Verificar si la columna es de tipo datetime y tiene timezone
+            if pd.api.types.is_datetime64_any_dtype(df[col]) and getattr(df[col].dt, 'tz', None) is not None:
+                print(f"DEBUG Reporte Excel: Convirtiendo columna '{col}' a timezone-naive.")
+                df[col] = df[col].dt.tz_localize(None)
+            # Si tus fechas son objetos 'date' de Python y no datetimes, usualmente no tienen tz y no causan problema.
+            # Si son strings que representan fechas, pandas podría inferirlos como datetime al crear el DataFrame.
+        # --- FIN CORRECCIÓN ---
+
+        output = BytesIO()
+        # Usar with para asegurar que el writer se cierre correctamente
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Doctores')
+        
+        output.seek(0)
+
+        headers = {
+            'Content-Disposition': 'attachment; filename="reporte_doctores.xlsx"'
+        }
+        return StreamingResponse(output, headers=headers, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+    except Exception as e:
+        print(f"Error al generar reporte Excel: {e}")
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno del servidor al generar el reporte Excel: {str(e)}"
+        )
+
 
 @app.get("/api/reporte/pdf", tags=["Reportes"])
 async def generar_reporte_resumen_pdf(
@@ -629,3 +950,451 @@ async def get_data_grafica_doctores_por_estatus(
     for row in result:
         if row.label: data_items.append({"id": row.label, "label": row.label, "value": row.value})
     return data_items
+
+
+@app.get("/api/admin/audit-logs", response_model=schemas.AuditLogsPaginados, tags=["Admin - Auditoría"])
+async def leer_logs_auditoria(
+   db: Session = Depends(get_db_session),
+    current_admin: models.User = Depends(security.get_current_admin_user), 
+    skip: int = Query(0, ge=0, description="Número de registros a saltar para paginación"),
+    limit: int = Query(100, ge=1, le=200, description="Número máximo de registros a devolver"),
+    start_date: Optional[date] = Query(None, description="Fecha de inicio (YYYY-MM-DD) en zona horaria local del usuario"),
+    end_date: Optional[date] = Query(None, description="Fecha de fin (YYYY-MM-DD) en zona horaria local del usuario")
+):
+    logs_query = db.query(models.AuditLog)
+
+    if start_date:
+        # 1. Crear un datetime "naive" (sin zona horaria) al inicio del día local seleccionado
+        local_start_dt_naive = datetime.combine(start_date, datetime.min.time())
+        # 2. Asignar la zona horaria del usuario a este datetime naive para hacerlo "aware"
+        local_start_dt_aware = USER_TIMEZONE.localize(local_start_dt_naive)
+        # 3. Convertir este datetime aware (en zona horaria del usuario) a UTC
+        start_datetime_utc = local_start_dt_aware.astimezone(pytz.utc)
+        logs_query = logs_query.filter(models.AuditLog.timestamp >= start_datetime_utc)
+
+    if end_date:
+        # 1. Crear un datetime "naive" para el inicio del DÍA SIGUIENTE al end_date seleccionado
+        local_end_dt_exclusive_naive = datetime.combine(end_date + timedelta(days=1), datetime.min.time())
+        # 2. Asignar la zona horaria del usuario
+        local_end_dt_exclusive_aware = USER_TIMEZONE.localize(local_end_dt_exclusive_naive)
+        # 3. Convertirlo a UTC
+        end_datetime_exclusive_utc = local_end_dt_exclusive_aware.astimezone(pytz.utc)
+        
+        logs_query = logs_query.filter(models.AuditLog.timestamp < end_datetime_exclusive_utc)
+        
+    # Contar
+    try:
+        count_query = logs_query # La consulta ya tiene los filtros de fecha
+        total_count = count_query.count()
+        #print((f"Total logs (con filtro): {total_count}")
+    except Exception as e:
+        #print((f"Error al contar logs: {e}")
+        # traceback.#print(_exc()) # Descomenta para ver el traceback completo del error de conteo
+        raise HTTPException(status_code=500, detail=f"Error al obtener el conteo de logs: {str(e)}")
+
+    # Ordenar y paginar
+    logs = logs_query.order_by(models.AuditLog.timestamp.desc()).offset(skip).limit(limit).all()
+    #print((f"Logs devueltos (paginados): {len(logs)}")
+
+    return {"total_count": total_count, "audit_logs": logs}
+
+    
+@app.get("/api/admin/doctores/eliminados", response_model=schemas.DoctoresPaginados, tags=["Admin - Auditoría"])
+async def leer_doctores_eliminados(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=200),
+    db: Session = Depends(get_db_session),
+    current_admin: models.User = Depends(security.get_current_admin_user)
+):
+    base_query = db.query(models.Doctor).filter(models.Doctor.is_deleted == True)
+    total_count = base_query.count() 
+    doctores_eliminados_orm = base_query.options(
+        selectinload(models.Doctor.deleted_by_user_obj) # Carga la relación User
+    ).order_by(models.Doctor.deleted_at.desc()).offset(skip).limit(limit).all()
+    
+    response_doctores = []
+    for doc_orm in doctores_eliminados_orm:
+        # 1. Convertir el objeto ORM a un schema Pydantic.
+        #    schemas.Doctor debe tener el campo 'deleted_by_username: Optional[str]'
+        doc_schema_instance = schemas.Doctor.from_orm(doc_orm)
+        
+        # 2. Asignar el username al campo correspondiente en la instancia del schema
+        if doc_orm.deleted_by_user_obj and hasattr(doc_orm.deleted_by_user_obj, 'username'):
+            doc_schema_instance.deleted_by_username = doc_orm.deleted_by_user_obj.username
+        else:
+            # Si no hay usuario asociado a la eliminación, o el objeto no tiene username
+            doc_schema_instance.deleted_by_username = "Desconocido" # O None si tu schema lo permite y prefieres
+
+        response_doctores.append(doc_schema_instance) 
+    
+    return {"total_count": total_count, "doctores": response_doctores}
+
+
+@app.post("/api/admin/doctores/{doctor_id}/restore", response_model=schemas.Doctor, tags=["Admin - Auditoría"])
+async def restaurar_doctor(
+     doctor_id: int,
+     db: Session = Depends(get_db_session),
+     current_admin: models.User = Depends(security.get_current_admin_user)
+ ):
+    db_doctor = db.query(models.Doctor).filter(models.Doctor.id == doctor_id, models.Doctor.is_deleted == True).first()
+    if db_doctor is None:
+        # Verificar si no existe o si no estaba eliminado
+        check_exists_not_deleted = db.query(models.Doctor).filter(models.Doctor.id == doctor_id, models.Doctor.is_deleted == False).first()
+        if check_exists_not_deleted:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El doctor no está eliminado y no puede ser restaurado.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Doctor eliminado no encontrado.")
+
+    try:
+        db_doctor.is_deleted = False
+        db_doctor.deleted_at = None
+        # Considera si quieres limpiar deleted_by_user_id o mantenerlo para el historial
+        # db_doctor.deleted_by_user_id = None 
+        
+        log_details = f"Doctor restaurado: {db_doctor.nombre_completo} (ID: {db_doctor.id})"
+        log_action(db, current_admin, "Restaurar Doctor", "Doctor", doctor_id, log_details)
+        
+        db.commit()
+        db.refresh(db_doctor)
+        return db_doctor
+    except Exception as e:
+        db.rollback()
+        traceback.print_exc()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error al restaurar el doctor: {str(e)}")
+
+@app.delete("/api/admin/audit-logs/bulk-delete", status_code=status.HTTP_200_OK, tags=["Admin - Auditoría"])
+async def eliminar_logs_auditoria_en_lote(
+      request_body: schemas.AuditLogBulkDeleteRequest = Body(...), # <--- USA schemas.AuditLogBulkDeleteRequest
+    db: Session = Depends(get_db_session),
+    current_admin: models.User = Depends(security.get_current_admin_user) 
+):
+    """
+    Elimina registros de auditoría en lote.
+    ADVERTENCIA: Esta acción es destructiva y generalmente no se recomienda para logs de auditoría.
+    """
+    if not request_body.ids:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No se proporcionaron IDs para eliminar.")
+
+    print(f"Solicitud para eliminar logs con IDs: {request_body.ids}")
+
+    try:
+        num_deleted = db.query(models.AuditLog).filter(models.AuditLog.id.in_(request_body.ids)).delete(synchronize_session=False)
+        db.commit()
+
+        if num_deleted == 0 and len(request_body.ids) > 0:
+             # Esto podría significar que los IDs no existían, o que ya fueron borrados
+             print(f"Se intentó eliminar {len(request_body.ids)} logs, pero no se encontraron o ya estaban eliminados.")
+             # Podrías devolver un 404 si ninguno fue encontrado, o un 200 con mensaje.
+             # Por ahora, devolvemos un mensaje de éxito parcial/informativo.
+
+        print(f"{num_deleted} registro(s) de auditoría eliminados de la base de datos.")
+        return {"message": f"{num_deleted} de {len(request_body.ids)} registro(s) de auditoría solicitados fueron eliminados."}
+
+    except Exception as e:
+        db.rollback()
+        print(f"Error al eliminar logs de auditoría en lote: {e}")
+        traceback.print_exc() # Para ver el error completo en la consola del backend
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno del servidor al intentar eliminar los logs de auditoría: {str(e)}"
+        )
+
+@app.get("/api/doctores/check-curp/{curp_valor}", 
+         response_model=schemas.CurpCheckResponse, # Necesitarás crear este schema
+         tags=["Doctores"])
+async def verificar_curp_existente(
+    curp_valor: str, 
+    db: Session = Depends(get_db_session),
+    # current_user: models.User = Depends(security.get_current_user) # Si la verificación requiere autenticación
+):
+    if not curp_valor or len(curp_valor) != 18:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Formato de CURP inválido.")
+
+    # Busca un doctor existente con ese CURP que no esté marcado como eliminado
+    existing_doctor = db.query(models.Doctor).filter(
+        models.Doctor.curp == curp_valor.upper(),
+        models.Doctor.is_deleted == False 
+    ).first()
+
+    if existing_doctor:
+        return {"exists": True, "message": "Este CURP ya está registrado."}
+    return {"exists": False, "message": "CURP disponible."}
+
+@app.get("/api/graficas/estadistica_doctores_agrupados", 
+         response_model=schemas.EstadisticaPaginada, # Usa tu 'schemas.' real
+         tags=["Graficas y Estadísticas"])
+async def obtener_estadistica_doctores_agrupados(
+    db: Session = Depends(get_db_session), # Usa tu 'get_db_session' real
+    current_user: models.User = Depends(security.get_current_user), # Usa tu 'security.get_current_user' real
+    skip: int = Query(0, ge=0),
+    limit: int = Query(10, ge=1, le=100),
+    entidad: Optional[str] = Query(None),
+    especialidad: Optional[str] = Query(None),
+    nivel_atencion: Optional[str] = Query(None)
+):
+    
+    # Inicializar variables para evitar UnboundLocalError si una consulta falla antes de la asignación
+    total_groups_count = 0
+    total_doctors_in_groups_count = 0
+    items_for_response = []
+    try:
+        # Query base para aplicar filtros
+        base_filtered_query = db.query(models.Doctor).filter(models.Doctor.is_deleted == False)
+        if entidad: base_filtered_query = base_filtered_query.filter(models.Doctor.entidad == entidad)
+        if especialidad: base_filtered_query = base_filtered_query.filter(models.Doctor.especialidad == especialidad)
+        if nivel_atencion: base_filtered_query = base_filtered_query.filter(models.Doctor.nivel_atencion == nivel_atencion)
+
+        # Contar el total de DOCTORES INDIVIDUALES que coinciden con los filtros
+        total_doctors_in_groups_count = base_filtered_query.count() or 0
+        print(f"DEBUG Backend: Suma total de doctores en los grupos filtrados: {total_doctors_in_groups_count}")
+
+        # Query para agrupar y obtener los items de la página actual
+        grouped_query_for_items = base_filtered_query.with_entities(
+            models.Doctor.entidad,
+            models.Doctor.especialidad,
+            models.Doctor.nivel_atencion,
+            func.count(models.Doctor.id).label("cantidad")
+        ).group_by(
+            models.Doctor.entidad,
+            models.Doctor.especialidad,
+            models.Doctor.nivel_atencion
+        )
+
+        # Contar el total de grupos distintos (para paginación de la tabla)
+        count_subquery = grouped_query_for_items.with_entities(
+             models.Doctor.entidad, models.Doctor.especialidad, models.Doctor.nivel_atencion
+             ).distinct().subquery('grouped_data_for_count')
+        
+        total_groups_count_query = db.query(func.count()).select_from(count_subquery)
+        scalar_result = total_groups_count_query.scalar()
+        total_groups_count = scalar_result if scalar_result is not None else 0
+        
+        total_groups_count_query = db.query(func.count()).select_from(count_subquery)
+        total_groups_count = total_groups_count_query.scalar()
+        total_groups_count = total_groups_count if total_groups_count is not None else 0
+        print(f"DEBUG Backend: Suma total de doctores en los grupos filtrados: {total_groups_count}")
+
+        # Aplicar ordenamiento, offset y limit para la paginación de los grupos
+        query_result_paginated = grouped_query_for_items.order_by(
+            models.Doctor.entidad.asc().nullsfirst(), 
+            models.Doctor.especialidad.asc().nullsfirst(),
+            models.Doctor.nivel_atencion.asc().nullsfirst()
+        ).offset(skip).limit(limit).all()
+        items_for_response = []
+        for row in query_result_paginated:
+            item_data = {
+                "entidad": row.entidad if row.entidad is not None else "N/A",
+                "especialidad": row.especialidad if row.especialidad is not None else "N/A",
+                "nivel_atencion": row.nivel_atencion if row.nivel_atencion is not None else "N/A",
+                "cantidad": row.cantidad if row.cantidad is not None else 0
+            }
+            items_for_response.append(schemas.EstadisticaAgrupadaItem(**item_data)) # Usa tu 'schemas.' real
+        print(f"DEBUG Backend: Items para la página actual: {len(items_for_response)}")
+        return {
+            "total_groups": total_groups_count, # <--- Usa la clave que espera el schema
+            "total_doctors_in_groups": total_doctors_in_groups_count, # Nuevo campo
+            "items": items_for_response
+        }
+    except Exception as e:
+        print(f"Error al obtener estadística agrupada: {e}")
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno del servidor al generar la estadística: {str(e)}"
+        )
+
+
+@app.get("/api/graficas/especialidades_agrupadas", 
+         response_model=List[schemas.EspecialidadAgrupada],  # Definiremos este schema después
+         tags=["Graficas y Estadísticas"])
+async def obtener_especialidades_agrupadas(
+    db: Session = Depends(get_db_session),
+    current_user: models.User = Depends(security.get_current_user)
+):
+    try:
+        # Consulta para Especialidades Básicas
+        query_basicas = db.query(
+            models.Doctor.especialidad,
+            func.count(models.Doctor.id).label("total_doctores")
+        ).filter(
+            models.Doctor.is_deleted == False,
+            models.Doctor.especialidad.in_([
+                "ANESTESIOLOGIA",
+                "CIRUGIA GENERAL",
+                "GINECOLOGIA Y OBSTETRICIA",
+                "MEDICINA FAMILIAR",
+                "MEDICINA INTERNA",
+                "MEDICINA DE URGENCIAS",
+                "PEDIATRIA MEDICA"
+            ])
+        ).group_by(models.Doctor.especialidad).order_by(models.Doctor.especialidad)
+
+        # Consulta para Especialidades Quirúrgicas
+        query_quirurgicas = db.query(
+            models.Doctor.especialidad,
+            func.count(models.Doctor.id).label("total_doctores")
+        ).filter(
+            models.Doctor.is_deleted == False,
+            models.Doctor.especialidad.in_([
+                "ANGIOLOGIA, CIRUGIA VASCULAR Y ENDOVASCULAR",
+                "CIRUGIA PEDIATRICA",
+                "CIRUGIA ONCOLOGICA",
+                "COLOPROCTOLOGIA",
+                "NEUROCIRUGIA",
+                "OFTALMOLOGIA",
+                "OTORRINOLARINGOLOGIA Y CIRUGIA DE CABEZA Y CUELLO",
+                "TRAUMATOLOGIA Y ORTOPEDIA",
+                "UROLOGIA"
+            ])
+        ).group_by(models.Doctor.especialidad).order_by(models.Doctor.especialidad)
+
+        # Consulta para Especialidades Médicas
+        query_medicas = db.query(
+            models.Doctor.especialidad,
+            func.count(models.Doctor.id).label("total_doctores")
+        ).filter(
+            models.Doctor.is_deleted == False,
+            models.Doctor.especialidad.in_([
+                "ANATOMIA PATOLOGICA",
+                "CARDIOLOGIA CLINICA",
+                "DERMATOLOGIA",
+                "ENDOCRINOLOGIA",
+                "EPIDEMIOLOGIA",
+                "GASTROENTEROLOGIA",
+                "GERIATRIA",
+                "HEMATOLOGIA",
+                "INMUNOLOGIA CLINICA Y ALERGIA",
+                "MEDICINA CRITICA",
+                "MEDICINA DE REHABILITACION",
+                "MEDICINA DEL ENFERMO PEDIATRICO EN ESTADO CRITICO",
+                "NEFROLOGIA",
+                "NEONATOLOGIA",
+                "NEUMOLOGIA",
+                "NEUROLOGIA ADULTOS",
+                "ONCOLOGIA MEDICA",
+                "ONCOLOGIA PEDIATRICA",
+                "PSIQUIATRIA",
+                "PSIQUIATRIA INFANTIL Y DE LA ADOLESCENCIA",
+                "RADIOLOGIA E IMAGEN",
+                "REUMATOLOGIA"
+            ])
+        ).group_by(models.Doctor.especialidad).order_by(models.Doctor.especialidad)
+
+        # Ejecutar consultas
+        basicas = query_basicas.all()
+        quirurgicas = query_quirurgicas.all()
+        medicas = query_medicas.all()
+
+        # Calcular totales
+        total_basicas = sum(item.total_doctores for item in basicas)
+        total_quirurgicas = sum(item.total_doctores for item in quirurgicas)
+        total_medicas = sum(item.total_doctores for item in medicas)
+
+        # Preparar respuesta
+        response = [
+            {
+                "tipo": "BASICAS",
+                "especialidades": [{"nombre": item.especialidad, "total_doctores": item.total_doctores} for item in basicas],
+                "total": total_basicas
+            },
+            {
+                "tipo": "QUIRURGICAS",
+                "especialidades": [{"nombre": item.especialidad, "total_doctores": item.total_doctores} for item in quirurgicas],
+                "total": total_quirurgicas
+            },
+            {
+                "tipo": "MEDICAS",
+                "especialidades": [{"nombre": item.especialidad, "total_doctores": item.total_doctores} for item in medicas],
+                "total": total_medicas
+            }
+        ]
+
+        return response
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al obtener especialidades agrupadas: {str(e)}"
+        )
+
+@app.get("/api/graficas/doctores_por_nivel_atencion",
+         response_model=List[schemas.NivelAtencionItem],
+         tags=["Graficas y Estadísticas"])
+async def obtener_doctores_por_nivel_atencion(
+    db: Session = Depends(get_db_session),
+    current_user: models.User = Depends(security.get_current_user)
+):
+    try:
+        niveles = ["PRIMER NIVEL", "SEGUNDO NIVEL", "TERCER NIVEL", "NO APLICA"]
+        
+        query = db.query(
+            models.Doctor.nivel_atencion,
+            func.count(models.Doctor.id).label("total_doctores")
+        ).filter(
+            models.Doctor.is_deleted == False,
+            models.Doctor.nivel_atencion.in_(niveles)
+        ).group_by(models.Doctor.nivel_atencion)
+        
+        resultados = query.all()
+        
+        # Asegurarnos de que todos los niveles aparezcan incluso si no hay doctores
+        response = []
+        for nivel in niveles:
+            encontrado = next((item for item in resultados if item.nivel_atencion == nivel), None)
+            response.append({
+                "nivel_atencion": nivel,
+                "total_doctores": encontrado.total_doctores if encontrado else 0
+            })
+        
+        return response
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al obtener doctores por nivel de atención: {str(e)}"
+        )
+
+@app.get("/api/graficas/doctores_por_cedulas",
+         response_model=schemas.CedulasCount,
+         tags=["Graficas y Estadísticas"])
+async def obtener_doctores_por_cedulas(
+    db: Session = Depends(get_db_session),
+    current_user: models.User = Depends(security.get_current_user)
+):
+    try:
+        # Contar doctores con cédula de licenciatura
+        con_licenciatura = db.query(func.count(models.Doctor.id)).filter(
+            models.Doctor.is_deleted == False,
+            models.Doctor.cedula_lic.isnot(None)
+        ).scalar() or 0
+        
+        # Contar doctores SIN cédula de licenciatura
+        sin_licenciatura = db.query(func.count(models.Doctor.id)).filter(
+            models.Doctor.is_deleted == False,
+            models.Doctor.cedula_lic.is_(None)
+        ).scalar() or 0
+        
+        # Contar doctores con cédula de especialidad
+        con_especialidad = db.query(func.count(models.Doctor.id)).filter(
+            models.Doctor.is_deleted == False,
+            models.Doctor.cedula_esp.isnot(None)
+        ).scalar() or 0
+        
+        # Contar doctores SIN cédula de especialidad
+        sin_especialidad = db.query(func.count(models.Doctor.id)).filter(
+            models.Doctor.is_deleted == False,
+            models.Doctor.cedula_esp.is_(None)
+        ).scalar() or 0
+        
+        return {
+            "con_licenciatura": con_licenciatura,
+            "sin_licenciatura": sin_licenciatura,
+            "con_especialidad": con_especialidad,
+            "sin_especialidad": sin_especialidad,
+            "total_doctores": con_licenciatura + sin_licenciatura  # Asumiendo que es el mismo total
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al obtener conteo de cédulas: {str(e)}"
+        )
