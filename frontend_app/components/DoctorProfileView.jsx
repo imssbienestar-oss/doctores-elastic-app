@@ -1,8 +1,7 @@
 // src/components/DoctorProfileView.jsx
 import React, { useState, useEffect } from "react";
+import { useAuth } from "../src/contexts/AuthContext";
 
-// profileStyles puede permanecer aquí ya que FieldRenderer lo accederá directamente
-// si está en el mismo scope de módulo.
 const profileStyles = {
   container: {
     padding: "20px",
@@ -155,6 +154,7 @@ const profileStyles = {
     width: "150px",
     height: "150px",
     borderRadius: "50%",
+    marginLeft: "100px",
     backgroundColor: "#f0f0f0",
     display: "flex",
     alignItems: "center",
@@ -229,10 +229,54 @@ const profileStyles = {
     justifyContent: "flex-end",
     alignItems: "center",
   },
+  defuncionMessage: {
+    // Nuevo estilo para el mensaje de defunción
+    color: "red",
+    fontWeight: "bold",
+    textAlign: "center",
+    padding: "10px",
+    border: "1px solid red",
+    borderRadius: "4px",
+    backgroundColor: "#ffe0e0",
+    marginTop: "15px",
+    marginBottom: "15px",
+  },
 };
+
+const MOTIVO_BAJA_OPTIONS = [
+  { value: "", label: "Seleccionar motivo..." },
+  { value: "Renuncia Voluntaria", label: "Renuncia Voluntaria" },
+  { value: "Término de Contrato", label: "Término de Contrato" },
+  { value: "Jubilación", label: "Jubilación" },
+  { value: "Abandono de Empleo", label: "Abandono de Empleo" },
+  { value: "Reubicación", label: "Reubicación" },
+  { value: "Otro", label: "Otro" },
+];
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+
+// --- FUNCIÓN PARA FORMATEAR FECHAS YYYY-MM-DD a DD/MM/YYYY ---
+const formatDateForDisplay = (isoDateString) => {
+  if (!isoDateString || typeof isoDateString !== 'string') {
+    return "No especificado"; // O devuelve una cadena vacía: ""
+  }
+  // Asume que isoDateString es como "YYYY-MM-DD"
+  const parts = isoDateString.split('-');
+  if (parts.length === 3) {
+    const year = parts[0];
+    const month = parts[1];
+    const day = parts[2];
+    // Validar que sean números (básico)
+    if (!isNaN(parseInt(year)) && !isNaN(parseInt(month)) && !isNaN(parseInt(day))) {
+        // Re-formatear a DD/MM/YYYY
+        return `${day}/${month}/${year}`;
+    }
+  }
+  // Si no es el formato esperado o es inválido, devuelve el original o un placeholder
+  return isoDateString; // O "Fecha inválida"
+};
+// --- FIN FUNCIÓN ---
 
 // Define FieldRenderer FUERA de DoctorProfileView y envuélvelo con React.memo
 const FieldRenderer = React.memo(
@@ -245,42 +289,42 @@ const FieldRenderer = React.memo(
     currentValue, // Usaremos una prop 'currentValue'
     onChange,
     isLoading,
+    disabled = false,
   }) => {
-    // Determina el valor para mostrar o editar
-    // Para inputs, un string vacío es mejor que null/undefined para evitar warnings de React (controlled/uncontrolled)
     const valueForInput =
       currentValue === null || currentValue === undefined ? "" : currentValue;
 
-    // Determina el valor para visualización (cuando no se está editando)
-    const valueForDisplay =
-      currentValue === null ||
-      currentValue === undefined ||
-      String(currentValue).trim() === ""
-        ? "No especificado"
-        : String(currentValue);
+   let valueForDisplay;
+    // Lista de campos que son fechas y deben formatearse para visualización
+    const dateFieldsToFormat = [
+        "fecha_nacimiento", "fecha_notificacion", "fecha_estatus", 
+        "fecha_vuelo", "fecha_fallecimiento", "fecha_extraccion" // Si fecha_extraccion también es YYYY-MM-DD
+    ];
 
-    if (fieldName === "correo_electronico" && !isEditing) {
-      // console.log(`FieldRenderer (Display) - ${label}: `, valueForDisplay, "(Original:", currentValue, ")");
+    if (!isEditing && dateFieldsToFormat.includes(fieldName) && currentValue) {
+        valueForDisplay = formatDateForDisplay(currentValue);
+    } else {
+        valueForDisplay =
+          currentValue === null ||
+          currentValue === undefined ||
+          String(currentValue).trim() === ""
+            ? "No especificado"
+            : String(currentValue);
     }
-    if (fieldName === "correo_electronico" && isEditing) {
-      // console.log(`FieldRenderer (Edit) - ${label}: `, valueForInput);
-    }
-
     return (
       <div style={profileStyles.fieldPair}>
         <label htmlFor={fieldName} style={profileStyles.fieldLabel}>
           {label}:
-        </label>{" "}
-        {/* Añadido htmlFor */}
+        </label>
         {isEditing ? (
           type === "select" ? (
             <select
-              id={fieldName} // Añadido id
+              id={fieldName}
               name={fieldName}
-              value={valueForInput} // Usar valueForInput
+              value={valueForInput}
               onChange={onChange}
               style={profileStyles.fieldInput}
-              disabled={isLoading}
+              disabled={isLoading || disabled}
             >
               <option value="">Seleccionar...</option>
               {options.map((opt) => (
@@ -289,15 +333,29 @@ const FieldRenderer = React.memo(
                 </option>
               ))}
             </select>
+          ) : type === "textarea" ? (
+            <textarea
+              id={fieldName}
+              name={fieldName}
+              value={valueForInput}
+              onChange={onChange}
+              style={{
+                ...profileStyles.fieldInput,
+                height: "100px",
+                resize: "vertical",
+              }}
+              disabled={isLoading || disabled}
+              rows={4}
+            />
           ) : (
             <input
-              id={fieldName} // Añadido id
+              id={fieldName}
               type={type}
               name={fieldName}
-              value={valueForInput} // Usar valueForInput
+              value={valueForInput}
               onChange={onChange}
               style={profileStyles.fieldInput}
-              disabled={isLoading}
+              disabled={isLoading || disabled}
             />
           )
         ) : (
@@ -307,9 +365,12 @@ const FieldRenderer = React.memo(
     );
   }
 );
-FieldRenderer.displayName = "FieldRenderer"; // Ayuda en React DevTools
+FieldRenderer.displayName = "FieldRenderer";
 
 function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
+  const { currentUser } = useAuth();
+  const userRole = currentUser?.role; // Obtener el rol del usuario
+
   const [doctor, setDoctor] = useState(initialDoctor);
   const [editableDoctorData, setEditableDoctorData] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -321,19 +382,33 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
+  const doctorGuardadoEsDefuncion = doctor?.estatus === "Defunción";
+  const puedeEditarAdminRegistroDefuncion = userRole === "admin";
+  // El perfil general está bloqueado para edición si es Defunción Y el usuario actual NO es admin.
+  const edicionGeneralBloqueada =
+    doctorGuardadoEsDefuncion && !puedeEditarAdminRegistroDefuncion;
+
   useEffect(() => {
     setDoctor(initialDoctor);
     if (initialDoctor) {
-      setEditableDoctorData({ ...initialDoctor });
+      const defaultFormValuesForAllFields = {
+      telefono: "", correo_electronico: "", fecha_nacimiento: "", entidad_nacimiento: "",
+      matrimonio_id: "", cedula_lic: "", cedula_esp: "", nombre_unidad: "", nivel_atencion: "Seleccionar..", turno: "", fecha_notificacion: "",
+      notificacion_baja: "", fecha_extraccion: "", motivo_baja: "", fecha_fallecimiento: "",
+      fecha_estatus: "", despliegue: "", fecha_vuelo: "", estrato: "", acuerdo: "",
+      comentarios_estatus: "", matrimonio_id: "",
+      // No incluyas aquí los campos que SÍ o SÍ vienen de initialDoctor del paso 1,
+      // como nombre_completo, estatus, curp, especialidad, id.
+    };
+       setEditableDoctorData({
+      ...defaultFormValuesForAllFields, // Primero los defaults para todos los campos posibles
+      ...initialDoctor,                 // Luego sobrescribe con lo que realmente trae initialDoctor
+    });
     } else {
       setEditableDoctorData(null);
     }
-    // No resetear isEditing aquí si initialDoctor cambia debido a una actualización
-    // setIsEditing(false); // Podría causar que se salga del modo edición prematuramente
-    setSelectedProfilePicFile(null);
-    setProfilePicPreviewUrl(null);
-    setSelectedAttachmentFile(null);
-  }, [initialDoctor]);
+    // ... resto del useEffect ...
+  }, [initialDoctor, userRole]);
 
   useEffect(() => {
     if (successMessage || error) {
@@ -346,11 +421,29 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
   }, [successMessage, error]);
 
   const handleEditToggle = () => {
+    if (edicionGeneralBloqueada) {
+      setError(
+        "Este registro está cerrado por defunción y su rol actual no permite modificarlo."
+      );
+      return;
+    }
+
     if (isEditing) {
-      setEditableDoctorData({ ...doctor });
+      setEditableDoctorData({
+        comentarios_estatus: doctor.comentarios_estatus || "",
+        motivo_baja: doctor.motivo_baja || "",
+        fecha_fallecimiento: doctor.fecha_fallecimiento || "",
+        ...doctor,
+      });
       setError("");
     } else {
-      if (doctor) setEditableDoctorData({ ...doctor });
+      if (doctor)
+        setEditableDoctorData({
+          comentarios_estatus: doctor.comentarios_estatus || "",
+          motivo_baja: doctor.motivo_baja || "",
+          fecha_fallecimiento: doctor.fecha_fallecimiento || "",
+          ...doctor,
+        });
     }
     setIsEditing(!isEditing);
     setSuccessMessage("");
@@ -358,10 +451,38 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setEditableDoctorData((prevData) => ({
-      ...prevData,
-      [name]: value,
-    }));
+    let newData = { ...editableDoctorData, [name]: value };
+
+    if (name === "estatus") {
+      const nuevoEstatus = value;
+      const camposDeInfoBaja = [
+        "fecha_notificacion",
+        "notificacion_baja",
+        "fecha_extraccion",
+      ];
+      const camposDeActividadRegular = ["nivel_atencion", "turno"];
+
+      // Limpiar motivo_baja si el estatus no es "Baja" (o tu valor específico de baja general)
+      if (nuevoEstatus !== "Baja") {
+        // Ajusta "Baja" al valor exacto que usas
+        newData.motivo_baja = null;
+      }
+      // Limpiar fecha_fallecimiento si el estatus no es "Defunción"
+      if (nuevoEstatus !== "Defunción") {
+        newData.fecha_fallecimiento = null;
+      }
+
+      if (nuevoEstatus === "Activo") {
+        camposDeInfoBaja.forEach((campo) => {
+          if (campo in newData) newData[campo] = null;
+        });
+      } else if (["Baja", "Defunción"].includes(nuevoEstatus)) {
+        camposDeActividadRegular.forEach((campo) => {
+          if (campo in newData) newData[campo] = null;
+        });
+      }
+    }
+    setEditableDoctorData(newData);
   };
 
   const handleSaveProfile = async () => {
@@ -373,7 +494,6 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
     setError("");
     setSuccessMessage("");
     const authToken = localStorage.getItem("authToken");
-
     const { profile_pic_url, attachments, id, ...dataToUpdate } =
       editableDoctorData;
 
@@ -382,6 +502,32 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
         dataToUpdate[key] = null;
       }
     });
+
+    const estatusFinal = dataToUpdate.estatus;
+    const camposDeInfoBaja = [
+      "fecha_notificacion",
+      "notificacion_baja",
+      "fecha_extraccion",
+    ];
+    const camposDeActividadRegular = ["nivel_atencion", "turno"];
+
+    if (estatusFinal !== "Baja") {
+      dataToUpdate.motivo_baja = null;
+    }
+    if (estatusFinal !== "Defunción") {
+      dataToUpdate.fecha_fallecimiento = null;
+    }
+
+    if (estatusFinal === "Activo") {
+      camposDeInfoBaja.forEach((f) => {
+        if (f in dataToUpdate) dataToUpdate[f] = null;
+      });
+      // motivo_baja y fecha_fallecimiento ya se limpiaron si es necesario
+    } else if (["Baja", "Defunción"].includes(estatusFinal)) {
+      camposDeActividadRegular.forEach((f) => {
+        if (f in dataToUpdate) dataToUpdate[f] = null;
+      });
+    }
 
     try {
       const response = await fetch(
@@ -395,53 +541,45 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
           body: JSON.stringify(dataToUpdate),
         }
       );
-
-      const responseDataText = await response.text(); // Leer como texto primero
-
+      const responseDataText = await response.text();
       if (!response.ok) {
         let errorDetail = `Error ${response.status}`;
         try {
-          const errorJson = JSON.parse(responseDataText); // Intentar parsear como JSON
-          errorDetail = errorJson.detail || JSON.stringify(errorJson);
+          const errorJson = JSON.parse(responseDataText);
+          errorDetail =
+            typeof errorJson.detail === "string"
+              ? errorJson.detail
+              : JSON.stringify(errorJson.detail);
         } catch (parseError) {
           errorDetail =
-            responseDataText ||
-            `Error ${response.status} al actualizar (sin detalle JSON).`;
+            responseDataText || `Error ${response.status} al actualizar.`;
         }
-        console.error("Error response text from server:", responseDataText);
+        console.error("Error response from server:", responseDataText);
         throw new Error(errorDetail);
       }
-
-      const updatedDoctor = JSON.parse(responseDataText); // Parsear el texto a JSON
-
+      const updatedDoctor = JSON.parse(responseDataText);
       console.log(
-        "Datos del doctor actualizados desde el backend (objeto completo):",
+        "RESPUESTA DEL BACKEND (updatedDoctor entero):",
         updatedDoctor
       );
-      if (
-        Object.prototype.hasOwnProperty.call(
-          updatedDoctor,
-          "correo_electronico"
-        )
-      ) {
-        console.log(
-          "Correo electrónico del backend:",
-          updatedDoctor.correo_electronico
-        );
-      } else {
-        console.warn(
-          "El campo 'correo_electronico' NO vino en la respuesta del backend."
-        );
-      }
-
+      console.log(
+        // <-- LOG ESPECÍFICO PARA EL ESTATUS
+        "ESTATUS en la respuesta del backend:",
+        updatedDoctor.estatus
+      );
       setDoctor(updatedDoctor);
-      setEditableDoctorData({ ...updatedDoctor });
-      setIsEditing(false); // Salir del modo edición
-      setSuccessMessage("Perfil del doctor actualizado exitosamente.");
+      setEditableDoctorData({
+        comentarios_estatus: updatedDoctor.comentarios_estatus || "",
+        motivo_baja: updatedDoctor.motivo_baja || "",
+        fecha_fallecimiento: updatedDoctor.fecha_fallecimiento || "",
+        ...updatedDoctor,
+      });
+      setIsEditing(false);
+      setSuccessMessage("Perfil actualizado.");
       if (onProfileUpdate) onProfileUpdate(updatedDoctor.id);
     } catch (err) {
-      console.error("Error al actualizar perfil:", err.message); // err.message ya debería ser el string
-      setError(err.message || "Ocurrió un error al actualizar el perfil.");
+      console.error("Error saving profile:", err.message);
+      setError(err.message || "Error al guardar.");
     } finally {
       setIsLoading(false);
     }
@@ -630,17 +768,16 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
     }
   };
 
-  if (!doctor && !initialDoctor) {
+  if (!initialDoctor && !doctor) {
     return (
       <div style={profileStyles.container}>
-        <p>Cargando perfil del doctor o no se ha seleccionado un doctor.</p>
+        <p>No se ha seleccionado un doctor para ver el perfil.</p>
         <button onClick={onBack} style={profileStyles.backButton}>
           &larr; Volver a la Tabla
         </button>
       </div>
     );
   }
-
   if (!doctor || !editableDoctorData) {
     return (
       <div style={profileStyles.container}>
@@ -649,8 +786,31 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
     );
   }
 
+  const estatusActualParaUI = isEditing
+    ? editableDoctorData.estatus
+    : doctor.estatus;
+
+  const ocultarCamposActividadRegular = ["Baja", "Defunción"].includes(
+    estatusActualParaUI
+  );
+
+  const ocultarCaposIncapacidad = [
+    "Incapacidad por Enfermedad",
+    "Retiro Temporal",
+    "Solicitud Personal",
+    "Activo",
+  ].includes(estatusActualParaUI);
+
+  const ocultarCamposDefuncion = ["Defunción"].includes(estatusActualParaUI);
+
+  
   const currentProfilePicUrl =
-    profilePicPreviewUrl || (doctor ? doctor.profile_pic_url : null);
+    profilePicPreviewUrl || doctor.profile_pic_url || null;
+  const campoEstatusDeshabilitado =
+    isEditing &&
+    doctorGuardadoEsDefuncion &&
+    !puedeEditarAdminRegistroDefuncion;
+  const camposGeneralesDeshabilitados = isEditing && edicionGeneralBloqueada;
 
   return (
     <div style={profileStyles.mainLayout}>
@@ -663,41 +823,46 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
               style={profileStyles.backButton}
               disabled={isLoading && isEditing}
             >
-              &larr; Volver a la Tabla
+              &larr; Volver
             </button>
-            {isEditing ? (
-              <>
-                <button
-                  onClick={handleSaveProfile}
-                  style={profileStyles.saveButton}
-                  disabled={isLoading}
-                >
-                  {isLoading ? "Guardando..." : "Guardar Cambios"}
-                </button>
+            {!edicionGeneralBloqueada &&
+              (isEditing ? (
+                <>
+                  <button
+                    onClick={handleSaveProfile}
+                    style={profileStyles.saveButton}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Guardando..." : "Guardar Cambios"}
+                  </button>
+                  <button
+                    onClick={handleEditToggle}
+                    style={profileStyles.cancelButton}
+                    disabled={isLoading}
+                  >
+                    Cancelar
+                  </button>
+                </>
+              ) : (
                 <button
                   onClick={handleEditToggle}
-                  style={profileStyles.cancelButton}
+                  style={profileStyles.editButton}
                   disabled={isLoading}
                 >
-                  Cancelar
+                  Editar Expediente
                 </button>
-              </>
-            ) : (
-              <button
-                onClick={handleEditToggle}
-                style={profileStyles.editButton}
-                disabled={isLoading}
-              >
-                Editar Expediente
-              </button>
-            )}
+              ))}
           </div>
         </div>
 
+        {doctorGuardadoEsDefuncion && (
+          <div style={profileStyles.defuncionMessage}>
+            EXPEDIENTE CERRADO POR DEFUNCIÓN
+          </div>
+        )}
+
         {isLoading && !selectedProfilePicFile && !selectedAttachmentFile && (
-          <p style={profileStyles.loadingMessage}>
-            Procesando cambios del perfil...
-          </p>
+          <p style={profileStyles.loadingMessage}>Procesando...</p>
         )}
         {error && <p style={profileStyles.errorMessage}>{error}</p>}
         {successMessage && (
@@ -732,13 +897,14 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
               onChange={handleInputChange}
               isLoading={isLoading}
             />
-            {/* CORREGIDO: fieldName para telefono */}
             <FieldRenderer
               label="Teléfono"
               fieldName="tel"
               type="tel"
               isEditing={isEditing}
-              currentValue={isEditing ? editableDoctorData.tel : doctor.tel}
+              currentValue={
+                isEditing ? editableDoctorData.tel : doctor.tel
+              }
               onChange={handleInputChange}
               isLoading={isLoading}
             />
@@ -775,9 +941,9 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
               fieldName="sexo"
               type="select"
               options={[
-                { value: "M", label: "Masculino" }, // Asegúrate que estos values coincidan con lo que espera/tiene tu DB
+                { value: "M", label: "Masculino" },
                 { value: "F", label: "Femenino" },
-                { value: "Otro", label: "Otro" }, // O el valor que uses, ej. 'O'
+                { value: "Otro", label: "Otro" },
               ]}
               isEditing={isEditing}
               currentValue={isEditing ? editableDoctorData.sexo : doctor.sexo}
@@ -798,7 +964,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
             />
             <FieldRenderer
               label="Matrimonio ID"
-              fieldName="matrimonio_id" // Idem
+              fieldName="matrimonio_id"
               isEditing={isEditing}
               currentValue={
                 isEditing
@@ -835,7 +1001,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
             />
             <FieldRenderer
               label="Cédula Licenciatura"
-              fieldName="cedula_lic" // Asegúrate que 'cedula_lic' es el campo correcto en tus objetos doctor/editableDoctorData
+              fieldName="cedula_lic"
               isEditing={isEditing}
               currentValue={
                 isEditing ? editableDoctorData.cedula_lic : doctor.cedula_lic
@@ -845,7 +1011,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
             />
             <FieldRenderer
               label="Cédula Especialidad"
-              fieldName="cedula_esp" // Idem para 'cedula_esp'
+              fieldName="cedula_esp"
               isEditing={isEditing}
               currentValue={
                 isEditing ? editableDoctorData.cedula_esp : doctor.cedula_esp
@@ -860,6 +1026,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
               options={[
                 { value: "Activo", label: "Activo" },
                 { value: "Baja", label: "Baja" },
+                { value: "Defunción", label: "Defunción" },
                 {
                   value: "Incapacidad por Enfermedad",
                   label: "Incapacidad por Enfermedad",
@@ -868,84 +1035,220 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                 { value: "Solicitud Personal", label: "Solicitud Personal" },
               ]}
               isEditing={isEditing}
-              currentValue={
-                isEditing ? editableDoctorData.estatus : doctor.estatus
-              }
+              currentValue={estatusActualParaUI}
               onChange={handleInputChange}
               isLoading={isLoading}
+              disabled={isLoading || campoEstatusDeshabilitado} // Si ya es defunción, no se puede cambiar ni en modo vista si el botón de editar se las arreglara para activarse
             />
 
+            {!ocultarCamposDefuncion && (
             <FieldRenderer
-             label="Entidad Laborando"
-             fieldName="entidad" // Idem para 'cedula_esp'
-             isEditing={isEditing}
-             currentValue={
-               isEditing ? editableDoctorData.entidad : doctor.entidad
-             }
-             onChange={handleInputChange}
-             isLoading={isLoading}
-            />
-            <FieldRenderer
-              label="Unidad Médica"
-              fieldName="nombre_unidad"
+              label="Entidad Laborando"
+              fieldName="entidad"
+                type="select"
+                options={[
+                  { value: "Aguascalientes", label: "Aguascalientes" },
+                  { value: "Baja California", label: "Baja California" },
+                  { value: "Baja California Sur", label: "Baja California Sur" },
+                  { value: "Campeche", label: "Campeche" },
+                  { value: "Coahuila de Zaragoza", label: "Coahuila de Zaragoza" },
+                  { value: "Colima", label: "Colima" },
+                  { value: "Chiapas", label: "Chiapas" },
+                  { value: "Chihuahua", label: "Chihuahua" },
+                  { value: "Ciudad de México", label: "Ciudad de México" },
+                  { value: "Durango", label: "Durango" },
+                  { value: "Guanajuato", label: "Guanajuato" },
+                  { value: "Guerrero", label: "Guerrero" },
+                  { value: "Hidalgo", label: "Hidalgo" },
+                  { value: "Jalisco", label: "Jalisco" },
+                  { value: "México", label: "México" },
+                  { value: "Michoacán de Ocampo", label: "Michoacán de Ocampo" },
+                  { value: "Morelos", label: "Morelos" },
+                  { value: "Nayarit", label: "Nayarit" },
+                  { value: "Nuevo León", label: "Nuevo León" },
+                  { value: "Oaxaca", label: "Oaxaca" },
+                  { value: "Puebla", label: "Puebla" },
+                  { value: "Querétaro", label: "Querétaro" },
+                  { value: "Quintana Roo", label: "Quintana Roo" },
+                  { value: "San Luis Potosí", label: "San Luis Potosí" },
+                  { value: "Sinaloa", label: "Sinaloa" },
+                  { value: "Sonora", label: "Sonora" },
+                  { value: "Tabasco", label: "Tabasco" },
+                  { value: "Tamaulipas", label: "Tamaulipas" },
+                  { value: "Tlaxcala", label: "Tlaxcala" },
+                  { value: "Veracruz de Ignacio de la Llave", label: "Veracruz de Ignacio de la Llave" },
+                  { value: "Yucatán", label: "Yucatán" },
+                  { value: "Zacatecas ", label: "Zacatecas " },
+                ]}
               isEditing={isEditing}
               currentValue={
-                isEditing
-                  ? editableDoctorData.nombre_unidad
-                  : doctor.nombre_unidad
-              } // Asumiendo que este campo se llama 'unidad_medica' en tus datos
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
-            <FieldRenderer
-              label="Nivel de Atención"
-              fieldName="nivel_atencion"
-              type="select"
-              options={[
-                { value: "PRIMER NIVEL", label: "PRIMER NIVEL" }, // Asegúrate que estos values coincidan con lo que espera/tiene tu DB
-                { value: "SEGUNDO NIVEL", label: "SEGUNDO NIVEL" },
-                { value: "TERCER NIVEL", label: "TERCER NIVEL" }, // O el valor que uses, ej. 'O'
-              ]}
-              isEditing={isEditing}
-              currentValue={
-                isEditing
-                  ? editableDoctorData.nivel_atencion
-                  : doctor.nivel_atencion
+                isEditing ? editableDoctorData.entidad : doctor.entidad
               }
               onChange={handleInputChange}
               isLoading={isLoading}
-            />
+              disabled={camposGeneralesDeshabilitados}
+            />)}
+
+            {!ocultarCamposActividadRegular && (
+              <FieldRenderer
+                label="Unidad Médica"
+                fieldName="nombre_unidad"
+                isEditing={isEditing}
+                currentValue={
+                  isEditing
+                    ? editableDoctorData.nombre_unidad
+                    : doctor.nombre_unidad
+                }
+                onChange={handleInputChange}
+                isLoading={isLoading}
+                disabled={camposGeneralesDeshabilitados}
+              />
+            )}
+
+            {!ocultarCamposActividadRegular && (
+              <FieldRenderer
+                label="Nivel de Atención"
+                fieldName="nivel_atencion"
+                type="select"
+                options={[
+                  { value: "NO APLICA", label: "NO APLICA" },
+                  { value: "PRIMER NIVEL", label: "PRIMER NIVEL" },
+                  { value: "SEGUNDO NIVEL", label: "SEGUNDO NIVEL" },
+                  { value: "TERCER NIVEL", label: "TERCER NIVEL" },
+                ]}
+                isEditing={isEditing}
+                currentValue={
+                  isEditing
+                    ? editableDoctorData.nivel_atencion
+                    : doctor.nivel_atencion
+                }
+                onChange={handleInputChange}
+                isLoading={isLoading}
+                disabled={camposGeneralesDeshabilitados}
+              />
+            )}
           </div>
           <div>
-            <FieldRenderer
-              label="Turno"
-              fieldName="turno"
-              type="select"
-              options={[
-                { value: "Jornada Acumulada", label: "Jornada Acumulada" },
-                { value: "Matutino", label: "Matutino" },
-                { value: "Nocturno A", label: "Nocturno A" },
-                { value: "Nocturno B", label: "Nocturno B" },
-                { value: "Vespertino", label: "Vespertino" },
-              ]}
-              isEditing={isEditing}
-              currentValue={isEditing ? editableDoctorData.turno : doctor.turno}
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
-            <FieldRenderer
-              label="Fecha de Notificación"
-              fieldName="fecha_notificacion"
-              type="date"
-              isEditing={isEditing}
-              currentValue={
-                isEditing
-                  ? editableDoctorData.fecha_notificacion
-                  : doctor.fecha_notificacion
-              }
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
+            {!ocultarCamposActividadRegular && (
+              <FieldRenderer
+                label="Turno"
+                fieldName="turno"
+                type="select"
+                options={[
+                  { value: "Jornada Acumulada", label: "Jornada Acumulada" },
+                  { value: "Matutino", label: "Matutino" },
+                  { value: "Nocturno A", label: "Nocturno A" },
+                  { value: "Nocturno B", label: "Nocturno B" },
+                  { value: "Vespertino", label: "Vespertino" },
+                ]}
+                isEditing={isEditing}
+                currentValue={
+                  isEditing ? editableDoctorData.turno : doctor.turno
+                }
+                onChange={handleInputChange}
+                isLoading={isLoading}
+                disabled={camposGeneralesDeshabilitados}
+              />
+            )}
+
+            {!ocultarCaposIncapacidad &&
+              !["Defunción"].includes(estatusActualParaUI) && ( // No mostrar si es defunción, ya que tiene su propia fecha
+                <FieldRenderer
+                  label="Fecha de Notificación"
+                  fieldName="fecha_notificacion"
+                  type="date"
+                  isEditing={isEditing}
+                  currentValue={
+                    isEditing
+                      ? editableDoctorData.fecha_notificacion
+                      : doctor.fecha_notificacion
+                  }
+                  onChange={handleInputChange}
+                  isLoading={isLoading}
+                  disabled={camposGeneralesDeshabilitados}
+                />
+              )}
+
+            {!ocultarCaposIncapacidad && !ocultarCamposDefuncion && (
+              <FieldRenderer
+                label="Forma de Notificación"
+                fieldName="notificacion_baja"
+                type="select"
+                options={[
+                  {
+                    value: "Brigada Cubana (concentrado)",
+                    label: "Brigada Cubana (concentrado)",
+                  },
+                  { value: "Correo electrónico", label: "Correo electrónico" },
+                  {
+                    value: "Notificada a la entrega",
+                    label: "Notificada a la entrega",
+                  },
+                  { value: "Oficio", label: "Oficio" },
+                ]}
+                isEditing={isEditing}
+                currentValue={
+                  isEditing
+                    ? editableDoctorData.notificacion_baja
+                    : doctor.notificacion_baja
+                }
+                onChange={handleInputChange}
+                isLoading={isLoading}
+                disabled={camposGeneralesDeshabilitados}
+              />
+            )}
+
+            {!ocultarCaposIncapacidad &&
+              estatusActualParaUI !== "Defunción" && (
+                <FieldRenderer
+                  label="Fecha Extracción / Comentario" // O un label más apropiado
+                  fieldName="fecha_extraccion"
+                  type="text" // o "textarea" si puede ser largo
+                  isEditing={isEditing}
+                  currentValue={
+                    isEditing
+                      ? editableDoctorData.fecha_extraccion
+                      : doctor.fecha_extraccion
+                  }
+                  onChange={handleInputChange}
+                  isLoading={isLoading}
+                  disabled={camposGeneralesDeshabilitados}
+                />
+              )}
+            {!ocultarCaposIncapacidad && !ocultarCamposDefuncion &&(
+              <FieldRenderer
+                label="Motivo de Baja"
+                fieldName="motivo_baja"
+                type="select"
+                options={MOTIVO_BAJA_OPTIONS}
+                isEditing={isEditing}
+                currentValue={
+                  isEditing
+                    ? editableDoctorData.motivo_baja
+                    : doctor.motivo_baja
+                }
+                onChange={handleInputChange}
+                isLoading={isLoading}
+              />
+            )}
+
+              {ocultarCamposDefuncion &&(
+              <FieldRenderer
+                label="Fecha de Fallecimiento"
+                fieldName="fecha_fallecimiento"
+                type="date"
+                isEditing={isEditing}
+                currentValue={
+                  isEditing
+                    ? editableDoctorData.fecha_fallecimiento
+                    : doctor.fecha_fallecimiento
+                }
+                onChange={handleInputChange}
+                isLoading={isLoading}
+                disabled={camposGeneralesDeshabilitados}
+              />
+              )}
+
             <FieldRenderer
               label="Fecha de Estatus"
               fieldName="fecha_estatus"
@@ -959,23 +1262,89 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
               onChange={handleInputChange}
               isLoading={isLoading}
             />
-            <FieldRenderer
-              label="Fecha de Vuelo"
-              fieldName="fecha_vuelo"
-              type="date"
-              isEditing={isEditing}
-              currentValue={
-                isEditing ? editableDoctorData.fecha_vuelo : doctor.fecha_vuelo
-              }
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
+            {!ocultarCamposDefuncion && (
+              <FieldRenderer
+                label="Fecha de Vuelo"
+                fieldName="fecha_vuelo"
+                type="date"
+                isEditing={isEditing}
+                currentValue={
+                  isEditing
+                    ? editableDoctorData.fecha_vuelo
+                    : doctor.fecha_vuelo
+                }
+                onChange={handleInputChange}
+                isLoading={isLoading}
+              />
+            )}
+            {!ocultarCamposActividadRegular && (
+              <FieldRenderer
+                label="Despliegue"
+                fieldName="despliegue" // Asegúrate que este es el nombre correcto en tus datos
+                type="text" // o el tipo que corresponda
+                isEditing={isEditing}
+                currentValue={
+                  isEditing ? editableDoctorData.despliegue : doctor.despliegue
+                }
+                onChange={handleInputChange}
+                isLoading={isLoading}
+                disabled={camposGeneralesDeshabilitados}
+              />
+            )}
+
+            {!ocultarCamposActividadRegular && (
+              <FieldRenderer
+                label="Estrato"
+                fieldName="estrato"
+                type="text"
+                isEditing={isEditing}
+                currentValue={
+                  isEditing ? editableDoctorData.estrato : doctor.estrato
+                }
+                onChange={handleInputChange}
+                isLoading={isLoading}
+                disabled={camposGeneralesDeshabilitados}
+              />
+            )}
+
+            {!ocultarCamposActividadRegular && (
+              <FieldRenderer
+                label="Acuerdo"
+                fieldName="acuerdo"
+                type="text" // o textarea si puede ser largo
+                isEditing={isEditing}
+                currentValue={
+                  isEditing ? editableDoctorData.acuerdo : doctor.acuerdo
+                }
+                onChange={handleInputChange}
+                isLoading={isLoading}
+                disabled={camposGeneralesDeshabilitados}
+              />
+            )}
+
+            {(isEditing ||
+              (doctor.comentarios_estatus &&
+                doctor.comentarios_estatus.trim() !== "")) && (
+              <FieldRenderer
+                label="Comentarios Adicionales"
+                fieldName="comentarios_estatus"
+                type="textarea"
+                isEditing={isEditing}
+                currentValue={
+                  isEditing
+                    ? editableDoctorData.comentarios_estatus
+                    : doctor.comentarios_estatus
+                }
+                onChange={handleInputChange}
+                isLoading={isLoading}
+                disabled={camposGeneralesDeshabilitados}
+              />
+            )}
           </div>
         </div>
       </div>
 
       <div style={profileStyles.filesColumn}>
-        {/* ... (resto de la columna de archivos sin cambios) ... */}
         <div style={profileStyles.profilePicSection}>
           <h2>Foto de Perfil</h2>
           {currentProfilePicUrl ? (
@@ -994,12 +1363,20 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
             accept="image/*"
             onChange={handleProfilePicSelect}
             style={profileStyles.fileInput}
-            disabled={isLoading || isEditing}
+            disabled={
+              isLoading ||
+              edicionGeneralBloqueada ||
+              (isEditing && edicionGeneralBloqueada)
+            }
           />
           {selectedProfilePicFile && (
             <button
               onClick={uploadProfilePic}
-              disabled={isLoading || isEditing}
+              disabled={
+                isLoading ||
+                edicionGeneralBloqueada ||
+                (isEditing && edicionGeneralBloqueada)
+              }
               style={profileStyles.uploadButton}
             >
               {isLoading ? "Subiendo Foto..." : "Subir Foto"}
@@ -1067,5 +1444,4 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
     </div>
   );
 }
-
 export default DoctorProfileView;
