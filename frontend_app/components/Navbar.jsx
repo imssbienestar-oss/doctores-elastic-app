@@ -1,58 +1,111 @@
 // src/components/Navbar.jsx
 import React, { useState } from "react";
-import { useAuth } from "../src/contexts/AuthContext"; // Ajusta la ruta si es necesario
+import { useAuth } from "../src/contexts/AuthContext"; 
 import { Link, useLocation } from "react-router-dom";
-import { useModal } from "../src/contexts/ModalContext";
-import logo from "./gobierno.png";
+// import { useModal } from "../src/contexts/ModalContext"; // Solo si onAgregarDoctorClick no se pasa
+import logo from "./gobierno.png"; 
 
-// Importa tu logo del Gobierno de México aquí. Ejemplo:
-// import logoGobiernoMx from './assets/logo-gobierno-mexico.png';
+// Estilos (deben estar definidos antes de usarlos en renderNavItems si se define fuera del componente)
+const styles = {
+  navbarContainer: { position: "fixed", top: 0, left: 0, zIndex: 1000, width: "100%", boxShadow: "0 2px 4px rgba(0,0,0,0.1)", fontFamily: "Arial, sans-serif" },
+  topGovBar: { backgroundColor: "#691c32", padding: "0px 35px", display: "flex", justifyContent: "flex-start", alignItems: "center", height: "65px", boxSizing: "border-box" },
+  gobiernoLogoContainer: { display: "flex", alignItems: "left", marginLeft: "auto", marginRight: "auto", paddingLeft: "1%", paddingRight: "65%" },
+  gobiernoLogo: { height: "60px", width:"170px" },
+  gobiernoTexto: { display: 'none', color: 'white', fontSize: '12px' },
+  goldenBar: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 25px", backgroundColor: "#A57F2C", color: "white", boxSizing: "border-box", height: "65px" },
+  titleContainer: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start' },
+  imssTitle: { fontSize: "1.0em", fontWeight: "bold", lineHeight: '1.1', color: '#FFFFFF' },
+  mainTitle: { fontSize: "1.0em", fontWeight: "normal", lineHeight: '1.1', color: '#FFFFFF' },
+  guestIndicator: { fontSize: "0.7em", fontWeight: "normal", marginLeft: "8px", opacity: 0.9, fontStyle: 'italic' },
+  usernameIndicator: { fontSize: "0.8em", fontWeight: "normal", marginLeft: "10px", fontStyle: 'italic' },
+  actions: { display: "flex", alignItems: "center", gap: "0px" }, // Gap a 0, el separador maneja el espacio
+  button: { 
+    padding: "8px 10px", 
+    fontSize: "1em", 
+    cursor: "pointer",
+    backgroundColor: "transparent", 
+    color: "white", 
+    border: "none", // Sin borde individual
+    borderRadius: "0px", // Sin bordes redondeados si se usan separadores
+    transition: "background-color 0.2s ease, color 0.2s ease", 
+    whiteSpace: "nowrap",
+    outline: "none", // Quitar outline al hacer foco si no se desea
+  },
+  logoutButton: { 
+    backgroundColor: "rgba(159, 34, 65, 0.8)", 
+  }, 
+  adminButtonLink: { 
+    padding: "8px 10px", 
+    fontSize: "1em", 
+    cursor: "pointer",
+    backgroundColor: "transparent", 
+    color: "white", 
+    border: "none", // Sin borde individual
+    borderRadius: "0px",
+    textDecoration: "none", 
+    display: "inline-flex", 
+    alignItems: "center",
+    justifyContent: "center", 
+    whiteSpace: "nowrap",
+    transition: "background-color 0.2s ease, color 0.2s ease",
+    outline: "none",
+  },
+  separator: { 
+    color: "rgba(255, 255, 255, 0.4)", // Color del separador
+    margin: "0 8px", 
+    fontSize: "1em", // Ajustado para ser menos prominente
+    lineHeight: "1",   
+    userSelect: "none", 
+  },
+  downloadStatus: { color: "white", marginLeft: "10px", alignSelf: "center", fontSize: "0.85em" },
+  downloadError: {
+    color: "#ffdddd", marginLeft: "10px", alignSelf: "center",
+    maxWidth: "150px", overflow: "hidden", textOverflow: "ellipsis",
+    whiteSpace: "nowrap", fontSize: "0.85em",
+    backgroundColor: 'rgba(159, 34, 65, 0.7)', padding: '3px 6px', borderRadius: '3px',
+  },
+};
+
+// Función auxiliar para renderizar items con separadores
+const renderNavItems = (items) => {
+  const visibleItems = items.filter(Boolean); // Filtrar elementos nulos o falsos
+  return visibleItems.map((item, index) => (
+    <React.Fragment key={index}>
+      {item}
+      {/* No añadir separador después del último elemento visible */}
+      {index < visibleItems.length - 1 && <span style={styles.separator}>|</span>}
+    </React.Fragment>
+  ));
+};
 
 function Navbar({
   title,
-  onVerGraficasClick,
-  onVerTablaClick,
-  vistaActual,
+  onVerGraficasClick, 
+  onVerTablaClick,    
+  vistaActual,        
+  onAgregarDoctorClick, 
 }) {
-  const { isAuthenticated, isGuestMode, token, logout, currentUser } =
-    useAuth();
-  const { openModal } = useModal();
+  const { isAuthenticated, isGuestMode, token, logout, currentUser } = useAuth();
   const location = useLocation();
   const currentPath = location.pathname;
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState("");
+  const [reportTypeBeingDownloaded, setReportTypeBeingDownloaded] = useState(null); 
 
   const handleDownload = async (reportType) => {
-    setDownloading(true);
-    setDownloadError("");
-    const backendUrl =
-      import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+    setDownloading(true); setDownloadError(""); setReportTypeBeingDownloaded(reportType);
+    const backendUrl = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
     let urlPath = "";
-
     switch (reportType) {
-      case "xlsx":
-        urlPath = "/api/reporte/xlsx";
-        break;
-      case "pdf":
-        urlPath = "/api/reporte/pdf";
-        break;
-      default:
-        setDownloadError("Tipo de reporte no válido.");
-        setDownloading(false);
-        return;
+      case "xlsx": urlPath = "/api/reporte/xlsx"; break;
+      case "pdf": urlPath = "/api/reporte/pdf"; break;
+      default: setDownloadError("Tipo de reporte no válido."); setDownloading(false); setReportTypeBeingDownloaded(null); return;
     }
     const url = `${backendUrl}${urlPath}`;
     try {
       const headers = {};
-      if (isAuthenticated && token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      } else if (isGuestMode) {
-        // Modo invitado
-      } else {
-        setDownloadError("Error: No autorizado para descargar.");
-        setDownloading(false);
-        return;
-      }
+      if (isAuthenticated && token) { headers["Authorization"] = `Bearer ${token}`; } 
+      else if (!isGuestMode && !isAuthenticated) { setDownloadError("Error: No autorizado para descargar."); setDownloading(false); setReportTypeBeingDownloaded(null); return; }
       const response = await fetch(url, { method: "GET", headers });
       if (response.ok) {
         const disposition = response.headers.get("content-disposition");
@@ -60,277 +113,130 @@ function Navbar({
         if (disposition && disposition.indexOf("attachment") !== -1) {
           const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
           const matches = filenameRegex.exec(disposition);
-          if (matches != null && matches[1]) {
-            filename = matches[1].replace(/['"]/g, "");
-          }
+          if (matches != null && matches[1]) { filename = matches[1].replace(/['"]/g, ""); }
         }
         const blob = await response.blob();
         const downloadUrl = window.URL.createObjectURL(blob);
         const linkDom = document.createElement("a");
-        linkDom.href = downloadUrl;
-        linkDom.setAttribute("download", filename);
-        document.body.appendChild(linkDom);
-        linkDom.click();
-        linkDom.parentNode.removeChild(linkDom);
-        window.URL.revokeObjectURL(downloadUrl);
+        linkDom.href = downloadUrl; linkDom.setAttribute("download", filename);
+        document.body.appendChild(linkDom); linkDom.click();
+        linkDom.parentNode.removeChild(linkDom); window.URL.revokeObjectURL(downloadUrl);
       } else {
         let errorMsg = `Error al descargar reporte (${response.status})`;
-        try {
-          const errorData = await response.json();
-          if (errorData.detail) errorMsg += `: ${errorData.detail}`;
-        } catch (e) { /* No hacer nada */ }
+        try { const errorData = await response.json(); if (errorData.detail) errorMsg += `: ${errorData.detail}`; } catch (e) { /* No hacer nada */ }
         setDownloadError(errorMsg);
         if (response.status === 401 && isAuthenticated) logout();
       }
-    } catch (err) {
-      setDownloadError("Error de red al intentar descargar el reporte.");
-    } finally {
-      setDownloading(false);
-    }
+    } catch (err) { setDownloadError("Error de red al intentar descargar el reporte."); } 
+    finally { setDownloading(false); setReportTypeBeingDownloaded(null); }
   };
 
-  const handleLogoutOrExitGuest = () => {
-    logout();
-  };
+  const handleLogoutOrExitGuest = () => { logout(); };
+
+  const showViewToggleButtons = isAuthenticated || isGuestMode;
+  const canClickVerGraficas = typeof onVerGraficasClick === "function";
+  const canClickVerTabla = typeof onVerTablaClick === "function";
+
+  // Construir el array de items de acción
+  const navActionItems = [];
+
+  // Botones de Ver Tabla / Ver Gráficas
+  if (showViewToggleButtons && canClickVerGraficas && canClickVerTabla) {
+    if (currentPath === "/") { // Si estamos en la página principal de doctores
+      if (vistaActual === "tabla") {
+        navActionItems.push(
+          <button key="verGraficas" onClick={onVerGraficasClick} style={styles.button} title="Ir a la vista de gráficas de doctores">Ver Gráficas</button>
+        );
+      } else { // vistaActual es 'graficas'
+        navActionItems.push(
+          <button key="verTabla" onClick={onVerTablaClick} style={styles.button} title="Ir a la vista de tabla de doctores">Ver Tabla</button>
+        );
+      }
+    } else if (currentPath.startsWith("/admin")) { // Si estamos en cualquier página de admin
+      // Mostrar ambos botones para navegar de vuelta a la vista principal
+      navActionItems.push(
+        <button key="verTablaAdmin" onClick={onVerTablaClick} style={styles.button} title="Ir a la vista de tabla de doctores">Ver Tabla</button>
+      );
+      navActionItems.push(
+        <button key="verGraficasAdmin" onClick={onVerGraficasClick} style={styles.button} title="Ir a la vista de gráficas de doctores">Ver Gráficas</button>
+      );
+    }
+    // Puedes añadir más lógica 'else if' para otras rutas si es necesario
+  }
+
+  // Botón de Descarga Excel
+  if (currentPath === "/" && vistaActual === "tabla" && showViewToggleButtons) {
+    navActionItems.push(
+      <button key="descargarExcel" onClick={() => handleDownload("xlsx")} style={styles.button} disabled={downloading || !showViewToggleButtons} >
+        {downloading && downloadError === "" && reportTypeBeingDownloaded === "xlsx" ? "Generando Excel..." : "Generar Excel"}
+      </button>
+    );
+  }
+  // Botón Agregar Doctor
+  if (currentPath === "/" && vistaActual === "tabla" && isAuthenticated && currentUser?.role !== 'guest' && typeof onAgregarDoctorClick === 'function') {
+    navActionItems.push(
+      <button key="agregarDoctor" onClick={onAgregarDoctorClick} style={styles.button}>Agregar Doctor</button>
+    );
+  }
+  // Botón de Descarga PDF
+  if (currentPath === "/" && vistaActual === "graficas" && showViewToggleButtons) {
+    navActionItems.push(
+      <button key="descargarPdf" onClick={() => handleDownload("pdf")} style={styles.button} disabled={downloading || !showViewToggleButtons} >
+        {downloading && downloadError === "" && reportTypeBeingDownloaded === "pdf" ? "Generando PDF..." : "Generar PDF Resumen"}
+      </button>
+    );
+  }
+  // Enlaces de Admin
+  if (isAuthenticated && currentUser && currentUser.role === "admin") {
+    if (currentPath !== "/admin/users") {
+      navActionItems.push(
+        <Link key="adminUsers" to="/admin/users" style={styles.adminButtonLink}>Gestionar Usuarios</Link>
+      );
+    }
+    if (currentPath !== "/admin/audit-log") {
+      navActionItems.push(
+        <Link key="adminAudit" to="/admin/audit-log" style={styles.adminButtonLink}>Log de Auditoría</Link>
+      );
+    }
+  }
+  // Botón de Logout (siempre se añade si está autenticado o es invitado)
+  if (isAuthenticated || isGuestMode) {
+    navActionItems.push(
+      <button key="logout" onClick={handleLogoutOrExitGuest} style={{ ...styles.button, ...styles.logoutButton }} >
+        {isAuthenticated ? "Cerrar Sesión" : "Salir de Invitado"}
+      </button>
+    );
+  }
 
   return (
-    // Contenedor principal para ambas barras, maneja la posición fija
     <div style={styles.navbarContainer}>
-      {/* Barra Superior - Gobierno de México */}
       <div style={styles.topGovBar}>
         <div style={styles.gobiernoLogoContainer}>
-          {/* REEMPLAZA con tu logo real */}
-          <img
-            // src={logoGobiernoMx} // Si lo importas
-            src={logo} // O si es una URL externa
-            alt="Gobierno de México"
-            style={styles.gobiernoLogo}
-            onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'inline'; }} // Muestra texto si el logo falla
-          />
-          {/* Placeholder de texto si la imagen del logo no carga o no está disponible */}
-          <span style={{ ...styles.gobiernoTexto, display: 'none', color: 'white', fontSize: '12px' }}>
-            Gobierno de México
-          </span>
+          <img src={logo} alt="Gobierno de México" style={styles.gobiernoLogo} onError={(e) => { e.target.style.display = 'none'; if(e.target.nextSibling) e.target.nextSibling.style.display = 'inline'; }} />
+          <span style={{ ...styles.gobiernoTexto, display: 'none' }}> Gobierno de México </span>
         </div>
       </div>
-
-      {/* Barra Dorada Principal (tu navbar anterior) */}
       <nav style={styles.goldenBar}>
         <div style={styles.titleContainer}>
-          <span style={styles.imssTitle}>IMSS</span> {/* Título IMSS */}
+          <span style={styles.imssTitle}>IMSS</span>
           <span style={styles.mainTitle}>
             {title || "Sistema Doctores"}
-            {isGuestMode && !isAuthenticated && (
-              <span style={styles.guestIndicator}> (Invitado)</span>
-            )}
+            {isGuestMode && !isAuthenticated && (<span style={styles.guestIndicator}> (Invitado)</span>)}
             {isAuthenticated && currentUser && currentUser.username && (
-              <span style={styles.usernameIndicator}>
-                ({currentUser.username})
-              </span>
+              <span style={styles.usernameIndicator}> ({currentUser.username} - {currentUser.role})</span>
             )}
           </span>
         </div>
 
         <div style={styles.actions}>
-          {
-            (isAuthenticated || isGuestMode) &&
-              typeof onVerGraficasClick === "function" &&
-              typeof onVerTablaClick === "function" &&
-              (currentPath === "/admin/users" ? (
-                <>
-                  <button onClick={onVerTablaClick} style={styles.button}>
-                    Ir a Tabla Doctores
-                  </button>
-                  <button onClick={onVerGraficasClick} style={styles.button}>
-                    Ir a Gráficas Doctores
-                  </button>
-                </>
-              ) : currentPath === "/" ? (
-                vistaActual === "tabla" ? (
-                  <button onClick={onVerGraficasClick} style={styles.button}>
-                    Ver Gráficas
-                  </button>
-                ) : (
-                  <button onClick={onVerTablaClick} style={styles.button}>
-                    Ver Tabla
-                  </button>
-                )
-              ) : null)
-          }
-
-          {currentPath === "/" && vistaActual === "tabla" && (
-            <>
-              <button
-                onClick={() => handleDownload("xlsx")}
-                style={styles.button}
-                disabled={downloading}
-              >
-                {downloading ? "Generando Excel..." : "Generar Excel"}
-              </button>
-              {isAuthenticated && (
-                <button onClick={() => openModal(null)} style={styles.button}>
-                  Agregar Doctor
-                </button>
-              )}
-            </>
-          )}
-          {currentPath === "/" && vistaActual === "graficas" && (
-            <button
-              onClick={() => handleDownload("pdf")}
-              style={styles.button}
-              disabled={downloading}
-            >
-              {downloading ? "Generando PDF..." : "Generar PDF Resumen"}
-            </button>
-          )}
-
-          {downloading && downloadError === "" && (
-            <span style={styles.downloadStatus}>Generando...</span>
-          )}
-          {downloadError && (
-            <span style={styles.downloadError}>Error: {downloadError}</span>
-          )}
-
-          {isAuthenticated && currentUser && currentUser.role === "admin" && (
-            <Link to="/admin/users" style={styles.adminButtonLink}>
-              Gestionar Usuarios
-            </Link>
-          )}
-
-          {(isAuthenticated || isGuestMode) && (
-            <button
-              onClick={handleLogoutOrExitGuest}
-              style={{ ...styles.button, ...styles.logoutButton }}
-            >
-              {isAuthenticated ? "Cerrar Sesión" : "Salir de Invitado"}
-            </button>
-          )}
+          {renderNavItems(navActionItems)}
+          
+          {downloading && downloadError === "" && (<span style={styles.downloadStatus}>Generando...</span>)}
+          {downloadError && (<span style={styles.downloadError}>Error: {downloadError}</span>)}
         </div>
       </nav>
     </div>
   );
 }
-
-const styles = {
-  // Contenedor principal para ambas barras
-  navbarContainer: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    zIndex: 1000,
-    width: "100%",
-    boxShadow: "0 2px 4px rgba(0,0,0,0.1)", // Sombra general
-  },
-  // Barra superior Guinda (Gobierno de México)
-  topGovBar: {
-    backgroundColor: "#691c32", // Color guinda/vino oficial o aproximado
-    padding: "30px 25px", // Ajusta el padding vertical y horizontal
-    display: "flex",
-    justifyContent: "flex-start", // Alinea el contenido a la derecha
-    alignItems: "center",
-    height: "35px", // Altura estimada, ajusta según tu logo e imagen de referencia
-    boxSizing: "border-box",
-  },
-  gobiernoLogoContainer: {
-    display: "flex",
-    alignItems: "center",
-    marginLeft: "250px",
-  },
-  gobiernoLogo: {
-    height: "35px", // Altura del logo, ajusta para que quepa bien
-    // Si tu logo ya tiene el texto "Gobierno de México", no necesitas el span de abajo.
-    // Si el logo es solo el escudo, y el texto "Gobierno de México" está en la imagen del logo, ajusta el height.
-  },
-  // Estilos para la barra dorada (antes styles.navbar)
-  goldenBar: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "10px 25px", // Mantenemos tu padding
-    backgroundColor: "#A57F2C", // Tu color dorado
-    color: "white",
-    boxSizing: "border-box",
-    minHeight: "60px", // Para asegurar que tenga una buena altura
-  },
-  // Contenedor para los títulos en la barra dorada
-  titleContainer: {
-    display: 'flex',
-    flexDirection: 'column', // IMSS arriba, título principal abajo
-    alignItems: 'flex-start', // Alineación a la izquierda
-  },
-  imssTitle: {
-    fontSize: "1.0em", // Tamaño para "IMSS"
-    fontWeight: "bold",
-    lineHeight: '1.1',
-  },
-  mainTitle: {
-    fontSize: "1.0em", // Reducido un poco para dar espacio a IMSS
-    fontWeight: "bold",
-    lineHeight: '1.1',
-  },
-  guestIndicator: {
-    fontSize: "0.7em",
-    fontWeight: "normal",
-    marginLeft: "8px",
-    opacity: 0.9,
-  },
-  usernameIndicator: {
-    fontSize: "0.8em",
-    fontWeight: "normal",
-    marginLeft: "10px",
-  },
-  actions: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px", // Reducido un poco el gap si hay muchos botones
-  },
-  button: {
-    padding: "8px 12px", // Ajustado un poco el padding
-    fontSize: "0.85em", // Ajustado un poco el tamaño de fuente
-    cursor: "pointer",
-    backgroundColor: "#235b4e",
-    color: "white",
-    border: "none",
-    borderRadius: "4px",
-    transition: "background-color 0.2s ease",
-    whiteSpace: "nowrap",
-  },
-  logoutButton: {
-    backgroundColor: "#9F2241",
-  },
-  adminButtonLink: { // Estilo para el Link que parece botón
-    padding: "8px 12px",
-    fontSize: "0.85em",
-    cursor: "pointer",
-    backgroundColor: "#235b4e", // Mismo color que otros botones
-    color: "white",
-    border: "none",
-    borderRadius: "4px",
-    textDecoration: "none",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    whiteSpace: "nowrap",
-  },
-  downloadStatus: {
-    color: "white", // Cambiado a blanco para mejor contraste en barra dorada
-    marginLeft: "10px",
-    alignSelf: "center",
-    fontSize: "0.85em",
-  },
-  downloadError: {
-    color: "#ffdddd", // Un rojo más claro para errores en barra dorada
-    marginLeft: "10px",
-    alignSelf: "center",
-    maxWidth: "150px", // Ajustado
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    fontSize: "0.85em",
-    backgroundColor: 'rgba(159, 34, 65, 0.7)', // Fondo para destacar el error
-    padding: '3px 6px',
-    borderRadius: '3px',
-  },
-};
 
 export default Navbar;
