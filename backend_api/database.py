@@ -8,6 +8,7 @@ import sys # Para salir si hay error crítico
 
 # Carga .env solo para desarrollo local, Railway inyectará la variable directamente
 load_dotenv()
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Lee la única variable que esperamos ahora, inyectada por Railway
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -30,7 +31,7 @@ else:
 
 try:
     # Crear el motor SQLAlchemy con la URL obtenida
-    engine = create_engine(DATABASE_URL)
+    engine = create_engine(SQLALCHEMY_DATABASE_URL, echo=False)
 
     # Crear una clase SessionLocal configurada
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
