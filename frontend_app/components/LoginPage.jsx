@@ -40,7 +40,7 @@ function LoginPage({ onLoginSuccess, onGuestLogin }) {
 
       if (response.ok) {
         const data = await response.json();
-        auth.login(data.access_token);
+        auth.login(data.access_token, data.user);
 
         if (onLoginSuccess) {
           onLoginSuccess();
@@ -142,14 +142,6 @@ function LoginPage({ onLoginSuccess, onGuestLogin }) {
             {loading ? "Ingresando..." : "Ingresar"}
           </button>
         </form>
-
-        <div style={styles.separator}>
-          <span style={styles.separatorText}>o</span>
-        </div>
-
-        <button onClick={handleGuestLogin} style={styles.guestButton}>
-          Ingresar como invitado
-        </button>
       </div>
     </div>
   );
