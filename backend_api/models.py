@@ -1,8 +1,8 @@
 # backend_api/models.py
-from sqlalchemy import Column, Integer, String, Date, Text, DateTime, ForeignKey # Asegúrate de tener DateTime y ForeignKey
+from sqlalchemy import Column, Integer, String, Date, Text, DateTime,Boolean, ForeignKey # Asegúrate de tener DateTime y ForeignKey
 from sqlalchemy.orm import relationship # Para definir relaciones entre tablas
 from sqlalchemy.sql import func # Para funciones SQL como now() para timestamps
-from database import Base # Importa la Base que definimos en database.py
+from . database import Base # Importa la Base que definimos en database.py
 
 class Doctor(Base):
     __tablename__ = "doctores" # Nombre exacto de la tabla en PostgreSQL
@@ -37,9 +37,21 @@ class Doctor(Base):
     correo_electronico = Column(String(100), nullable=True)
     tel = Column(String(255), nullable=True)
     entidad_nacimiento= Column(String(255), nullable=True)
-
-    # --- NUEVO CAMPO para la URL de la foto de perfil ---
+    comentarios_estatus = Column(Text, nullable=True)
+    fecha_fallecimiento = Column(Date, nullable=True)
     profile_pic_url = Column(String(1024), nullable=True, index=True) # Las URLs pueden ser largas
+    # --- Columnas para Soft Delete ---
+    is_deleted = Column(Boolean, default=False, nullable=False, index=True)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_by_user_id = Column(Integer, ForeignKey("users.id", name="fk_doctor_deleted_by_user"), nullable=True)
+    deleted_by_user_obj = relationship(
+        "User", 
+        foreign_keys=[deleted_by_user_id], # Especifica qué columna local es la FK
+        back_populates="doctors_soft_deleted_by_this_user"
+    )
+    fecha_nacimiento = Column(Date, nullable=True)
+    # Relación opcional para ver quién borró (si User tiene una relación inversa)
+    # deleted_by_user = relationship("User", foreign_keys=[deleted_by_user_id])
 
     # --- NUEVA RELACIÓN para acceder a los attachments desde el doctor ---
     # Esto crea un atributo `doctor.attachments` que será una lista de objetos DoctorAttachment
@@ -57,6 +69,13 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     role = Column(String, default="admin")
     __table_args__ = {'extend_existing': True}
+    audit_log_entries = relationship("AuditLog", back_populates="user")
+
+    doctors_soft_deleted_by_this_user = relationship(
+        "Doctor", 
+        foreign_keys="[Doctor.deleted_by_user_id]", # Especifica la FK en la tabla Doctor
+        back_populates="deleted_by_user_obj"
+    )
 
 
 # --- NUEVO MODELO para los Expedientes Adjuntos del Doctor ---
@@ -78,3 +97,18 @@ class DoctorAttachment(Base):
 
     # No necesitas __table_args__ = {'extend_existing': True} aquí porque es una tabla nueva
     # y no debería existir antes de que `create_all` la cree por primera vez.
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True) # Esta es la FK para el usuario
+    username = Column(String(100), nullable=True) # Nombre del usuario (para fácil visualización)
+    action_type = Column(String(100), nullable=False, index=True) # Ej: "CREATE_DOCTOR", "UPDATE_DOCTOR"
+    target_entity = Column(String(100), nullable=True, index=True) # Ej: "Doctor"
+    target_id = Column(Integer, nullable=True, index=True) # Ej: ID del doctor afectado
+    details = Column(Text, nullable=True) # JSON string con cambios o datos relevantes
+    user = relationship("User", foreign_keys=[user_id], back_populates="audit_log_entries")
+    __table_args__ = {'extend_existing': True} # Mantener por si acaso, aunque no debería ser necesario si la tabla se crea correctamente
+
