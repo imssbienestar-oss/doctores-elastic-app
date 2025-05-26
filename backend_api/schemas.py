@@ -170,6 +170,7 @@ class AuditLogsPaginados(BaseModel):
 
 class AuditLogBulkDeleteRequest(BaseModel): # CORREGIDO: Hereda de BaseModel
     ids: List[int]
+    pin: str # El PIN de confirmación
 
 class CurpCheckResponse(BaseModel): # Para la verificación de CURP
     exists: bool
@@ -226,3 +227,11 @@ class CedulasCount(BaseModel):
 
     class Config:
         from_attributes = True
+
+class CurpCheckResponse(BaseModel):
+    exists: bool
+    message: str        
+
+class DoctorPermanentDeleteRequest(BaseModel):
+     ids: List[int]
+     pin: str
