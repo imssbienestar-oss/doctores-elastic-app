@@ -178,62 +178,88 @@ function AdminUsersPage() {
 
   // --- Manejador para Restablecer Contraseña ---
   const handleResetPassword = async (userId, username) => {
-    if (!token) return;
+    if (!token) {
+      setError("No estás autenticado. Inicia sesión como administrador.");
+      return;
+    }
 
-    const newPassword = window.prompt(
-      `Introduce la NUEVA contraseña TEMPORAL para el usuario '${username}' (ID: ${userId}):`
+    // Usar un modal personalizado o lógica más robusta que window.prompt
+    let newPassword;
+    let isValidPassword = false;
+    while (!isValidPassword) {
+    newPassword = window.prompt(
+      `Nueva contraseña para ${username} (mínimo 8 caracteres):`,
+      "" // Valor inicial vacío
+    );
+    
+    // Si el usuario cancela
+    if (newPassword === null) return;
+    
+    // Validar longitud
+    if (newPassword.length < 8) {
+      alert("La contraseña debe tener al menos 8 caracteres");
+      continue;
+    }
+    
+    // Validar contenido (opcional)
+    if (!/[A-Z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+      if (!confirm("Contraseña poco segura. ¿Deseas usar esta contraseña igualmente?")) {
+        continue;
+      }
+    }
+    
+    // Pedir confirmación
+    const confirmPassword = window.prompt("Confirma la nueva contraseña:");
+    if (newPassword !== confirmPassword) {
+      alert("Las contraseñas no coinciden");
+      continue;
+    }
+    
+    isValidPassword = true;
+  }
+
+  setError("");
+  setSuccess("");
+
+  try {
+    const response = await fetch(
+      `${apiUrlBase}/api/admin/users/${userId}/reset-password`,
+      {
+        method: "PUT",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ 
+          new_password: newPassword // Nombre exacto del campo que espera el backend
+        }),
+      }
     );
 
-    if (newPassword === null) {
-      return;
-    }
-    if (newPassword.trim() === "" || newPassword.length < 4) {
-      setError(
-        `La nueva contraseña para '${username}' no puede estar vacía y debe tener al menos 4 caracteres.`
-      );
-      setTimeout(() => setError(""), 5000);
-      return;
-    }
+    const data = await response.json();
 
-    setError("");
-    setSuccess("");
-
-    try {
-      const response = await fetch(
-        `${apiUrlBase}/api/admin/users/${userId}/reset-password`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ new_password: newPassword }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setSuccess(
-          data.detail || `Contraseña para '${username}' restablecida.`
-        );
-        setTimeout(() => setSuccess(""), 5000);
-      } else {
-        console.error("Error handleResetPassword:", response.status, data);
-        setError(
-          `Error al restablecer contraseña: ${
-            data.detail || response.statusText
-          }`
-        );
-        setTimeout(() => setError(""), 5000);
+    if (!response.ok) {
+      console.error("Detalles del error del servidor:", data);
+      let errorMessage = "Error al restablecer contraseña";
+      
+      if (data.detail) {
+        errorMessage = Array.isArray(data.detail) 
+          ? data.detail.map(err => err.msg || err).join(", ")
+          : data.detail;
       }
-    } catch (err) {
-      console.error("Error de red handleResetPassword:", err);
-      setError("Error de red al restablecer la contraseña.");
-      setTimeout(() => setError(""), 5000);
+      
+      throw new Error(errorMessage);
     }
-  };
 
+    setSuccess(`Contraseña para ${username} actualizada correctamente`);
+    setTimeout(() => setSuccess(""), 5000);
+
+  } catch (err) {
+    console.error("Error en reset de contraseña:", err);
+    setError(err.message || "Error al comunicarse con el servidor");
+    setTimeout(() => setError(""), 5000);
+  }
+};
   // NUEVO: Función para alternar la visibilidad de la contraseña de nuevo usuario
   const toggleShowNewUserPassword = () => {
     setShowNewUserPassword(!showNewUserPassword);
@@ -263,11 +289,15 @@ function AdminUsersPage() {
               autoComplete="username"
             />
           </div>
-          <div style={styles.formGroup}> {/* MODIFICADO: Contenedor para input y botón */}
+          <div style={styles.formGroup}>
+            {" "}
+            {/* MODIFICADO: Contenedor para input y botón */}
             <label htmlFor="password" style={styles.label}>
-              Contraseña:
+              Contraseña (mínimo 8 caracteres): 
             </label>
-            <div style={styles.passwordInputContainer}> {/* NUEVO: Contenedor específico */}
+            <div style={styles.passwordInputContainer}>
+              {" "}
+              {/* NUEVO: Contenedor específico */}
               <input
                 type={showNewUserPassword ? "text" : "password"} // MODIFICADO: Tipo dinámico
                 id="password"
@@ -392,7 +422,7 @@ const styles = {
     flexDirection: "column",
     gap: "15px",
     maxWidth: "400px",
-    margin: "20px auto"
+    margin: "20px auto",
   },
   formGroup: {
     display: "flex",
@@ -403,41 +433,45 @@ const styles = {
     marginBottom: "5px",
     fontWeight: "bold",
   },
-  input: { // Estilo para inputs que ocupan todo el ancho del formGroup
+  input: {
+    // Estilo para inputs que ocupan todo el ancho del formGroup
     padding: "10px",
     border: "1px solid #ccc",
     borderRadius: "4px",
     fontSize: "1em",
-    boxSizing: 'border-box', // Asegura que padding no aumente el ancho total
-    width: '100%', // NUEVO: Hacer que ocupe el ancho completo del formGroup
+    boxSizing: "border-box", // Asegura que padding no aumente el ancho total
+    width: "100%", // NUEVO: Hacer que ocupe el ancho completo del formGroup
   },
-  passwordInputContainer: { // NUEVO: Estilo para el div que contiene input de contraseña y botón
-    display: 'flex',
-    alignItems: 'center',
-    position: 'relative', // Para posicionar el botón absolutamente dentro de este div si es necesario
-    width: '100%', // Ocupar el ancho del formGroup
+  passwordInputContainer: {
+    // NUEVO: Estilo para el div que contiene input de contraseña y botón
+    display: "flex",
+    alignItems: "center",
+    position: "relative", // Para posicionar el botón absolutamente dentro de este div si es necesario
+    width: "100%", // Ocupar el ancho del formGroup
   },
-  inputFieldInGroup: { // NUEVO: Estilo para el input de contraseña cuando está junto a un botón
+  inputFieldInGroup: {
+    // NUEVO: Estilo para el input de contraseña cuando está junto a un botón
     padding: "10px",
     border: "1px solid #ccc",
     borderRadius: "4px 0 0 4px", // Redondear solo esquinas izquierdas
     fontSize: "1em",
     flexGrow: 1, // Para que ocupe el espacio restante
-    boxSizing: 'border-box',
+    boxSizing: "border-box",
   },
-  togglePasswordButton: { // NUEVO: Estilo para el botón de mostrar/ocultar
-    padding: '10px',
-    border: '1px solid #ccc',
-    borderLeft: 'none', // Quitar borde izquierdo para que se una al input
-    borderRadius: '0 4px 4px 0', // Redondear solo esquinas derechas
-    backgroundColor: '#f0f0f0',
-    cursor: 'pointer',
-    fontSize: '0.9em', // Un poco más pequeño para que no sea tan prominente
-    whiteSpace: 'nowrap', // Para que "Mostrar" / "Ocultar" no se parta en dos líneas
+  togglePasswordButton: {
+    // NUEVO: Estilo para el botón de mostrar/ocultar
+    padding: "10px",
+    border: "1px solid #ccc",
+    borderLeft: "none", // Quitar borde izquierdo para que se una al input
+    borderRadius: "0 4px 4px 0", // Redondear solo esquinas derechas
+    backgroundColor: "#f0f0f0",
+    cursor: "pointer",
+    fontSize: "0.9em", // Un poco más pequeño para que no sea tan prominente
+    whiteSpace: "nowrap", // Para que "Mostrar" / "Ocultar" no se parta en dos líneas
   },
   button: {
     padding: "10px 15px",
-    marginTop:"20px",
+    marginTop: "20px",
     backgroundColor: "#235b4e", // Color primario (ejemplo)
     color: "white",
     border: "none",
@@ -471,7 +505,7 @@ const styles = {
   td: {
     borderBottom: "1px solid #dee2e6",
     padding: "12px",
-    textAlign: 'center', // MODIFICADO: Alineación izquierda para el contenido de las celdas
+    textAlign: "center", // MODIFICADO: Alineación izquierda para el contenido de las celdas
   },
   hr: {
     border: "none",
@@ -481,22 +515,22 @@ const styles = {
   errorMessage: {
     color: "red",
     marginTop: "10px",
-    textAlign: 'center', // MODIFICADO: Centrar mensajes
+    textAlign: "center", // MODIFICADO: Centrar mensajes
   },
   successMessage: {
     color: "green",
     marginTop: "10px",
-    textAlign: 'center', // MODIFICADO: Centrar mensajes
+    textAlign: "center", // MODIFICADO: Centrar mensajes
   },
   resetButton: {
-    padding: '5px 10px',
-    backgroundColor: '#A57F2C',
-    color: '#FFF',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontSize: '0.9em',
-    margin: '8px', // NUEVO: Añadir margen para separar de otros botones
+    padding: "5px 10px",
+    backgroundColor: "#A57F2C",
+    color: "#FFF",
+    border: "none",
+    borderRadius: "4px",
+    cursor: "pointer",
+    fontSize: "0.9em",
+    margin: "8px", // NUEVO: Añadir margen para separar de otros botones
   },
 };
 
