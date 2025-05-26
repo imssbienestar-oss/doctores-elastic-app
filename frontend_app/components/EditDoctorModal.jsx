@@ -275,35 +275,53 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
   // --- FUNCIÓN PARA VERIFICAR SI EL CURP EXISTE ---
    const checkCurpExists = useCallback(async (curpValue) => {
     if (!curpValue || curpValue.length !== 18 || !authToken) {
-      setCurpError(''); return;
+      setCurpError(''); 
+      return false; 
     }
     setIsCheckingCurp(true); setCurpError('');
     try {
       const response = await fetch(`${API_BASE_URL}/api/doctores/check-curp/${curpValue}`, {
         headers: { Authorization: `Bearer ${authToken}` },
       });
-      if (response.ok) {
-        const data = await response.json();
-        if (data.exists) { setCurpError(data.message || "Este CURP ya está registrado."); } 
-        else { setCurpError(''); }
-      } else { console.warn(`Advertencia: No se pudo verificar el CURP (status: ${response.status})`); }
-    } catch (err) { console.error("Error verificando CURP:", err); } 
-    finally { setIsCheckingCurp(false); }
-  }, [authToken]); // API_BASE_URL es constante del módulo
+
+     if (!response.ok) {
+        throw new Error(`Error HTTP: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.exists) {
+        setCurpError(data.message || "⚠️ Esta CURP ya está registrada en el sistema");
+        return true; // Retorna true cuando la CURP existe
+      } else {
+        setCurpError('');
+        return false; // Retorna false cuando la CURP no existe
+      }
+      
+    } catch (err) {
+      console.error("Error verificando CURP:", err);
+      setCurpError("⚠️ Error al verificar la CURP. Intente nuevamente.");
+      return false; // En caso de error, asumimos que no existe para permitir continuar
+    } finally {
+      setIsCheckingCurp(false);
+    }
+}, [authToken]);
 
   useEffect(() => {
-  if (formData.curp.length === 18) {
-    const handler = setTimeout(() => {
+  const handler = setTimeout(() => {
+    if (formData.curp.length === 18) {
       checkCurpExists(formData.curp);
-    }, 700); // Espera 700ms después de que el usuario deja de escribir
+    } else if (formData.curp.length > 0) {
+      setCurpError('La CURP debe tener exactamente 18 caracteres');
+    } else {
+      setCurpError('');
+    }
+  }, 700);
 
-    return () => {
-      clearTimeout(handler); // Limpia el timeout si el usuario sigue escribiendo
-    };
-  } else {
-    setCurpError(''); // Limpiar error si el CURP no es válido para búsqueda
-  }
-}, [formData.curp, checkCurpExists]); // Depende de formData.curp y la función de check
+  return () => clearTimeout(handler);
+}, [formData.curp, checkCurpExists]);
+
+
   const handleChange = (event) => {
     const { name, value } = event.target;
 
@@ -341,6 +359,13 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
     }
     setIsSaving(true); // isSaving se vuelve true
     console.log("AddDoctorModal: isSaving establecido a true."); // LOG 2
+
+    const curpYaExiste = await checkCurpExists(formData.curp);
+    if (curpYaExiste) {
+      alert("⚠️ La CURP ya está registrada. No se puede guardar.");
+      setIsSaving(false);
+      return;
+    }
 
     if (!authToken) {
       console.error("AddDoctorModal: No hay authToken. Abortando."); // LOG 3
@@ -382,6 +407,7 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
       setIsSaving(false); // Asegurar que se resetee
       return;
     }
+    
     if (
       formData.curp.length === 18 &&
       fechaNacimientoCalculada.startsWith("CURP:")
@@ -416,7 +442,7 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
         onSave(responseData, false); // Llama a la función onSave del padre
         console.log("AddDoctorModal: onSave llamado."); // LOG 11
       } else {
-        let errorDetail = "Error al crear el doctor.";
+        let errorDetail = "Error la 'CURP' ya esta registrada.";
         // ... (tu lógica de manejo de errores de response.ok) ...
         console.error(
           `AddDoctorModal: Error en respuesta del backend - ${response.status}`,
