@@ -329,40 +329,6 @@ function GraficasPage() {
     }
   }, [isAuthenticated, isGuestMode, token]);
 
-  useEffect(() => {
-    if (dataPorEstado.length > 0) {
-      const entidades = [
-        ...new Set(dataPorEstado.map((item) => item.id)),
-      ].sort();
-      setOpcionesEntidad([
-        { value: "", label: "Todas las Entidades" },
-        ...entidades.map((e) => ({ value: e, label: e })),
-      ]);
-    }
-    if (
-      dataPorEspecialidad.children &&
-      dataPorEspecialidad.children.length > 0
-    ) {
-      const especialidades = [
-        ...new Set(dataPorEspecialidad.children.map((item) => item.name)),
-      ].sort();
-      setOpcionesEspecialidad([
-        { value: "", label: "Todas las Especialidades" },
-        ...especialidades.map((e) => ({ value: e, label: e })),
-      ]);
-    }
-    const nivelesFijos = [
-      "PRIMER NIVEL",
-      "SEGUNDO NIVEL",
-      "TERCER NIVEL",
-      "NO APLICA",
-    ];
-    setOpcionesNivel([
-      { value: "", label: "Todos los Niveles" },
-      ...nivelesFijos.map((n) => ({ value: n, label: n })),
-    ]);
-  }, [dataPorEstado, dataPorEspecialidad]);
-
   const fetchGraphData = useCallback(async () => {
     if (!isAuthenticated && !isGuestMode && !token) {
       setError("No autorizado para ver gráficas.");
@@ -461,7 +427,7 @@ function GraficasPage() {
     }
   }, [isAuthenticated, isGuestMode, token, authLogout]);
 
-  const fetchEstadisticaData = useCallback(
+   const fetchEstadisticaData = useCallback(
     async (page) => {
       if (!isAuthenticated && !isGuestMode && !token) {
         setStatsError("No autenticado para ver estadísticas.");
@@ -514,72 +480,109 @@ function GraficasPage() {
   );
 
   useEffect(() => {
-    // La función fetchAllData se define y se llama dentro de este efecto.
-    // No es necesario que fetchAllData sea una dependencia de este useEffect.
-    const fetchInitialData = async () => {
+    // Solo resetea si la página no es ya 0 para evitar un ciclo si el efecto anterior también se ejecuta.
+    // Sin embargo, al cambiar un filtro, queremos ir a la página 0 de esos nuevos resultados.
+    setCurrentPageEstadistica(0); 
+  }, [filtroEntidad, filtroEspecialidad, filtroNivel]);
+
+
+  useEffect(() => {
+    if (dataPorEstado.length > 0) {
+      const entidades = [
+        ...new Set(dataPorEstado.map((item) => item.id)),
+      ].sort();
+      setOpcionesEntidad([
+        { value: "", label: "Todas las Entidades" },
+        ...entidades.map((e) => ({ value: e, label: e })),
+      ]);
+    }
+    if (
+      dataPorEspecialidad.children &&
+      dataPorEspecialidad.children.length > 0
+    ) {
+      const especialidades = [
+        ...new Set(dataPorEspecialidad.children.map((item) => item.name)),
+      ].sort();
+      setOpcionesEspecialidad([
+        { value: "", label: "Todas las Especialidades" },
+        ...especialidades.map((e) => ({ value: e, label: e })),
+      ]);
+    }
+    const nivelesFijos = [
+      "PRIMER NIVEL",
+      "SEGUNDO NIVEL",
+      "TERCER NIVEL",
+      "NO APLICA",
+    ];
+    setOpcionesNivel([
+      { value: "", label: "Todos los Niveles" },
+      ...nivelesFijos.map((n) => ({ value: n, label: n })),
+    ]);
+  }, [dataPorEstado, dataPorEspecialidad]);
+
+  useEffect(() => {
+    const loadTopLevelData = async () => {
       if (!isAuthenticated && !isGuestMode) {
         setError("No autorizado para ver esta página.");
-        setIsLoadingGraphs(false); // Asegurar que el loading de gráficas se detenga
-        setIsLoadingStats(false); // Asegurar que el loading de stats se detenga
-        setLoadingEspecialidades(false);
-        setLoadingNiveles(false);
-        setLoadingCedulas(false);
+        setIsLoadingGraphs(false);
+        // También resetea los loadings de las otras tablas si es necesario
+        // setLoadingEspecialidades(false); 
+        // setLoadingNiveles(false);
+        // setLoadingCedulas(false);
         return;
       }
-      setIsLoadingGraphs(true);
-      setIsLoadingStats(true); // Iniciar ambos loadings
+      
+      setIsLoadingGraphs(true); // Para las gráficas principales
+      // setIsLoadingStats(true); // El loading de la tabla de estadística se manejará en su propio efecto
       setError("");
-      setStatsError("");
-      setErrorEspecialidades("");
-      setErrorNiveles("");
-      setErrorCedulas("");
 
-      // Llama a fetchGraphData (que es useCallback)
+      // Estas funciones ya están memoizadas con useCallback
       await fetchGraphData();
-      // Llama a fetchEstadisticaData (que es useCallback) para la página 0
-      await fetchEstadisticaData(0);
       await fetchEspecialidadesAgrupadas();
       await fetchNivelesAtencion();
       await fetchCedulasData();
+      // No llamamos a fetchEstadisticaData aquí, se manejará por separado
     };
-    fetchInitialData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    loadTopLevelData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps 
   }, [
-    isAuthenticated,
-    isGuestMode,
-    token,
-    authLogout,
-    fetchGraphData,
-    fetchEstadisticaData,
+    isAuthenticated, 
+    isGuestMode, 
+    token, // Incluir token si es necesario para que se recarguen si cambia
+    // Las funciones fetch memoizadas solo cambiarán si sus propias dependencias (como token o authLogout) cambian
+    fetchGraphData, 
     fetchEspecialidadesAgrupadas,
     fetchNivelesAtencion,
-    fetchCedulasData,
-  ]); // Dependencias principales para la carga inicial
+    fetchCedulasData
+    // NO incluir fetchEstadisticaData ni sus filtros aquí
+  ]);
 
-  // useEffect para carga inicial de gráficas y primera página de estadísticas
   useEffect(() => {
-    // La función fetchAllData se define y se llama dentro de este efecto.
-    // No es necesario que fetchAllData sea una dependencia de este useEffect.
-    const fetchInitialData = async () => {
-      if (!isAuthenticated && !isGuestMode) {
-        setError("No autorizado para ver esta página.");
-        setIsLoadingGraphs(false); // Asegurar que el loading de gráficas se detenga
-        setIsLoadingStats(false); // Asegurar que el loading de stats se detenga
-        return;
-      }
-      setIsLoadingGraphs(true);
-      setIsLoadingStats(true); // Iniciar ambos loadings
-      setError("");
-      setStatsError("");
-
-      // Llama a fetchGraphData (que es useCallback)
-      await fetchGraphData();
-      // Llama a fetchEstadisticaData (que es useCallback) para la página 0
-      await fetchEstadisticaData(0);
-    };
-    fetchInitialData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, isGuestMode, token, authLogout]); // Dependencias principales para la carga inicial
+    // Este efecto se encarga de la carga inicial de la tabla de estadística (cuando currentPageEstadistica es 0)
+    // y de recargarla cuando currentPageEstadistica cambia o cuando los filtros (a través de fetchEstadisticaData) cambian.
+    if (isAuthenticated || isGuestMode) {
+        // fetchEstadisticaData es un useCallback que depende de los filtros:
+        // filtroEntidad, filtroEspecialidad, filtroNivel.
+        // Cuando esos filtros cambian, fetchEstadisticaData obtiene una nueva referencia,
+        // lo que hace que este useEffect se vuelva a ejecutar.
+        fetchEstadisticaData(currentPageEstadistica);
+    } else {
+        // Manejar caso no autenticado para esta tabla específica
+        setDataEstadistica([]);
+        setTotalGroupsEstadistica(0);
+        setTotalDoctorsInGroups(0);
+        setStatsError("No autorizado para ver esta estadística.");
+        setIsLoadingStats(false); // Asegurar que el loading se detenga
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps  
+  }, [
+    currentPageEstadistica, 
+    fetchEstadisticaData, // Esta es la clave: depende de los filtros de la tabla
+    isAuthenticated, 
+    isGuestMode
+    // No depende de isLoadingGraphs
+  ]);
 
   // useEffect para recargar datos de estadística cuando cambian los filtros o la página de la tabla
   useEffect(() => {
@@ -650,72 +653,7 @@ function GraficasPage() {
         </p>
       )}
 
-      <div style={styles.chartsGridContainer}>
-        {/* Celda 1: Gráfica de Pastel (Estatus) */}
-        {dataPorEstatus.length > 0 ? (
-          <div style={styles.chartWrapper}>
-            <h2 style={styles.chartTitle}>Distribución por Estatus</h2>
-            <ResponsivePie
-              data={pieData}
-              margin={{ top: 20, right: 80, bottom: 80, left: 80 }} // Ajustado bottom para leyenda
-              innerRadius={0.4}
-              padAngle={1}
-              cornerRadius={3}
-              activeOuterRadiusOffset={8}
-              colors={{ scheme: "nivo" }} // Esquema de colores diferente
-              borderWidth={1}
-              borderColor={{ from: "color", modifiers: [["darker", 0.2]] }}
-              arcLinkLabelsSkipAngle={10}
-              arcLinkLabelsTextColor="#333333"
-              arcLinkLabelsThickness={2}
-              arcLinkLabelsColor={{ from: "color" }}
-              arcLabelsSkipAngle={15}
-              arcLabelsTextColor={{
-                from: "color",
-                modifiers: [["darker", 3]],
-              }}
-              tooltip={({ datum: { id, value, color, label } }) => (
-                <div
-                  style={{
-                    padding: "5px 10px",
-                    background: "white",
-                    color: "#333",
-                    border: "1px solid #ccc",
-                  }}
-                >
-                  {" "}
-                  <strong style={{ color: color }}>{label || id}:</strong>{" "}
-                  {value}{" "}
-                </div>
-              )}
-              legends={[
-                {
-                  anchor: "bottom",
-                  direction: "row",
-                  justify: false,
-                  translateX: 0,
-                  translateY: 56,
-                  itemsSpacing: 0,
-                  itemWidth: 100,
-                  itemHeight: 18,
-                  itemTextColor: "#999",
-                  itemDirection: "left-to-right",
-                  itemOpacity: 1,
-                  symbolSize: 14,
-                  symbolShape: "circle",
-                  effects: [{ on: "hover", style: { itemTextColor: "#000" } }],
-                },
-              ]}
-            />
-          </div>
-        ) : (
-          !isLoading && (
-            <div style={styles.chartWrapper}>
-              <p style={styles.message}>No hay datos de estatus.</p>
-            </div>
-          )
-        )}
-
+      <div style={styles.chartsGridContainer}> 
         {/* Celda 2: Gráfica de Barras (Estado) */}
         {dataPorEstado.length > 0 ? (
           <div style={styles.chartWrapper}>
@@ -751,7 +689,7 @@ function GraficasPage() {
               }}
               labelSkipWidth={12}
               labelSkipHeight={12}
-              labelTextColor={{ from: "color", modifiers: [["darker", 1.6]] }}
+              labelTextColor = "white"
               animate={true}
               motionStiffness={90}
               motionDamping={15}
@@ -765,13 +703,13 @@ function GraficasPage() {
                   }}
                 >
                   {" "}
-                  <strong style={{ color }}>{indexValue}:</strong> {value}{" "}
+                  <strong style={{ color }}>{indexValue}:</strong> {value}
                 </div>
               )}
             />
           </div>
         ) : (
-          !isLoading && (
+          !isLoadingStats && (
             <div style={styles.chartWrapper}>
               <p style={styles.message}>No hay datos por estado.</p>
             </div>
