@@ -178,14 +178,7 @@ function Navbar({
       <button key="agregarDoctor" onClick={onAgregarDoctorClick} style={styles.button}>Agregar Doctor</button>
     );
   }
-  // Botón de Descarga PDF
-  if (currentPath === "/" && vistaActual === "graficas" && showViewToggleButtons) {
-    navActionItems.push(
-      <button key="descargarPdf" onClick={() => handleDownload("pdf")} style={styles.button} disabled={downloading || !showViewToggleButtons} >
-        {downloading && downloadError === "" && reportTypeBeingDownloaded === "pdf" ? "Generando PDF..." : "Generar PDF Resumen"}
-      </button>
-    );
-  }
+
   // Enlaces de Admin
   if (isAuthenticated && currentUser && currentUser.role === "admin") {
     if (currentPath !== "/admin/users") {
@@ -195,7 +188,7 @@ function Navbar({
     }
     if (currentPath !== "/admin/audit-log") {
       navActionItems.push(
-        <Link key="adminAudit" to="/admin/audit-log" style={styles.adminButtonLink}>Log de Auditoría</Link>
+        <Link key="adminAudit" to="/admin/audit-log" style={styles.adminButtonLink}>Auditoría</Link>
       );
     }
   }
