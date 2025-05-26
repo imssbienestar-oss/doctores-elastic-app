@@ -244,7 +244,6 @@ const profileStyles = {
 };
 
 const MOTIVO_BAJA_OPTIONS = [
-  { value: "", label: "Seleccionar motivo..." },
   { value: "Renuncia Voluntaria", label: "Renuncia Voluntaria" },
   { value: "Término de Contrato", label: "Término de Contrato" },
   { value: "Jubilación", label: "Jubilación" },
