@@ -2,7 +2,7 @@
 from sqlalchemy import Column, Integer, String, Date, Text, DateTime,Boolean, ForeignKey # Asegúrate de tener DateTime y ForeignKey
 from sqlalchemy.orm import relationship # Para definir relaciones entre tablas
 from sqlalchemy.sql import func # Para funciones SQL como now() para timestamps
-from . database import Base # Importa la Base que definimos en database.py
+from database import Base # Importa la Base que definimos en database.py
 
 class Doctor(Base):
     __tablename__ = "doctores" # Nombre exacto de la tabla en PostgreSQL
