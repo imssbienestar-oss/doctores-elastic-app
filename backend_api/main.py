@@ -22,7 +22,7 @@ import logging
 
 # Importaciones locales
 import security
-from . import models, schemas, database
+import models, schemas, database
 import pandas as pd
 from fpdf import FPDF
 from io import BytesIO
@@ -105,7 +105,7 @@ def log_action(db: Session, user: models.User, action_type: str, target_entity: 
     if user:
         username_to_log = user.username
         user_id_to_log = user.id
-    print(f"AUDIT LOGGING: User='{username_to_log}', Action='{action_type}', Entity='{target_entity}', ID='{target_id}', Details='{details}'")
+    #print(f"AUDIT LOGGING: User='{username_to_log}', Action='{action_type}', Entity='{target_entity}', ID='{target_id}', Details='{details}'")
     log_entry = models.AuditLog(
         user_id=user_id_to_log,
         username=username_to_log,
@@ -414,18 +414,18 @@ async def leer_doctores(
 
     if nombre:
         query = query.filter(models.Doctor.nombre_completo.ilike(f'%{nombre}%'))
-        print(f"DEBUG: Aplicando filtro por nombre: '%{nombre}%'")
+        #print(f"DEBUG: Aplicando filtro por nombre: '%{nombre}%'")
 
     if estatus:
         if estatus.lower() == "todos":
             print("DEBUG: Filtro de estatus: 'todos'. No se aplica filtro de estatus específico.")
         else:
             query = query.filter(models.Doctor.estatus == estatus)
-            print(f"DEBUG: Aplicando filtro por estatus: '{estatus}'")
+            #print(f"DEBUG: Aplicando filtro por estatus: '{estatus}'")
     
     try:
         total_count = query.count()
-        print(f"DEBUG: Total de doctores encontrados (después de todos los filtros): {total_count}")
+        #print(f"DEBUG: Total de doctores encontrados (después de todos los filtros): {total_count}")
     except Exception as e:
         print(f"ERROR al contar doctores: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error al contar los doctores: {str(e)}")
@@ -443,7 +443,7 @@ async def leer_doctores(
         doctores_query = query.offset(skip).limit(limit)
     
     doctores = doctores_query.all()
-    print(f"DEBUG: Devolviendo {len(doctores)} doctores (skip: {skip}, limit: {limit}).")
+    #print(f"DEBUG: Devolviendo {len(doctores)} doctores (skip: {skip}, limit: {limit}).")
 
     return {"total_count": total_count, "doctores": doctores}
 
@@ -804,7 +804,7 @@ async def generar_reporte_excel(
         # Aplicar filtros según la lógica de negocio para el reporte
         # Por ejemplo, siempre excluir los eliminados para este reporte público
         query = query.filter(models.Doctor.is_deleted == False)
-        print("DEBUG Reporte Excel: Aplicando filtro is_deleted == False")
+        #print("DEBUG Reporte Excel: Aplicando filtro is_deleted == False")
 
         # Aplicar otros filtros si se pasaron como parámetros
         # if estatus and estatus.lower() != "todos":
@@ -821,7 +821,7 @@ async def generar_reporte_excel(
         if not doctores_orm:
             # Considera devolver un 204 No Content o un Excel vacío con encabezados
             # Por ahora, un error si no hay datos podría ser confuso, mejor un Excel vacío.
-            print("DEBUG Reporte Excel: No hay doctores para el reporte.")
+            #print("DEBUG Reporte Excel: No hay doctores para el reporte.")
             # Crear un DataFrame vacío con las columnas esperadas para que el archivo no esté corrupto
             column_names = [
                 "ID", "Identificador IMSS", "Nombre Completo", "Estatus", "CURP", 
@@ -868,7 +868,7 @@ async def generar_reporte_excel(
         for col in df.columns:
             # Verificar si la columna es de tipo datetime y tiene timezone
             if pd.api.types.is_datetime64_any_dtype(df[col]) and getattr(df[col].dt, 'tz', None) is not None:
-                print(f"DEBUG Reporte Excel: Convirtiendo columna '{col}' a timezone-naive.")
+                #print(f"DEBUG Reporte Excel: Convirtiendo columna '{col}' a timezone-naive.")
                 df[col] = df[col].dt.tz_localize(None)
             # Si tus fechas son objetos 'date' de Python y no datetimes, usualmente no tienen tz y no causan problema.
             # Si son strings que representan fechas, pandas podría inferirlos como datetime al crear el DataFrame.
@@ -1171,7 +1171,7 @@ async def obtener_estadistica_doctores_agrupados(
 
         # Contar el total de DOCTORES INDIVIDUALES que coinciden con los filtros
         total_doctors_in_groups_count = base_filtered_query.count() or 0
-        print(f"DEBUG Backend: Suma total de doctores en los grupos filtrados: {total_doctors_in_groups_count}")
+        #print(f"DEBUG Backend: Suma total de doctores en los grupos filtrados: {total_doctors_in_groups_count}")
 
         # Query para agrupar y obtener los items de la página actual
         grouped_query_for_items = base_filtered_query.with_entities(
@@ -1197,7 +1197,7 @@ async def obtener_estadistica_doctores_agrupados(
         total_groups_count_query = db.query(func.count()).select_from(count_subquery)
         total_groups_count = total_groups_count_query.scalar()
         total_groups_count = total_groups_count if total_groups_count is not None else 0
-        print(f"DEBUG Backend: Suma total de doctores en los grupos filtrados: {total_groups_count}")
+        #print(f"DEBUG Backend: Suma total de doctores en los grupos filtrados: {total_groups_count}")
 
         # Aplicar ordenamiento, offset y limit para la paginación de los grupos
         query_result_paginated = grouped_query_for_items.order_by(
@@ -1214,7 +1214,7 @@ async def obtener_estadistica_doctores_agrupados(
                 "cantidad": row.cantidad if row.cantidad is not None else 0
             }
             items_for_response.append(schemas.EstadisticaAgrupadaItem(**item_data)) # Usa tu 'schemas.' real
-        print(f"DEBUG Backend: Items para la página actual: {len(items_for_response)}")
+        #print(f"DEBUG Backend: Items para la página actual: {len(items_for_response)}")
         return {
             "total_groups": total_groups_count, # <--- Usa la clave que espera el schema
             "total_doctors_in_groups": total_doctors_in_groups_count, # Nuevo campo
