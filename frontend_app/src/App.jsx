@@ -259,7 +259,7 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey }) {
     }
     // Solo el admin autenticado puede ver 'incluir_eliminados=true' en esta tabla.
     // Los invitados no tendrán currentUser ni rol de admin.
-    if (isAuthenticated && currentUser?.role === "admin") {
+    if (isAuthenticated && currentUser && currentUser.role === "admin") {
       url += "&incluir_eliminados=true";
     }
     console.log("APP.JSX - fetchDoctores: INICIANDO. URL construida:", url);
