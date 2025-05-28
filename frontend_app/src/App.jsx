@@ -1,6 +1,14 @@
 // frontend_app/src/App.jsx
 import React, { useState, useEffect, useCallback } from "react";
-import { BrowserRouter, Routes, Route, Navigate, Outlet, useNavigate, Link  } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  Outlet,
+  useNavigate,
+  Link,
+} from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ModalProvider, useModal } from "./contexts/ModalContext";
 
@@ -158,7 +166,7 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey }) {
   } = useAuth();
   const { isModalOpen, editingDoctor, openModal, closeModal } = useModal();
   const navigate = useNavigate(); // <--- ASEGÚRATE DE QUE ESTA LÍNEA ESTÉ PRESENTE
-  
+
   // Estados específicos de esta página (doctores, carga, paginación, modal, etc.)
   const [doctores, setDoctores] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -185,7 +193,7 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey }) {
   const totalPages = Math.ceil(totalDoctores / itemsPerPage);
   const API_BASE_URL =
     import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
-  console.log("APP.JSX - API_BASE_URL en Vercel:", API_BASE_URL);
+  console.log("APP.JSX - API_BASE_URL en este entorno:", API_BASE_URL); // Log para verificar
 
   useEffect(() => {
     const timerId = setTimeout(() => {
@@ -198,15 +206,49 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey }) {
 
   // Función para obtener doctores (sin cambios respecto a tu versión original)
   const fetchDoctores = useCallback(async () => {
-    if (!isAuthenticated && !isGuestMode) {
+    const canProceedBasedOnAuth =
+      (isAuthenticated && authToken && currentUser) ||
+      (isGuestMode && !isAuthenticated);
+
+    if (!canProceedBasedOnAuth) {
+      console.log(
+        "APP.JSX - fetchDoctores: Auth/Guest conditions NOT MET. Skipping fetch. isAuthenticated:",
+        isAuthenticated,
+        "authToken:",
+        !!authToken,
+        "currentUser:",
+        !!currentUser,
+        "isGuestMode:",
+        isGuestMode
+      );
       setDoctores([]);
       setTotalDoctores(0);
+      if (!isGuestMode && !isAuthenticated) {
+        // Opcional: setFetchError("Por favor, inicie sesión para ver los datos.");
+      }
+      setIsLoading(false); // ¡Importante! Poner isLoading en false si no se va a hacer fetch
       return;
     }
+
+    // Guarda #2: Si está autenticado, el token es absolutamente esencial.
+    // (canProceedBasedOnAuth ya cubre el caso de authToken y currentUser si isAuthenticated es true)
+    // Esta guarda es una doble verificación y podría ser redundante si canProceedBasedOnAuth es suficiente.
+    if (isAuthenticated && !authToken) {
+      console.log(
+        "APP.JSX - fetchDoctores: Autenticado pero el token aún no está listo. Esperando o fallando silenciosamente..."
+      );
+      setIsLoading(false); // Detener loading si no podemos proceder
+      // Opcional: setFetchError("Token no disponible, no se puede cargar la información.");
+      return;
+    }
+
+    // Solo un setIsLoading(true) y setFetchError("") al inicio del intento real de fetch
     setIsLoading(true);
     setFetchError("");
+
     const skip = (currentPage - 1) * itemsPerPage;
     let url = `${API_BASE_URL}/api/doctores?skip=${skip}&limit=${itemsPerPage}`;
+
     if (debouncedSearchTerm && String(debouncedSearchTerm).trim() !== "") {
       url += `&nombre=${encodeURIComponent(
         String(debouncedSearchTerm).trim()
@@ -215,57 +257,155 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey }) {
     if (selectedStatus) {
       url += `&estatus=${encodeURIComponent(selectedStatus)}`;
     }
-    if (
-      currentUser?.role ===
-      "admin" /* && alguna_condicion_para_ver_eliminados_en_tabla_principal */
-    ) {
+    // Solo el admin autenticado puede ver 'incluir_eliminados=true' en esta tabla.
+    // Los invitados no tendrán currentUser ni rol de admin.
+    if (isAuthenticated && currentUser?.role === "admin") {
       url += "&incluir_eliminados=true";
     }
+    console.log("APP.JSX - fetchDoctores: INICIANDO. URL construida:", url);
 
     try {
       const headers = { "Content-Type": "application/json" };
+      // Añadir token solo si está autenticado (isGuestMode será false en este caso si isAuthenticated es true)
       if (isAuthenticated && authToken) {
         headers["Authorization"] = `Bearer ${authToken}`;
       }
+
       const response = await fetch(url, { method: "GET", headers });
+      console.log(
+        "APP.JSX - fetchDoctores: Respuesta API Status:",
+        response.status,
+        "OK:",
+        response.ok
+      );
+
       if (response.ok) {
         const data = await response.json();
+        console.log(
+          "APP.JSX - fetchDoctores: Datos RECIBIDOS de API:",
+          JSON.stringify(data, null, 2)
+        );
         setDoctores(data.doctores || []);
         setTotalDoctores(data.total_count || 0);
-      } else if (response.status === 401 && isAuthenticated) {
-        setFetchError("Tu sesión ha expirado.");
-        authLogout();
-      } else {
-        const errorData = await response.json().catch(() => null);
-        setFetchError(
-          `Error del servidor: ${response.status} ${
-            errorData?.detail ? "- " + errorData.detail : ""
-          }`
+        console.log(
+          "APP.JSX - fetchDoctores: Estado 'doctores' debería actualizarse a:",
+          data.doctores || []
         );
+      } else {
+        const errorText = await response.text(); // Usar .text() para obtener cualquier tipo de error
+        console.error(
+          `APP.JSX - fetchDoctores: Error en respuesta API: ${response.status}`,
+          errorText
+        );
+        let detailErrorMessage = `Error del servidor: ${response.status}.`;
+        try {
+          // Intentar parsear como JSON para un mensaje de error más específico si está disponible
+          const errorData = JSON.parse(errorText);
+          if (errorData && errorData.detail) {
+            detailErrorMessage = errorData.detail;
+          }
+        } catch (parseError) {
+          // No hacer nada, usar el errorText o el status como fallback
+          if (errorText.length < 100 && errorText.length > 0)
+            detailErrorMessage = errorText;
+        }
+
+        if (response.status === 401 && isAuthenticated) {
+          setFetchError(
+            "Tu sesión ha expirado. Por favor, inicia sesión de nuevo."
+          );
+          authLogout();
+        } else {
+          setFetchError(detailErrorMessage);
+        }
+        setDoctores([]);
+        setTotalDoctores(0);
       }
     } catch (err) {
-      setFetchError("Error de conexión al obtener datos.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isAuthenticated, isGuestMode, currentPage, itemsPerPage, debouncedSearchTerm, selectedStatus, authToken, authLogout, API_BASE_URL, currentUser?.role]);
-
-  // useEffect para cargar doctores cuando cambian dependencias relevantes
-  useEffect(() => {
-    if ((isAuthenticated || isGuestMode) && viewMode === "table") {
-      fetchDoctores();
-    } else if (viewMode !== "profile") {
-      // Limpia estados si no está autenticado/invitado
+      console.error("APP.JSX - fetchDoctores: Error de red o JS:", err);
+      setFetchError(
+        "Error de conexión al obtener datos de doctores. Verifica tu conexión o la URL de la API."
+      );
       setDoctores([]);
       setTotalDoctores(0);
-      setCurrentPage(1);
-      setSearchTermInput("");
-      setDebouncedSearchTerm("");
-      setSelectedStatus("Activo");
-      setFetchError("");
+    } finally {
+      setIsLoading(false);
+      console.log("APP.JSX - fetchDoctores: FINALIZADO. isLoading=false");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchDoctores, isAuthenticated, isGuestMode, viewMode, doctorListRefreshKey]);
+  }, [
+    isAuthenticated,
+    isGuestMode,
+    currentPage,
+    itemsPerPage,
+    debouncedSearchTerm,
+    selectedStatus,
+    authToken,
+    authLogout,
+    API_BASE_URL,
+    currentUser, // Depender del objeto currentUser completo
+  ]);
+
+  useEffect(() => {
+    console.log(
+      "APP.JSX - useEffect principal para doctores disparado. Estado actual:",
+      {
+        isAuthenticated,
+        isGuestMode,
+        authTokenPresent: !!authToken,
+        currentUserPresent: !!currentUser,
+        viewMode,
+        doctorListRefreshKey,
+      }
+    );
+
+    let shouldFetch = false;
+    if (isGuestMode && !isAuthenticated) {
+      // Modo invitado explícito
+      shouldFetch = true;
+      console.log("APP.JSX - Condición para fetch: Modo Invitado.");
+    } else if (isAuthenticated && authToken && currentUser) {
+      // Autenticado y con toda la info necesaria
+      shouldFetch = true;
+      console.log(
+        "APP.JSX - Condición para fetch: Autenticado con token y usuario."
+      );
+    } else {
+      console.log(
+        "APP.JSX - Condición para fetch: NO CUMPLIDA. Esperando estado de auth estable o revisa lógica."
+      );
+    }
+
+    if (shouldFetch && viewMode === "table") {
+      console.log("APP.JSX - useEffect llamando a fetchDoctores.");
+      fetchDoctores();
+    } else if (viewMode !== "profile") {
+      // Limpiar datos si no se debe hacer fetch Y no estamos en modo perfil (para evitar limpiar si solo cambiamos de vista)
+      if (!shouldFetch) {
+        console.log(
+          "APP.JSX - Limpiando datos de doctores (shouldFetch es false y no en perfil)."
+        );
+        setDoctores([]);
+        setTotalDoctores(0);
+      }
+    }
+  }, [
+    fetchDoctores, // Esta es una dependencia clave. Se regenera si sus propias dependencias cambian.
+    isAuthenticated,
+    isGuestMode,
+    authToken,
+    currentUser,
+    viewMode,
+    doctorListRefreshKey,
+  ]);
+
+  useEffect(() => {
+    // Resetear a la página 1 cuando los filtros de búsqueda o estado cambian.
+    // No hacerlo si currentPage ya es 1 para evitar un re-render/re-fetch innecesario
+    // si el useEffect principal ya se va a disparar por el cambio en `fetchDoctores` (debido a filtros).
+    if (currentPage !== 1) {
+      setCurrentPage(1);
+    }
+  }, [debouncedSearchTerm, selectedStatus]); // Quitar currentPage de aquí
 
   // --- NUEVA FUNCIÓN PARA CARGAR EL PERFIL COMPLETO DEL DOCTOR ---
   const fetchFullDoctorProfile = async (doctorId) => {
@@ -615,22 +755,30 @@ function ProtectedRoute({ adminOnly = false, children }) {
   return children;
 }
 
- // Renombrado de App a AppContent
-function AppContent() { 
+// Renombrado de App a AppContent
+function AppContent() {
   const { isAuthenticated, isGuestMode, currentUser } = useAuth();
-  const navigate = useNavigate(); 
+  const navigate = useNavigate();
 
   const [vistaActual, setVistaActual] = useState("tabla");
   // --- NUEVO ESTADO PARA DISPARAR REFETCH EN HomePageContent ---
   const [doctorListRefreshKey, setDoctorListRefreshKey] = useState(0);
 
-  const handleVerGraficas = () => { setVistaActual("graficas"); navigate("/"); };
-  const handleVerTabla = () => { setVistaActual("tabla"); navigate("/"); };
+  const handleVerGraficas = () => {
+    setVistaActual("graficas");
+    navigate("/");
+  };
+  const handleVerTabla = () => {
+    setVistaActual("tabla");
+    navigate("/");
+  };
 
   // --- DEFINIR handleDoctorHasBeenRestored AQUÍ ---
   const handleDoctorHasBeenRestored = () => {
-    console.log("AppContent: Doctor restaurado, actualizando clave para refrescar lista...");
-    setDoctorListRefreshKey(prevKey => prevKey + 1); // Cambia la clave para disparar useEffect en HomePageContent
+    console.log(
+      "AppContent: Doctor restaurado, actualizando clave para refrescar lista..."
+    );
+    setDoctorListRefreshKey((prevKey) => prevKey + 1); // Cambia la clave para disparar useEffect en HomePageContent
     // Opcional: Navegar de vuelta a la tabla principal si no se hace automáticamente
     // navigate("/");
     // setVistaActual("tabla");
@@ -647,52 +795,88 @@ function AppContent() {
 
   return (
     <Routes>
-        <Route path="/login" element={ isAuthenticated || isGuestMode ? <Navigate to="/" replace /> : <LoginPage /> } />
-        
-        <Route element={ <Layout navbarProps={navbarProps} /> }>
-          <Route 
-            path="/" 
-            element={ 
-              (isAuthenticated || isGuestMode) ? 
-              // Pasar doctorListRefreshKey a HomePageContent
-              <HomePageContent vistaActualProp={vistaActual} doctorListRefreshKey={doctorListRefreshKey} /> : 
-              <Navigate to="/login" replace /> 
-            } 
-          />
-          <Route
-            path="/admin/users"
-            element={ <ProtectedRoute adminOnly={true}> <AdminUsersPage /> </ProtectedRoute> }
-          />
-          <Route
-            path="/admin/audit-log"
-            element={ <ProtectedRoute adminOnly={true}> <AuditLogView /> </ProtectedRoute> }
-          />
-          <Route
-            path="/admin/deleted-doctors"
-            element={
-              <ProtectedRoute adminOnly={true}>
-                {/* Pasar la función definida en AppContent */}
-                <DeletedDoctorsView onDoctorRestored={handleDoctorHasBeenRestored} /> 
-              </ProtectedRoute>
-            }
-          />
-        </Route>
+      <Route
+        path="/login"
+        element={
+          isAuthenticated || isGuestMode ? (
+            <Navigate to="/" replace />
+          ) : (
+            <LoginPage />
+          )
+        }
+      />
 
-        <Route path="*" element={ <div style={{ padding: "50px", textAlign: "center" }}> <h1>404 - Página No Encontrada</h1> <p>Lo sentimos, la página que buscas no existe.</p> <Link to="/">Volver a la página principal</Link> </div> } />
-      </Routes>
+      <Route element={<Layout navbarProps={navbarProps} />}>
+        <Route
+          path="/"
+          element={
+            isAuthenticated || isGuestMode ? (
+              // Pasar doctorListRefreshKey a HomePageContent
+              <HomePageContent
+                vistaActualProp={vistaActual}
+                doctorListRefreshKey={doctorListRefreshKey}
+              />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+        <Route
+          path="/admin/users"
+          element={
+            <ProtectedRoute adminOnly={true}>
+              {" "}
+              <AdminUsersPage />{" "}
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/audit-log"
+          element={
+            <ProtectedRoute adminOnly={true}>
+              {" "}
+              <AuditLogView />{" "}
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/deleted-doctors"
+          element={
+            <ProtectedRoute adminOnly={true}>
+              {/* Pasar la función definida en AppContent */}
+              <DeletedDoctorsView
+                onDoctorRestored={handleDoctorHasBeenRestored}
+              />
+            </ProtectedRoute>
+          }
+        />
+      </Route>
+
+      <Route
+        path="*"
+        element={
+          <div style={{ padding: "50px", textAlign: "center" }}>
+            {" "}
+            <h1>404 - Página No Encontrada</h1>{" "}
+            <p>Lo sentimos, la página que buscas no existe.</p>{" "}
+            <Link to="/">Volver a la página principal</Link>{" "}
+          </div>
+        }
+      />
+    </Routes>
   );
 }
 
 function Root() {
-    return (
-        <BrowserRouter>
-            <AuthProvider> 
-                <ModalProvider>
-                    <AppContent /> 
-                </ModalProvider>
-            </AuthProvider>
-        </BrowserRouter>
-    );
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <ModalProvider>
+          <AppContent />
+        </ModalProvider>
+      </AuthProvider>
+    </BrowserRouter>
+  );
 }
 
 export default Root;
