@@ -193,8 +193,6 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey }) {
   const totalPages = Math.ceil(totalDoctores / itemsPerPage);
   const API_BASE_URL =
     import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
-  console.log("APP.JSX - API_BASE_URL en este entorno:", API_BASE_URL); // Log para verificar
-
   useEffect(() => {
     const timerId = setTimeout(() => {
       setDebouncedSearchTerm(searchTermInput);
@@ -211,16 +209,6 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey }) {
       (isGuestMode && !isAuthenticated);
 
     if (!canProceedBasedOnAuth) {
-      console.log(
-        "APP.JSX - fetchDoctores: Auth/Guest conditions NOT MET. Skipping fetch. isAuthenticated:",
-        isAuthenticated,
-        "authToken:",
-        !!authToken,
-        "currentUser:",
-        !!currentUser,
-        "isGuestMode:",
-        isGuestMode
-      );
       setDoctores([]);
       setTotalDoctores(0);
       if (!isGuestMode && !isAuthenticated) {
@@ -234,9 +222,6 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey }) {
     // (canProceedBasedOnAuth ya cubre el caso de authToken y currentUser si isAuthenticated es true)
     // Esta guarda es una doble verificación y podría ser redundante si canProceedBasedOnAuth es suficiente.
     if (isAuthenticated && !authToken) {
-      console.log(
-        "APP.JSX - fetchDoctores: Autenticado pero el token aún no está listo. Esperando o fallando silenciosamente..."
-      );
       setIsLoading(false); // Detener loading si no podemos proceder
       // Opcional: setFetchError("Token no disponible, no se puede cargar la información.");
       return;
@@ -262,7 +247,6 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey }) {
     if (isAuthenticated && currentUser && currentUser.role === "admin") {
       url += "&incluir_eliminados=true";
     }
-    console.log("APP.JSX - fetchDoctores: INICIANDO. URL construida:", url);
 
     try {
       const headers = { "Content-Type": "application/json" };
@@ -272,31 +256,14 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey }) {
       }
 
       const response = await fetch(url, { method: "GET", headers });
-      console.log(
-        "APP.JSX - fetchDoctores: Respuesta API Status:",
-        response.status,
-        "OK:",
-        response.ok
-      );
-
+  
       if (response.ok) {
         const data = await response.json();
-        console.log(
-          "APP.JSX - fetchDoctores: Datos RECIBIDOS de API:",
-          JSON.stringify(data, null, 2)
-        );
         setDoctores(data.doctores || []);
         setTotalDoctores(data.total_count || 0);
-        console.log(
-          "APP.JSX - fetchDoctores: Estado 'doctores' debería actualizarse a:",
-          data.doctores || []
-        );
       } else {
         const errorText = await response.text(); // Usar .text() para obtener cualquier tipo de error
-        console.error(
-          `APP.JSX - fetchDoctores: Error en respuesta API: ${response.status}`,
-          errorText
-        );
+  
         let detailErrorMessage = `Error del servidor: ${response.status}.`;
         try {
           // Intentar parsear como JSON para un mensaje de error más específico si está disponible
@@ -346,44 +313,23 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey }) {
   ]);
 
   useEffect(() => {
-    console.log(
-      "APP.JSX - useEffect principal para doctores disparado. Estado actual:",
-      {
-        isAuthenticated,
-        isGuestMode,
-        authTokenPresent: !!authToken,
-        currentUserPresent: !!currentUser,
-        viewMode,
-        doctorListRefreshKey,
-      }
-    );
 
     let shouldFetch = false;
     if (isGuestMode && !isAuthenticated) {
       // Modo invitado explícito
       shouldFetch = true;
-      console.log("APP.JSX - Condición para fetch: Modo Invitado.");
+    
     } else if (isAuthenticated && authToken && currentUser) {
       // Autenticado y con toda la info necesaria
       shouldFetch = true;
-      console.log(
-        "APP.JSX - Condición para fetch: Autenticado con token y usuario."
-      );
-    } else {
-      console.log(
-        "APP.JSX - Condición para fetch: NO CUMPLIDA. Esperando estado de auth estable o revisa lógica."
-      );
-    }
+    } 
 
     if (shouldFetch && viewMode === "table") {
-      console.log("APP.JSX - useEffect llamando a fetchDoctores.");
       fetchDoctores();
     } else if (viewMode !== "profile") {
       // Limpiar datos si no se debe hacer fetch Y no estamos en modo perfil (para evitar limpiar si solo cambiamos de vista)
       if (!shouldFetch) {
-        console.log(
-          "APP.JSX - Limpiando datos de doctores (shouldFetch es false y no en perfil)."
-        );
+
         setDoctores([]);
         setTotalDoctores(0);
       }
@@ -775,9 +721,7 @@ function AppContent() {
 
   // --- DEFINIR handleDoctorHasBeenRestored AQUÍ ---
   const handleDoctorHasBeenRestored = () => {
-    console.log(
-      "AppContent: Doctor restaurado, actualizando clave para refrescar lista..."
-    );
+ 
     setDoctorListRefreshKey((prevKey) => prevKey + 1); // Cambia la clave para disparar useEffect en HomePageContent
     // Opcional: Navegar de vuelta a la tabla principal si no se hace automáticamente
     // navigate("/");
