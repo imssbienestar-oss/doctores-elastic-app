@@ -185,7 +185,7 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey }) {
   const totalPages = Math.ceil(totalDoctores / itemsPerPage);
   const API_BASE_URL =
     import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
-  console.log("APP.JSX - API_BASE_URL en Vercel:", VITE_API_BASE_URL);
+  console.log("APP.JSX - API_BASE_URL en Vercel:", API_BASE_URL);
 
   useEffect(() => {
     const timerId = setTimeout(() => {
