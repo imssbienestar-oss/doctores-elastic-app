@@ -6,7 +6,7 @@ import Root from './App';
 import './index.css';   
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <Root /> {/* Renderiza Root directamente. Root ya contiene el BrowserRouter. */}
-  </React.StrictMode>
+  //<React.StrictMode>
+    <Root />
+  //</React.StrictMode>
 );
