@@ -2,30 +2,30 @@
 from sqlalchemy import Column, Integer, String, Date, Text, DateTime,Boolean, ForeignKey # Asegúrate de tener DateTime y ForeignKey
 from sqlalchemy.orm import relationship # Para definir relaciones entre tablas
 from sqlalchemy.sql import func # Para funciones SQL como now() para timestamps
-from database import Base # Importa la Base que definimos en database.py
+from . database import Base # Importa la Base que definimos en database.py
 
 class Doctor(Base):
     __tablename__ = "doctores" # Nombre exacto de la tabla en PostgreSQL
 
     # Columnas existentes
-    id = Column(Integer, primary_key=True, index=True)
-    identificador_imss = Column(String(100), index=True)
-    nombre_completo = Column(String(255))
+    id_imss = Column(String, primary_key=True, index=True) 
+    nombre = Column(String(255))
+    apellido_paterno = Column(String(100), nullable=True)
+    apellido_materno = Column(String(100), nullable=True)
     estatus = Column(String(50))
     matrimonio_id = Column(String(100), nullable=True)
-    curp = Column(String(18), unique=True, index=True, nullable=True)
+    curp = Column(String(50), index=True, nullable=True)
     cedula_esp = Column(String(100), nullable=True)
     cedula_lic = Column(String(100), nullable=True)
     especialidad = Column(String(255), nullable=True)
     entidad = Column(String(100), nullable=True)
-    clues_ssa = Column(String(100), nullable=True)
-    notificacion_baja = Column(Text, nullable=True)
-    motivo_baja = Column(Text, nullable=True)
+    clues = Column(String(100), nullable=True)
+    forma_notificacion = Column(Text, nullable=True)
+    motivo_baja = Column(String(100), nullable=True)
     fecha_extraccion = Column(String(100), nullable=True)
     fecha_notificacion = Column(Date, nullable=True)
     sexo = Column(String(10), nullable=True)
     turno = Column(String(50), nullable=True)
-    clues_ib = Column(String(100), nullable=True)
     nombre_unidad = Column(String(255), nullable=True)
     municipio = Column(String(100), nullable=True)
     nivel_atencion = Column(String(50), nullable=True)
@@ -34,13 +34,26 @@ class Doctor(Base):
     fecha_vuelo = Column(Date, nullable=True)
     estrato = Column(String(100), nullable=True)
     acuerdo = Column(String(255), nullable=True)
-    correo_electronico = Column(String(100), nullable=True)
-    tel = Column(String(255), nullable=True)
-    entidad_nacimiento= Column(String(255), nullable=True)
+    foto_url = Column(String(1024), nullable=True, index=True) # Las URLs pueden ser largas
+    correo = Column(String(100), nullable=True)
+    telefono = Column(String(255), nullable=True)
     comentarios_estatus = Column(Text, nullable=True)
-    fecha_fallecimiento = Column(Date, nullable=True)
-    profile_pic_url = Column(String(1024), nullable=True, index=True) # Las URLs pueden ser largas
-    # --- Columnas para Soft Delete ---
+    fecha_fallecimiento = Column(Date, nullable=True) # Ya lo tenías
+    fecha_nacimiento = Column(Date, nullable=True)   # Ya lo tenías
+    pasaporte = Column(String(50), nullable=True)
+    fecha_emision = Column(Date, nullable=True) # Asumiendo que es la vigencia del pasaporte (fecha)
+    fecha_expiracion = Column(Date, nullable=True) # Asumiendo que es la vigencia del pasaporte (fecha)
+    estado_civil = Column(String(50), nullable=True)
+    domicilio = Column(Text, nullable=True)
+    licenciatura = Column(String(255), nullable=True) # Nombre de la carrera
+    institucion_lic = Column(String(255), nullable=True)
+    institucion_esp = Column(String(255), nullable=True)
+    fecha_egreso_lic = Column(Date, nullable=True)
+    fecha_egreso_esp = Column(Date, nullable=True)
+    tipo_establecimiento = Column(String(100), nullable=True)
+    subtipo_establecimiento = Column(String(100), nullable=True)
+    direccion_unidad = Column(String(500), nullable=True)
+    region = Column(String(100), nullable=True)
     is_deleted = Column(Boolean, default=False, nullable=False, index=True)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     deleted_by_user_id = Column(Integer, ForeignKey("users.id", name="fk_doctor_deleted_by_user"), nullable=True)
@@ -49,15 +62,12 @@ class Doctor(Base):
         foreign_keys=[deleted_by_user_id], # Especifica qué columna local es la FK
         back_populates="doctors_soft_deleted_by_this_user"
     )
-    fecha_nacimiento = Column(Date, nullable=True)
-    # Relación opcional para ver quién borró (si User tiene una relación inversa)
-    # deleted_by_user = relationship("User", foreign_keys=[deleted_by_user_id])
-
-    # --- NUEVA RELACIÓN para acceder a los attachments desde el doctor ---
-    # Esto crea un atributo `doctor.attachments` que será una lista de objetos DoctorAttachment
+    fecha_inicio = Column(Date, nullable=True)
+    fecha_fin = Column(Date, nullable=True)
+    motivo = Column(String(255), nullable=True)
+    tipo_incapacidad = Column(String(255), nullable=True) 
+    entidad_nacimiento= Column(String(255), nullable=True)
     attachments = relationship("DoctorAttachment", back_populates="doctor", cascade="all, delete-orphan")
-    # cascade="all, delete-orphan": si eliminas un Doctor, también se eliminarán sus DoctorAttachment asociados.
-
     __table_args__ = {'extend_existing': True}
 
 
@@ -83,9 +93,7 @@ class DoctorAttachment(Base):
     __tablename__ = "doctor_attachments" # Nombre para la nueva tabla
 
     id = Column(Integer, primary_key=True, index=True)
-    doctor_id = Column(Integer, ForeignKey("doctores.id", ondelete="CASCADE"), nullable=False) # Clave foránea a la tabla doctores
-                                                                                        # ondelete="CASCADE" significa que si se borra un doctor,
-                                                                                        # sus attachments también se borrarán de esta tabla.
+    doctor_id = Column(String, ForeignKey("doctores.id_imss", ondelete="CASCADE"), nullable=False)                                
     file_name = Column(String(255), index=True, nullable=False) # Nombre original del archivo
     file_url = Column(String(1024), nullable=False, unique=True) # URL de Firebase Storage, debe ser única
     file_type = Column(String(100), nullable=True) # ej. 'application/pdf', 'image/jpeg'
@@ -108,6 +116,7 @@ class AuditLog(Base):
     action_type = Column(String(100), nullable=False, index=True) # Ej: "CREATE_DOCTOR", "UPDATE_DOCTOR"
     target_entity = Column(String(100), nullable=True, index=True) # Ej: "Doctor"
     target_id = Column(Integer, nullable=True, index=True) # Ej: ID del doctor afectado
+    target_id_str = Column(String(100), nullable=True, index=True) # Para IDs como 'MC_123'
     details = Column(Text, nullable=True) # JSON string con cambios o datos relevantes
     user = relationship("User", foreign_keys=[user_id], back_populates="audit_log_entries")
     __table_args__ = {'extend_existing': True} # Mantener por si acaso, aunque no debería ser necesario si la tabla se crea correctamente
