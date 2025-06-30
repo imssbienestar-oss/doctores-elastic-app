@@ -21,8 +21,8 @@ import pytz
 import logging
 
 # Importaciones locales
-from . import security
-from . import models, schemas, database
+import security
+import models, schemas, database
 import pandas as pd
 from fpdf import FPDF
 from io import BytesIO as GlobalBytesIO
