@@ -1,55 +1,99 @@
 // src/components/AddDoctorModal.jsx
-import React, { useState, useEffect, useCallback } from 'react'; 
+import React, { useState, useEffect, useCallback } from 'react';
 import Modal from "react-modal";
 import { useAuth } from "../src/contexts/AuthContext";
 
 const ESTATUS_OPTIONS = [
   { value: "", label: "Seleccione un estatus..." },
-  { value: "Activo", label: "Activo" },
-  { value: "Baja", label: "Baja" },
-  { value: "Defunción", label: "Defunción" },
-  { value: "Incapacidad por Enfermedad", label: "Incapacidad por Enfermedad" },
-  { value: "Retiro Temporal", label: "Retiro Temporal" },
-  { value: "Solicitud Personal", label: "Solicitud Personal" },
+  { value: "01 ACTIVO", label: "01 ACTIVO" },
+  { value: "02 RETIRO TEMP.", label: "02 RETIRO TEMP." },
+  { value: "03 SOL. PERSONAL", label: "03 SOL. PERSONAL" },
+  { value: "04 INCAPACIDAD", label: "04 INCAPACIDAD" },
+  { value: "05 BAJA", label: "05 BAJA" },
 ];
+
+const ESPECIALIDAD_OPTIONS = [
+{ value: "", label: "Seleccione una especialidad..." },
+{ value: "01 ANATOMIA PATOLOGICA", label: "01 ANATOMIA PATOLOGICA"},
+{ value: "01 ANESTESIOLOGIA", label: "01 ANESTESIOLOGIA"},
+{ value: "01 CIRUGIA GENERAL", label: "01 CIRUGIA GENERAL"},
+{ value: "01 EPIDEMIOLOGIA", label: "01 EPIDEMIOLOGIA"},
+{ value: "01 GINECOLOGIA Y OBSTETRICIA", label: "01 GINECOLOGIA Y OBSTETRICIA"},
+{ value: "01 MEDICINA DE URGENCIAS", label: "01 MEDICINA DE URGENCIAS"},
+{ value: "01 MEDICINA FAMILIAR", label: "01 MEDICINA FAMILIAR"},
+{ value: "01 OFTALMOLOGIA", label: "01 OFTALMOLOGIA"},
+{ value: "01 OTORRINOLARINGOLOGIA Y CIRUGIA DE CABEZA Y CUELLO", label: "01 OTORRINOLARINGOLOGIA Y CIRUGIA DE CABEZA Y CUELLO"},
+{ value: "01 PSIQUIATRIA", label: "01 PSIQUIATRIA"},
+{ value: "01 RADIOLOGIA E IMAGEN", label: "01 RADIOLOGIA E IMAGEN"},
+{ value: "01 TRAUMATOLOGIA Y ORTOPEDIA", label: "01 TRAUMATOLOGIA Y ORTOPEDIA"},
+{ value: "01 MEDICINA DE REHABILITACION", label: "01 MEDICINA DE REHABILITACION"},
+{ value: "01 MEDICINA INTERNA", label: "01 MEDICINA INTERNA"},
+{ value: "01 PEDIATRIA MEDICA", label: "01 PEDIATRIA MEDICA"},
+{ value: "02 ANGIOLOGIA, CIRUGIA VASCULAR Y ENDOVASCULAR", label: "02 ANGIOLOGIA, CIRUGIA VASCULAR Y ENDOVASCULAR"},
+{ value: "02 CIRUGIA ONCOLOGICA", label: "02 CIRUGIA ONCOLOGICA"},
+{ value: "02 CIRUGIA PEDIATRICA", label: "02 CIRUGIA PEDIATRICA"},
+{ value: "02 COLOPROCTOLOGIA", label: "02 COLOPROCTOLOGIA"},
+{ value: "02 NEUROCIRUGIA", label: "02 NEUROCIRUGIA"},
+{ value: "02 UROLOGIA", label: "02 UROLOGIA"},
+{ value: "02 CARDIOLOGIA CLINICA", label: "02 CARDIOLOGIA CLINICA"},
+{ value: "02 DERMATOLOGIA", label: "02 DERMATOLOGIA"},
+{ value: "02 ENDOCRINOLOGIA", label: "02 ENDOCRINOLOGIA"},
+{ value: "02 GASTROENTEROLOGIA", label: "02 GASTROENTEROLOGIA"},
+{ value: "02 GERIATRIA", label: "02 GERIATRIA"},
+{ value: "02 HEMATOLOGIA", label: "02 HEMATOLOGIA"},
+{ value: "02 INMUNOLOGIA CLINICA Y ALERGIA", label: "02 INMUNOLOGIA CLINICA Y ALERGIA"},
+{ value: "02 MEDICINA CRITICA", label: "02 MEDICINA CRITICA"},
+{ value: "02 NEFROLOGIA", label: "02 NEFROLOGIA"},
+{ value: "02 NEUMOLOGIA", label: "02 NEUMOLOGIA"},
+{ value: "02 NEUROLOGIA ADULTOS", label: "02 NEUROLOGIA ADULTOS"},
+{ value: "02 ONCOLOGIA MEDICA", label: "02 ONCOLOGIA MEDICA"},
+{ value: "02 REUMATOLOGIA", label: "02 REUMATOLOGIA"},
+{ value: "02 MEDICINA DEL ENFERMO PEDIATRICO EN ESTADO CRITICO", label: "02 MEDICINA DEL ENFERMO PEDIATRICO EN ESTADO CRITICO"},
+{ value: "02 NEONATOLOGIA", label: "02 NEONATOLOGIA"},
+{ value: "02 ONCOLOGIA PEDIATRICA", label: "02 ONCOLOGIA PEDIATRICA"},
+{ value: "02 PSIQUIATRIA INFANTIL Y DE LA ADOLESCENCIA", label: "02 PSIQUIATRIA INFANTIL Y DE LA ADOLESCENCIA"},
+
+
+];
+
 
 const ESTADOS_OPTIONS = [
   { value: "", label: "Seleccione una entidad..." },
-  { value: "Aguascalientes", label: "Aguascalientes" },
-  { value: "Baja California", label: "Baja California" },
-  { value: "Baja California Sur", label: "Baja California Sur" },
-  { value: "Campeche", label: "Campeche" },
-  { value: "Coahuila de Zaragoza", label: "Coahuila de Zaragoza" },
-  { value: "Colima", label: "Colima" },
-  { value: "Chiapas", label: "Chiapas" },
-  { value: "Chihuahua", label: "Chihuahua" },
-  { value: "Ciudad de México", label: "Ciudad de México" },
-  { value: "Durango", label: "Durango" },
-  { value: "Guanajuato", label: "Guanajuato" },
-  { value: "Guerrero", label: "Guerrero" },
-  { value: "Hidalgo", label: "Hidalgo" },
-  { value: "Jalisco", label: "Jalisco" },
-  { value: "México", label: "México" },
-  { value: "Michoacán de Ocampo", label: "Michoacán de Ocampo" },
-  { value: "Morelos", label: "Morelos" },
-  { value: "Nayarit", label: "Nayarit" },
-  { value: "Nuevo León", label: "Nuevo León" },
-  { value: "Oaxaca", label: "Oaxaca" },
-  { value: "Puebla", label: "Puebla" },
-  { value: "Querétaro", label: "Querétaro" },
-  { value: "Quintana Roo", label: "Quintana Roo" },
-  { value: "San Luis Potosí", label: "San Luis Potosí" },
-  { value: "Sinaloa", label: "Sinaloa" },
-  { value: "Sonora", label: "Sonora" },
-  { value: "Tabasco", label: "Tabasco" },
-  { value: "Tamaulipas", label: "Tamaulipas" },
-  { value: "Tlaxcala", label: "Tlaxcala" },
+  { value: "AGS", label: "Aguascalientes" },
+  { value: "BC", label: "Baja California" },
+  { value: "BCS", label: "Baja California Sur" },
+  { value: "CAMP", label: "Campeche" },
+  { value: "CDMX", label: "Ciudad de México" },
+  { value: "COAH", label: "Coahuila de Zaragoza" },
+  { value: "CHIS", label: "Chiapas" },
+  { value: "COL", label: "Colima" },
+  { value: "CHIU", label: "Chihuahua" },
+  { value: "DGO", label: "Durango" },
+  { value: "GTO", label: "Guanajuato" },
+  { value: "GRO", label: "Guerrero" },
+  { value: "HGO", label: "Hidalgo" },
+  { value: "JAL", label: "Jalisco" },
+  { value: "MEX", label: "México" },
+  { value: "MICH", label: "Michoacán de Ocampo" },
+  { value: "MOR", label: "Morelos" },
+  { value: "NAY", label: "Nayarit" },
+  { value: "NLO", label: "Nuevo León" },
+  { value: "OAX", label: "Oaxaca" },
+  { value: "PUE", label: "Puebla" },
+  { value: "QRTO", label: "Querétaro" },
+  { value: "QROO", label: "Quintana Roo" },
+  { value: "SIN", label: "Sinaloa" },
+  { value: "SLP", label: "San Luis Potosí" },
+  { value: "SON", label: "Sonora" },
+  { value: "TAB", label: "Tabasco" },
+  { value: "TAMPS", label: "Tamaulipas" },
+  { value: "TLAX", label: "Tlaxcala" },
   {
-    value: "Veracruz de Ignacio de la Llave",
+    value: "VER",
     label: "Veracruz de Ignacio de la Llave",
   },
-  { value: "Yucatán", label: "Yucatán" },
-  { value: "Zacatecas", label: "Zacatecas" },
+  { value: "YUC", label: "Yucatán" },
+  { value: "ZAC", label: "Zacatecas" },
 ];
 
 const modalStyles = {
@@ -174,7 +218,10 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
   const { token: authToken, logout: authLogout } = useAuth();
 
   const initialFormData = {
-    nombre_completo: "",
+    id_imss: "",
+    nombre: "",
+    apellido_paterno: "",
+    apellido_materno: "",
     estatus: "",
     curp: "",
     especialidad: "",
@@ -194,16 +241,16 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
   const [isCheckingCurp, setIsCheckingCurp] = useState(false);
   const [debouncedCurp, setDebouncedCurp] = useState("");
 
-  useEffect(() => {
-    if (isOpen) {
-      setFormData(initialFormData); // Ahora initialFormData es una referencia estable
-      setError("");
-      setIsSaving(false);
-      setFechaNacimientoCalculada("");
-      setCurpError(""); // Limpiar error de CURP al abrir
-      setDebouncedCurp(""); // Limpiar CURP para debounce
-    }
-  }, [isOpen]); // Quitado initialFormData de las dependencias
+ // --- ÚNICO useEffect para manejar la apertura del modal ---
+   useEffect(() => {
+        if (isOpen) {
+            setFormData(initialFormData);
+            setError("");
+            setIsSaving(false);
+            setCurpError("");
+        }
+    }, [isOpen]);
+
 
   const calcularFechaNacimientoDesdeCURP = (curp) => {
     if (curp && curp.length >= 10) {
@@ -259,7 +306,7 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
             isoDate: null,
           };
         }
-       const displayDate = fecha.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const displayDate = fecha.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
         const isoDate = `${anio}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
         return { displayDate, isoDate };
       } catch (e) {
@@ -273,10 +320,10 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
   };
 
   // --- FUNCIÓN PARA VERIFICAR SI EL CURP EXISTE ---
-   const checkCurpExists = useCallback(async (curpValue) => {
+  const checkCurpExists = useCallback(async (curpValue) => {
     if (!curpValue || curpValue.length !== 18 || !authToken) {
-      setCurpError(''); 
-      return false; 
+      setCurpError('');
+      return false;
     }
     setIsCheckingCurp(true); setCurpError('');
     try {
@@ -284,12 +331,12 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
         headers: { Authorization: `Bearer ${authToken}` },
       });
 
-     if (!response.ok) {
+      if (!response.ok) {
         throw new Error(`Error HTTP: ${response.status}`);
       }
 
       const data = await response.json();
-      
+
       if (data.exists) {
         setCurpError(data.message || "⚠️ Esta CURP ya está registrada en el sistema");
         return true; // Retorna true cuando la CURP existe
@@ -297,7 +344,7 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
         setCurpError('');
         return false; // Retorna false cuando la CURP no existe
       }
-      
+
     } catch (err) {
       console.error("Error verificando CURP:", err);
       setCurpError("⚠️ Error al verificar la CURP. Intente nuevamente.");
@@ -305,21 +352,21 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
     } finally {
       setIsCheckingCurp(false);
     }
-}, [authToken]);
+  }, [authToken]);
 
   useEffect(() => {
-  const handler = setTimeout(() => {
-    if (formData.curp.length === 18) {
-      checkCurpExists(formData.curp);
-    } else if (formData.curp.length > 0) {
-      setCurpError('La CURP debe tener exactamente 18 caracteres');
-    } else {
-      setCurpError('');
-    }
-  }, 700);
+    const handler = setTimeout(() => {
+      if (formData.curp.length === 18) {
+        checkCurpExists(formData.curp);
+      } else if (formData.curp.length > 0) {
+        setCurpError('La CURP debe tener exactamente 18 caracteres');
+      } else {
+        setCurpError('');
+      }
+    }, 700);
 
-  return () => clearTimeout(handler);
-}, [formData.curp, checkCurpExists]);
+    return () => clearTimeout(handler);
+  }, [formData.curp, checkCurpExists]);
 
 
   const handleChange = (event) => {
@@ -334,10 +381,10 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
         if (curpUpper.length === 18) {
           const { displayDate, isoDate } = calcularFechaNacimientoDesdeCURP(curpUpper);
           setFechaNacimientoCalculada(displayDate);
-          newFormData.fecha_nacimiento = isoDate || ""; 
+          newFormData.fecha_nacimiento = isoDate || "";
         } else {
-          setFechaNacimientoCalculada(''); 
-          newFormData.fecha_nacimiento = ""; 
+          setFechaNacimientoCalculada('');
+          newFormData.fecha_nacimiento = "";
         }
       }
       return newFormData;
@@ -345,134 +392,88 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
   };
 
   const handleSubmit = async (event) => {
-    event.preventDefault();
-    setError("");
-    if (curpError) {
-      alert(`Error con CURP: ${curpError}`); // O mostrarlo de otra forma
-      setIsSaving(false); // Asegurar que no se quede en "guardando"
-      return;
-    }
-    if (isCheckingCurp) {
-      alert("Por favor, espere a que termine la verificación del CURP.");
-      setIsSaving(false);
-      return;
-    }
-    setIsSaving(true); // isSaving se vuelve true
-    console.log("AddDoctorModal: isSaving establecido a true."); // LOG 2
+        event.preventDefault();
+        setError("");
 
-    const curpYaExiste = await checkCurpExists(formData.curp);
-    if (curpYaExiste) {
-      alert("⚠️ La CURP ya está registrada. No se puede guardar.");
-      setIsSaving(false);
-      return;
-    }
+        // --- CORREGIDO: Añadir validación para id_imss ---
+        if (!formData.id_imss.trim() || !formData.nombre.trim() || !formData.apellido_paterno.trim() || !formData.estatus || !formData.especialidad || !formData.entidad) {
+            setError("Por favor, completa todos los campos requeridos (*).");
+            setIsSaving(false);
+            return;
+        }
 
-    if (!authToken) {
-      console.error("AddDoctorModal: No hay authToken. Abortando."); // LOG 3
-      setError(
-        "Error de autenticación: Token no disponible. Inicia sesión de nuevo."
-      );
-      setIsSaving(false); // Asegurar que se resetee
-      return;
-    }
-    const apiUrl = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
-    const url = `${apiUrl}/api/doctores`;
-    const method = "POST";
-    const dataToSend = {
-      nombre_completo: formData.nombre_completo.trim(),
-      estatus: formData.estatus,
-      curp: formData.curp.trim() || null,
-      especialidad: formData.especialidad.trim(),
-      entidad: formData.entidad,
-      fecha_nacimiento: formData.fecha_nacimiento || null,
+        setIsSaving(true);
+        
+        // --- CORREGIDO: Enviar id_imss en el payload ---
+        const dataToSend = {
+            id_imss: formData.id_imss.trim(),
+            nombre: formData.nombre.trim(),
+            apellido_paterno: formData.apellido_paterno.trim(),
+            apellido_materno: formData.apellido_materno.trim(),
+            estatus: formData.estatus,
+            curp: formData.curp.trim() || null,
+            especialidad: formData.especialidad.trim(),
+            entidad: formData.entidad,
+            // ... (resto de campos)
+        };
+
+        try {
+            const url = `${API_BASE_URL}/api/doctores`;
+            const response = await fetch(url, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${authToken}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(dataToSend),
+            });
+
+            if (response.ok) {
+                const responseData = await response.json();
+                onSave(responseData, false); // El segundo parámetro indica que no estaba editando
+            } else {
+                const errorData = await response.json();
+                setError(errorData.detail || "Hubo un error al crear el doctor.");
+            }
+        } catch (err) {
+            setError(err.message || "Error de conexión. Intenta de nuevo.");
+        } finally {
+            setIsSaving(false);
+        }
     };
-    console.log("AddDoctorModal: dataToSend preparado:", dataToSend); // LOG 4
 
-    if (
-      !dataToSend.nombre_completo ||
-      !dataToSend.estatus ||
-      !dataToSend.especialidad ||
-      !dataToSend.entidad
-    ) {
-      console.error("AddDoctorModal: Campos requeridos faltantes."); // LOG 5
-      setError(
-        "Por favor, completa todos los campos requeridos (Nombre, Estatus, Especialidad, Entidad)."
-      );
-      setIsSaving(false); // Asegurar que se resetee
-      return;
-    }
-    if (dataToSend.curp && dataToSend.curp.length !== 18) {
-      console.error("AddDoctorModal: CURP con longitud incorrecta."); // LOG 6
-      setError("El CURP debe tener 18 caracteres si se proporciona.");
-      setIsSaving(false); // Asegurar que se resetee
-      return;
-    }
-    
-    if (
-      formData.curp.length === 18 &&
-      fechaNacimientoCalculada.startsWith("CURP:")
-    ) {
-      console.error(
-        "AddDoctorModal: Problema con CURP detectado por fechaNacimientoCalculada."
-      ); // LOG 7
-      setError(
-        `Problema con CURP: ${fechaNacimientoCalculada}. Verifique el CURP.`
-      );
-      setIsSaving(false); // Asegurar que se resetee
-      return;
-    }
-    try {
-      console.log("AddDoctorModal: Intentando fetch a:", url); // LOG 8
-      const response = await fetch(url, {
-        method: method,
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(dataToSend),
-      });
-      console.log(
-        "AddDoctorModal: Respuesta del fetch recibida, status:",
-        response.status
-      ); // LOG 9
-
-      if (response.ok) {
-        const responseData = await response.json();
-        console.log("AddDoctorModal: Respuesta OK, data:", responseData); // LOG 10
-        onSave(responseData, false); // Llama a la función onSave del padre
-        console.log("AddDoctorModal: onSave llamado."); // LOG 11
-      } else {
-        let errorDetail = "Error la 'CURP' ya esta registrada.";
-        // ... (tu lógica de manejo de errores de response.ok) ...
-        console.error(
-          `AddDoctorModal: Error en respuesta del backend - ${response.status}`,
-          errorDetail
-        ); // LOG 12
-        setError(errorDetail);
-      }
-    } catch (err) {
-      console.error(
-        "AddDoctorModal: Error en el bloque catch (fetch o JSON parse):",
-        err
-      ); // LOG 13
-      setError(
-        err.message || "Error de conexión al crear el doctor. Intenta de nuevo."
-      );
-    } finally {
-      console.log("AddDoctorModal: Entrando al bloque finally."); // LOG 14
-      setIsSaving(false); // isSaving DEBERÍA volverse false aquí
-      console.log("AddDoctorModal: isSaving establecido a false."); // LOG 15
-    }
-  };
 
   const createFields = [
+    
     {
-      name: "nombre_completo",
-      label: "Nombre Completo",
+      name: "id_imss",
+      label: "ID IMSS",
       type: "text",
       required: true,
-      placeholder: "Ej: Dra. Ana Sofía Pérez López",
+      placeholder: "Ej: MC_0000",
     },
+    {
+      name: "nombre",
+      label: "Nombres",
+      type: "text",
+      required: true,
+      placeholder: "Ej: Ana Sofía",
+    },
+    {
+      name: "apellido_paterno",
+      label: "Apellido Paterno",
+      type: "text",
+      required: true,
+      placeholder: "Ej: Pérez",
+    },
+    {
+      name: "apellido_materno",
+      label: "Apellido Materno",
+      type: "text",
+      required: true,
+      placeholder: "Ej: López",
+    },
+
     {
       name: "estatus",
       label: "Estatus",
@@ -492,8 +493,9 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
       name: "especialidad",
       label: "Especialidad",
       type: "text",
+       type: "select",
+      options: ESPECIALIDAD_OPTIONS,
       required: true,
-      placeholder: "Ej: Cardiología Pediátrica",
     },
     {
       name: "entidad",
@@ -532,16 +534,16 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
           return (
             <div key={field.name} style={modalStyles.formGroup}>
               <label htmlFor={field.name} style={modalStyles.label}>
-                {" "}
-                {field.label}{" "}
-                {field.required && <span style={{ color: "red" }}>*</span>}:{" "}
+
+                {field.label}
+                {field.required && <span style={{ color: "red" }}>*</span>}:
               </label>
               {field.type === "select" ? (
                 <select {...commonProps}>
                   {field.options.map((opt) => (
                     <option key={opt.value} value={opt.value}>
-                      {" "}
-                      {opt.label}{" "}
+
+                      {opt.label}
                     </option>
                   ))}
                 </select>
@@ -588,15 +590,13 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
             style={{ ...modalStyles.button, ...modalStyles.secondaryButton }}
             disabled={isSaving}
           >
-            {" "}
-            Cancelar{" "}
+            Cancelar
           </button>
           <button
             type="submit"
             style={{ ...modalStyles.button, ...modalStyles.primaryButton }}
             disabled={isSaving}
           >
-            {" "}
             {isSaving ? "Creando..." : "Crear Doctor"}{" "}
           </button>
         </div>
