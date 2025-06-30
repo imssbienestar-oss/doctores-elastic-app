@@ -9,8 +9,8 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from . database import get_db # Importa la función para obtener sesión de DB
-from . import models # El punto indica una importación desde el mismo paquete (backend_api)
-from . import schemas # Asegúrate que tus esquemas Pydantic estén aquí (ej. schemas.TokenData)
+import models # El punto indica una importación desde el mismo paquete (backend_api)
+import schemas # Asegúrate que tus esquemas Pydantic estén aquí (ej. schemas.TokenData)
 
 load_dotenv() # Cargar variables de .env
 
