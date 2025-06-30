@@ -26,6 +26,7 @@ const styles = {
   },
   chartsGridContainer: {
     display: "grid",
+    marginBottom: "80px",
     gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))",
     gap: "25px",
     width: "100%",
@@ -33,20 +34,19 @@ const styles = {
     margin: "0 auto 40px auto",
   },
   chartWrapper: {
-    height: "400px",
+    height: "750px",
+    with: "100%",
     background: "#f9f9f9",
-    padding: "20px",
-    borderRadius: "8px",
-    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-    display: "flex",
-    flexDirection: "column",
+    padding: "10px",
+    boxSizing: "border-box",
+
   },
   chartTitle: {
     textAlign: "center",
     color: "#333",
     fontSize: "18px",
     fontWeight: "500",
-    marginBottom: "15px",
+    marginBottom: "5px",
   },
   treemapWithLegendWrapper: {
     height: "400px",
@@ -192,10 +192,10 @@ function GraficasPage() {
   const [totalGroupsEstadistica, setTotalGroupsEstadistica] = useState(0);
   const [totalDoctorsInGroups, setTotalDoctorsInGroups] = useState(0);
   const [totalItemsEstadistica, setTotalItemsEstadistica] = useState(0);
-
   const [filtroEntidad, setFiltroEntidad] = useState("");
   const [filtroEspecialidad, setFiltroEspecialidad] = useState("");
   const [filtroNivel, setFiltroNivel] = useState("");
+  const [dataPorNivelAtencion, setDataPorNivelAtencion] = useState([]); // Nuevo estado para Nivel de Atención
   const [opcionesEntidad, setOpcionesEntidad] = useState([
     { value: "", label: "Todas las Entidades" },
   ]);
@@ -213,7 +213,6 @@ function GraficasPage() {
   const [especialidadesAgrupadas, setEspecialidadesAgrupadas] = useState([]);
   const [loadingEspecialidades, setLoadingEspecialidades] = useState(true);
   const [errorEspecialidades, setErrorEspecialidades] = useState("");
-
   const [nivelesAtencion, setNivelesAtencion] = useState([]);
   const [cedulasData, setCedulasData] = useState(null);
   const [loadingNiveles, setLoadingNiveles] = useState(true);
@@ -351,6 +350,8 @@ function GraficasPage() {
                   label: String(item.label || item.id || "Desconocido"),
                   value: Number(item.value) || 0,
                 }))
+                .sort((a, b) => b.value - a.value) // Orden descendente
+                .reverse()
               : [],
           name: "estado",
         },
@@ -509,10 +510,11 @@ function GraficasPage() {
       ]);
     }
     const nivelesFijos = [
-      "PRIMER NIVEL",
-      "SEGUNDO NIVEL",
-      "TERCER NIVEL",
-      "NO APLICA",
+      "01 PNA",
+      "02 SNA",
+      "03 TNA",
+      "04 OTRO",
+      "05 NO APLICA"
     ];
     setOpcionesNivel([
       { value: "", label: "Todos los Niveles" },
@@ -628,10 +630,11 @@ function GraficasPage() {
     dataPorEstado.length === 0 &&
     dataPorEspecialidad.children.length === 0 &&
     dataPorEstatus.length === 0;
+    dataPorNivelAtencion.length === 0; 
 
   return (
     <div style={styles.pageContainerStyle}>
-      <h1 style={styles.headerTitle}>Dashboard</h1>
+      <h1 style={styles.headerTitle}>Gráficas</h1>
       {error && (
         <p
           style={{
@@ -652,8 +655,7 @@ function GraficasPage() {
           No hay datos disponibles para las gráficas.
         </p>
       )}
-
-      <div style={styles.chartsGridContainer}> 
+  <div style={styles.chartsGridContainer}> 
         {/* Celda 2: Gráfica de Barras (Estado) */}
         {dataPorEstado.length > 0 ? (
           <div style={styles.chartWrapper}>
@@ -661,9 +663,10 @@ function GraficasPage() {
             <ResponsiveBar
               data={dataPorEstado}
               keys={["value"]}
-              indexBy="id" // Usar 'id' que se mapeó en la transformación
-              margin={{ top: 20, right: 20, bottom: 120, left: 60 }} // Ajustar bottom para labels
-              padding={0.3}
+              indexBy="id" 
+              layout="horizontal"
+              margin={{ top: 10, right: 60, bottom:100, left: 120 }} // Ajustar bottom para labels
+              padding={0.35}
               valueScale={{ type: "linear" }}
               indexScale={{ type: "band", round: true }}
               colors={{ scheme: "spectral" }}
@@ -673,19 +676,20 @@ function GraficasPage() {
               axisBottom={{
                 tickSize: 5,
                 tickPadding: 5,
-                tickRotation: -40,
-                legend: "Estado",
+                tickRotation: 0,
+                legend: "Número de Doctores",
                 legendPosition: "middle",
-                legendOffset: 70,
+                legendOffset: 50,
                 truncateTickAt: 12,
               }}
               axisLeft={{
                 tickSize: 5,
                 tickPadding: 5,
                 tickRotation: 0,
-                legend: "Número de Doctores",
+                legend: "Estado",
                 legendPosition: "middle",
-                legendOffset: -50,
+                legendOffset: -90,
+                truncateTickAt: 12,
               }}
               labelSkipWidth={12}
               labelSkipHeight={12}
@@ -716,9 +720,170 @@ function GraficasPage() {
           )
         )}
 
-        {/* Celda 4 (Opcional - vacía o para otra gráfica) */}
-        {/* <div style={styles.chartWrapper}><p style={styles.message}>Gráfica Adicional Aquí</p></div> */}
+          {dataPorEstatus.length > 0 ? (
+          <div style={styles.chartWrapper}>
+            <h2 style={styles.chartTitle}>Doctores por Estatus</h2>
+            <ResponsivePie
+              data={dataPorEstatus}
+              margin={{ top: 40, right: 80, bottom: 80, left: 80 }}
+              innerRadius={0.5}
+              padAngle={0.7}
+              cornerRadius={3}
+              activeOuterRadiusOffset={8}
+              colors={{ scheme: "paired" }} // Puedes elegir otro esquema de colores
+              borderWidth={1}
+              borderColor={{ from: "color", modifiers: [["darker", 0.2]] }}
+              arcLinkLabelsSkipAngle={10}
+              arcLinkLabelsTextColor="#333333"
+              arcLinkLabelsThickness={2}
+              arcLinkLabelsColor={{ from: "color" }}
+              arcLabelsSkipAngle={10}
+              arcLabelsTextColor={{
+                from: "color",
+                modifiers: [["darker", 2]],
+              }}
+              defs={[
+                {
+                  id: "dots",
+                  type: "patternDots",
+                  background: "inherit",
+                  color: "rgba(255, 255, 255, 0.3)",
+                  size: 4,
+                  padding: 1,
+                  stagger: true,
+                },
+                {
+                  id: "lines",
+                  type: "patternLines",
+                  background: "inherit",
+                  color: "rgba(255, 255, 255, 0.3)",
+                  rotation: -45,
+                  lineWidth: 6,
+                  spacing: 10,
+                },
+              ]}
+              fill={[
+                { match: { id: "Activo" }, id: "dots" },
+                { match: { id: "Baja" }, id: "lines" },
+              ]}
+              legends={[
+                {
+                  anchor: "bottom",
+                  direction: "row",
+                  justify: false,
+                  translateX: 0,
+                  translateY: 56,
+                  itemsSpacing: 0,
+                  itemWidth: 100,
+                  itemHeight: 18,
+                  itemTextColor: "#999",
+                  itemDirection: "left-to-right",
+                  itemOpacity: 1,
+                  symbolSize: 18,
+                  symbolShape: "circle",
+                  effects: [
+                    {
+                      on: "hover",
+                      style: {
+                        itemTextColor: "#000",
+                      },
+                    },
+                  ],
+                },
+              ]}
+              tooltip={({ datum: { id, value, color } }) => (
+                <div
+                  style={{
+                    padding: "5px 10px",
+                    background: "white",
+                    color: "#333",
+                    border: "1px solid #ccc",
+                  }}
+                >
+                  <strong style={{ color }}>{id}:</strong> {value}
+                </div>
+              )}
+            />
+          </div>
+        ) : (
+          !isLoadingStats && (
+            <div style={styles.chartWrapper}>
+              <p style={styles.message}>No hay datos por estatus.</p>
+            </div>
+          )
+        )}
+
+        {dataPorNivelAtencion.length > 0 ? (
+          <div style={styles.chartWrapper}>
+            <h2 style={styles.chartTitle}>Doctores por Nivel de Atención</h2>
+            <ResponsivePie
+              data={dataPorNivelAtencion}
+              margin={{ top: 40, right: 80, bottom: 80, left: 80 }}
+              innerRadius={0.5}
+              padAngle={0.7}
+              cornerRadius={3}
+              activeOuterRadiusOffset={8}
+              colors={{ scheme: "nivo" }} // Puedes elegir otro esquema de colores
+              borderWidth={1}
+              borderColor={{ from: "color", modifiers: [["darker", 0.2]] }}
+              arcLinkLabelsSkipAngle={10}
+              arcLinkLabelsTextColor="#333333"
+              arcLinkLabelsThickness={2}
+              arcLinkLabelsColor={{ from: "color" }}
+              arcLabelsSkipAngle={10}
+              arcLabelsTextColor={{
+                from: "color",
+                modifiers: [["darker", 2]],
+              }}
+              legends={[
+                {
+                  anchor: "bottom",
+                  direction: "row",
+                  justify: false,
+                  translateX: 0,
+                  translateY: 56,
+                  itemsSpacing: 0,
+                  itemWidth: 100,
+                  itemHeight: 18,
+                  itemTextColor: "#999",
+                  itemDirection: "left-to-right",
+                  itemOpacity: 1,
+                  symbolSize: 18,
+                  symbolShape: "circle",
+                  effects: [
+                    {
+                      on: "hover",
+                      style: {
+                        itemTextColor: "#000",
+                      },
+                    },
+                  ],
+                },
+              ]}
+              tooltip={({ datum: { id, value, color } }) => (
+                <div
+                  style={{
+                    padding: "5px 10px",
+                    background: "white",
+                    color: "#333",
+                    border: "1px solid #ccc",
+                  }}
+                >
+                  <strong style={{ color }}>{id}:</strong> {value}
+                </div>
+              )}
+            />
+          </div>
+        ) : (
+          !isLoadingStats && (
+            <div style={styles.chartWrapper}>
+              <p style={styles.message}>No hay datos por nivel de atención.</p>
+            </div>
+          )
+        )}
+
       </div>
+    
 
       {/* --- NUEVA SECCIÓN DE ESTADÍSTICA --- */}
       <h2 style={styles.sectionTitle}>Estadística Detallada</h2>
@@ -925,7 +1090,9 @@ function GraficasPage() {
                       <td
                         style={{ ...styles.dataTableTd, textAlign: "center" }}
                       >
-                        {especialidad.total_doctores.toLocaleString()}
+                        {especialidad.total_doctores != null
+                          ? especialidad.total_doctores.toLocaleString()
+                          : "0"}
                       </td>
                     </tr>
                   ))}
@@ -934,7 +1101,9 @@ function GraficasPage() {
                   >
                     <td style={styles.dataTableTd}>Total</td>
                     <td style={{ ...styles.dataTableTd, textAlign: "center" }}>
-                      {grupo.total.toLocaleString()}
+                       {grupo.total != null
+                        ? grupo.total.toLocaleString()
+                        : "0"}
                     </td>
                   </tr>
                 </tbody>
@@ -965,12 +1134,14 @@ function GraficasPage() {
             <tbody>
               {nivelesAtencion.map((nivel, index) => (
                 <tr
-                  key={nivel.nivel_atencion}
+                  key={nivel.id}
                   style={index % 2 === 0 ? styles.dataTableTrEven : {}}
                 >
                   <td style={styles.dataTableTd}>{nivel.nivel_atencion}</td>
                   <td style={{ ...styles.dataTableTd, textAlign: "center" }}>
-                    {nivel.total_doctores.toLocaleString()}
+                    {nivel.total_doctores != null
+                      ? nivel.total_doctores.toLocaleString()
+                      : "0"}
                   </td>
                 </tr>
               ))}
@@ -1014,13 +1185,17 @@ function GraficasPage() {
                   <tr style={styles.dataTableTrEven}>
                     <td style={styles.dataTableTd}>Con cédula</td>
                     <td style={{ ...styles.dataTableTd, textAlign: "center" }}>
-                      {cedulasData.con_licenciatura.toLocaleString()}
+                     {cedulasData.con_licenciatura != null
+                        ? cedulasData.con_licenciatura.toLocaleString()
+                        : "0"}
                     </td>
                   </tr>
                   <tr>
                     <td style={styles.dataTableTd}>Sin cédula</td>
                     <td style={{ ...styles.dataTableTd, textAlign: "center" }}>
-                      {cedulasData.sin_licenciatura.toLocaleString()}
+                         {cedulasData.sin_licenciatura != null
+                        ? cedulasData.sin_licenciatura.toLocaleString()
+                        : "0"}
                     </td>
                   </tr>
                   <tr
@@ -1028,7 +1203,9 @@ function GraficasPage() {
                   >
                     <td style={styles.dataTableTd}>Total</td>
                     <td style={{ ...styles.dataTableTd, textAlign: "center" }}>
-                      {cedulasData.total_doctores.toLocaleString()}
+                      {cedulasData.total_doctores != null
+                        ? cedulasData.total_doctores.toLocaleString()
+                        : "0"}
                     </td>
                   </tr>
                 </tbody>
@@ -1053,13 +1230,17 @@ function GraficasPage() {
                   <tr style={styles.dataTableTrEven}>
                     <td style={styles.dataTableTd}>Con cédula</td>
                     <td style={{ ...styles.dataTableTd, textAlign: "center" }}>
-                      {cedulasData.con_especialidad.toLocaleString()}
+                      {cedulasData.con_especialidad != null
+                        ? cedulasData.con_especialidad.toLocaleString()
+                        : "0"}
                     </td>
                   </tr>
                   <tr>
                     <td style={styles.dataTableTd}>Sin cédula</td>
                     <td style={{ ...styles.dataTableTd, textAlign: "center" }}>
-                      {cedulasData.sin_especialidad.toLocaleString()}
+                      {cedulasData.sin_especialidad != null
+                        ? cedulasData.sin_especialidad.toLocaleString()
+                        : "0"}
                     </td>
                   </tr>
                   <tr
@@ -1067,7 +1248,9 @@ function GraficasPage() {
                   >
                     <td style={styles.dataTableTd}>Total</td>
                     <td style={{ ...styles.dataTableTd, textAlign: "center" }}>
-                      {cedulasData.total_doctores.toLocaleString()}
+                      {cedulasData.total_doctores != null
+                        ? cedulasData.total_doctores.toLocaleString()
+                        : "0"}
                     </td>
                   </tr>
                 </tbody>
