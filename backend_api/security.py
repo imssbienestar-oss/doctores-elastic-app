@@ -8,10 +8,9 @@ from dotenv import load_dotenv
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
-from database import get_db # Importa la función para obtener sesión de DB
-import models # El punto indica una importación desde el mismo paquete (backend_api)
-import schemas # Asegúrate que tus esquemas Pydantic estén aquí (ej. schemas.TokenData)
-
+from . database import get_db # Importa la función para obtener sesión de DB
+from . import models # El punto indica una importación desde el mismo paquete (backend_api)
+from . import schemas # Asegúrate que tus esquemas Pydantic estén aquí (ej. schemas.TokenData)
 
 load_dotenv() # Cargar variables de .env
 
@@ -82,10 +81,9 @@ async def get_current_user(token: str = Depends(oauth2_scheme_strict), db: Sessi
 
     user = db.query(models.User).filter(models.User.username == token_data.username).first() # Asumiendo models.User
     if user is None:
-        raise credentials_exception
-    # Aquí podrías añadir comprobaciones como user.is_active si es necesario
-    # if not user.is_active:
-    #     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Usuario inactivo")
+        # ----- LÍNEA MODIFICADA PARA LA PRUEBA -----
+        raise HTTPException(status_code=418, detail="LA PRUEBA DEFINITIVA ESTÁ EN SECURITY.PY")
+        # -------------------------------------------
     return user
 
 # --- NUEVA: Dependencia para obtener el usuario actual (autenticación OPCIONAL) ---
