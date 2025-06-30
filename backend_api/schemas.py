@@ -4,25 +4,24 @@ from datetime import date, datetime
 
 # Schema base con los campos comunes para Doctor
 class DoctorBase(BaseModel):
-    identificador_imss: Optional[str] = Field(None, max_length=100)
-    nombre_completo: Optional[str] = Field(None, max_length=255)
+    id_imss: str = Field(..., max_length=100)
+    nombre: Optional[str] = Field(None, max_length=255)
+    apellido_paterno: Optional[str] = Field(None, max_length=255)
+    apellido_materno: Optional[str] = Field(None, max_length=255)
     estatus: Optional[str] = Field(None, max_length=50)
     matrimonio_id: Optional[str] = Field(None, max_length=100)
-    # CURP: opcional, pero si se provee, debe tener 18 caracteres y seguir el patrón.
-    # El patrón ^$ permite que sea una cadena vacía, que luego el backend puede convertir a None.
     curp: Optional[str] = Field(None, pattern=r'^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$|^$', min_length=18, max_length=18)
     cedula_esp: Optional[str] = Field(None, max_length=100)
     cedula_lic: Optional[str] = Field(None, max_length=100)
     especialidad: Optional[str] = Field(None, max_length=255)
     entidad: Optional[str] = Field(None, max_length=100) # Entidad de adscripción
-    clues_ssa: Optional[str] = Field(None, max_length=100)
-    notificacion_baja: Optional[str] = None # Podría ser TEXT
-    motivo_baja: Optional[str] = None      # Podría ser TEXT
+    clues: Optional[str] = Field(None, max_length=100)
+    forma_notificacion: Optional[str] = None # Podría ser TEXT
+    motivo_baja: Optional[str] = Field(None, max_length=100)
     fecha_extraccion: Optional[str] = Field(None, max_length=100) # Mantener como str si así se usa
     fecha_notificacion: Optional[date] = None
     sexo: Optional[str] = Field(None, max_length=20)
     turno: Optional[str] = Field(None, max_length=50)
-    clues_ib: Optional[str] = Field(None, max_length=100)
     nombre_unidad: Optional[str] = Field(None, max_length=255)
     municipio: Optional[str] = Field(None, max_length=100)
     nivel_atencion: Optional[str] = Field(None, max_length=50)
@@ -31,18 +30,35 @@ class DoctorBase(BaseModel):
     fecha_vuelo: Optional[date] = None
     estrato: Optional[str] = Field(None, max_length=100)
     acuerdo: Optional[str] = Field(None, max_length=255)
-    profile_pic_url: Optional[str] = Field(None, max_length=1024) # URLs pueden ser largas
-    tel: Optional[str] = Field(None, max_length=50)
-    entidad_nacimiento: Optional[str] = Field(None, max_length=100)
-    correo_electronico: Optional[EmailStr] = None # EmailStr para validación
-    comentarios_estatus: Optional[str] = None # Podría ser TEXT
-    fecha_fallecimiento: Optional[date] = None
-    fecha_nacimiento: Optional[date] = None # Campo para la fecha de nacimiento
-    
+    foto_url: Optional[str] = Field(None, max_length=1024) # URLs pueden ser largas
+    correo: Optional[str] = Field(None, max_length=255)
+    telefono: Optional[str] = Field(None, max_length=50)
+    comentarios_estatus:  Optional[str] = Field(None, max_length=255)
+    fecha_fallecimiento:  Optional[date] = None
+    fecha_nacimiento: Optional[date] = None
+    pasaporte: Optional[str] = Field(None, max_length=255)
+    fecha_emision: Optional[date] = None
+    fecha_expiracion: Optional[date] = None
+    estado_civil: Optional[str] = Field(None, max_length=255)
+    domicilio: Optional[str] = Field(None, max_length=255)
+    licenciatura: Optional[str] = Field(None, max_length=255)
+    institucion_lic: Optional[str] = Field(None, max_length=255)
+    institucion_esp: Optional[str] = Field(None, max_length=255)
+    fecha_egreso_lic:  Optional[date] = None
+    fecha_egreso_esp: Optional[date] = None
+    tipo_establecimiento: Optional[str] = Field(None, max_length=255)
+    subtipo_establecimiento: Optional[str] = Field(None, max_length=255)
+    direccion_unidad: Optional[str] = Field(None, max_length=255)
+    region: Optional[str] = Field(None, max_length=255)
     # Campos para soft delete (opcionales en la base, pero útiles en el schema)
     is_deleted: Optional[bool] = Field(default=False)
     deleted_at: Optional[datetime] = None
     deleted_by_user_id: Optional[int] = None
+    fecha_inicio: Optional[date] = None
+    fecha_fin: Optional[date] = None
+    motivo: Optional[str] = Field(None, max_length=255)
+    tipo_incapacidad: Optional[str] = Field(None, max_length=255)
+    entidad_nacimiento: Optional[str] = Field(None, max_length=255)
 
 class UserSimple(BaseModel): # Un schema simple para el usuario
     id: int
@@ -52,7 +68,6 @@ class UserSimple(BaseModel): # Un schema simple para el usuario
 
 # Schema para leer un Doctor (incluye el ID y otros campos del modelo)
 class Doctor(DoctorBase):
-    id: int
     is_deleted: Optional[bool] = None # Es bueno tenerlo para esta vista
     deleted_at: Optional[datetime] = None
     deleted_by_user_id: Optional[int] = None # Puedes mantener el ID si quieres
@@ -64,7 +79,10 @@ class Doctor(DoctorBase):
 
 # Schema para recibir datos al CREAR un nuevo doctor (solo los campos iniciales del modal)
 class DoctorCreate(BaseModel): # No hereda de DoctorBase para ser explícito con los campos requeridos
-    nombre_completo: str = Field(..., min_length=1, max_length=255)
+    id_imss: str = Field(..., min_length=1, max_length=100) # ID es requerido al crear
+    nombre: str = Field(..., min_length=1, max_length=255)
+    apellido_paterno: str = Field(..., min_length=1, max_length=255)
+    apellido_materno: str = Field(..., min_length=1, max_length=255)
     estatus: str = Field(..., min_length=1, max_length=50)
     curp: Optional[str] = Field(None, pattern=r'^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$|^$', min_length=18, max_length=18)
     especialidad: str = Field(..., min_length=1, max_length=255)
@@ -74,15 +92,10 @@ class DoctorCreate(BaseModel): # No hereda de DoctorBase para ser explícito con
 
 # Schema para actualizar el perfil completo del doctor
 class DoctorProfileUpdateSchema(DoctorBase): # Hereda de DoctorBase, todos los campos son opcionales
-    # Aquí puedes redefinir campos si necesitas validaciones específicas para la actualización
-    # que sean diferentes de DoctorBase. Por ejemplo, si un campo que era opcional
-    # en DoctorBase ahora es requerido en la actualización (poco común).
-    # El `model_dump(exclude_unset=True)` en el backend se encarga de solo tomar los campos enviados.
     pass # No es necesario redefinir los campos si son los mismos que en DoctorBase
 
     class Config:
         from_attributes = True
-
 
 # --- Schemas para Doctor Attachments ---
 class DoctorAttachmentBase(BaseModel):
@@ -91,12 +104,12 @@ class DoctorAttachmentBase(BaseModel):
     file_type: Optional[str] = None
 
 class DoctorAttachmentCreate(DoctorAttachmentBase):
-    doctor_id: int 
+    doctor_id: str
     pass
 
 class DoctorAttachment(DoctorAttachmentBase):
     id: int
-    doctor_id: int 
+    doctor_id: str 
     uploaded_at: datetime
 
     class Config:
@@ -107,7 +120,6 @@ class DoctorDetail(Doctor):
     attachments: List[DoctorAttachment] = []
     class Config:
         from_attributes = True
-
 
 # --- Schemas para Usuarios y Autenticación ---
 class UserBase(BaseModel): # Definición única y consolidada
@@ -139,7 +151,6 @@ class TokenData(BaseModel):
 class UserResetPasswordPayload(BaseModel):
     new_password: str = Field(..., min_length=8)
 
-
 # --- Schemas para Paginación y Gráficas ---
 class DoctoresPaginados(BaseModel):
     total_count: int
@@ -149,14 +160,13 @@ class DataGraficaItem(BaseModel):
     label: str
     value: Union[int, float]
 
-
 # --- Schemas para AuditLog ---
 class AuditLogBase(BaseModel):
     timestamp: datetime
     username: Optional[str] = None
     action_type: str
     target_entity: Optional[str] = None
-    target_id: Optional[int] = None
+    target_id_str: Optional[str] = None
     details: Optional[str] = None
 
 class AuditLogView(AuditLogBase):
@@ -186,7 +196,6 @@ class EstadisticaAgrupadaItem(BaseModel):
     class Config:
         from_attributes = True # Para que funcione con los resultados de SQLAlchemy si son tuplas nombradas o similares
 # --- FIN NUEVO SCHEMA ---
-
 class EstadisticaPaginada(BaseModel): # <--- ASEGÚRATE DE QUE ESTA CLASE ESTÉ DEFINIDA
     total_groups: int # Para la paginación de la tabla de grupos
     total_doctors_in_groups: int # Suma de 'cantidad' de todos los grupos filtrado
@@ -195,7 +204,6 @@ class EstadisticaPaginada(BaseModel): # <--- ASEGÚRATE DE QUE ESTA CLASE ESTÉ 
     class Config: # Añadir Config si no la tiene, aunque para este schema simple puede no ser estrictamente necesaria
         from_attributes = True
 # --- FIN SCHEMAS DE ESTADÍSTICA ---
-
 class EspecialidadItem(BaseModel):
     nombre: str
     total_doctores: int
@@ -226,12 +234,8 @@ class CedulasCount(BaseModel):
     total_doctores: int
 
     class Config:
-        from_attributes = True
-
-class CurpCheckResponse(BaseModel):
-    exists: bool
-    message: str        
+        from_attributes = True   
 
 class DoctorPermanentDeleteRequest(BaseModel):
-     ids: List[int]
+     ids: List[str]
      pin: str
