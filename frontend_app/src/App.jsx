@@ -176,14 +176,13 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey }) {
   const [totalDoctores, setTotalDoctores] = useState(0);
   const [searchTermInput, setSearchTermInput] = useState(""); // El valor inmediato del input
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(""); // El valor para la API después del debounce
-  const [selectedStatus, setSelectedStatus] = useState("Activo"); // Default a "Activo"
+  const [selectedStatus, setSelectedStatus] = useState("01 ACTIVO"); // Default a "Activo"
   const estatusDisponibles = [
-    "Activo",
-    "Baja",
-    "Defunción",
-    "Incapacidad por Enfermedad",
-    "Retiro Temporal",
-    "Solicitud Personal",
+    "01 ACTIVO",
+    "02 RETIRO TEMP.",
+    "03 SOL. PERSONAL",
+    "04 INCAPACIDAD",
+    "05 BAJA",
     "todos",
   ];
 
@@ -397,7 +396,7 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey }) {
 
   const handleViewProfileClick = async (doctorToList) => {
     setIsLoading(true);
-    await fetchFullDoctorProfile(doctorToList.id);
+    await fetchFullDoctorProfile(doctorToList.id_imss);
     setIsLoading(false);
     setViewMode("profile");
   };
@@ -433,7 +432,7 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey }) {
 
   const handleDoctorSave = async (savedDoctorData, wasEditing) => {
     closeModal(); // <--- Usa closeModal del contexto
-    if (!wasEditing && savedDoctorData && savedDoctorData.id) {
+    if (!wasEditing && savedDoctorData && savedDoctorData.id_imss) {
       // Es un NUEVO doctor que se guardó exitosamente (Paso 1 completado)
       // El backend devolvió el doctor con su nuevo ID.
       setFetchError(""); // Limpiar errores anteriores
@@ -458,17 +457,17 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey }) {
       } finally {
         setIsLoading(false);
       }
-    } else if (wasEditing && savedDoctorData && savedDoctorData.id) {
+    } else if (wasEditing && savedDoctorData && savedDoctorData.id_imss) {
       // Se estaba EDITANDO un doctor existente (no el flujo de dos pasos)
       // y se guardó. Simplemente recarga la tabla o actualiza el perfil si ya estabas en él.
       if (viewMode === "table") {
         fetchDoctores(); // Recarga la tabla
       } else if (
         viewMode === "profile" &&
-        selectedDoctorProfile?.id === savedDoctorData.id
+        selectedDoctorProfile?.id_imss === savedDoctorData.id_imss
       ) {
         // Si estabas viendo el perfil que se editó, recárgalo
-        await fetchFullDoctorProfile(savedDoctorData.id);
+        await fetchFullDoctorProfile(savedDoctorData.id_imss);
       } else {
         fetchDoctores(); // Fallback: recargar tabla
       }
@@ -575,7 +574,7 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey }) {
               </label>
               <input
                 type="search"
-                id="search-nombre"
+                id_imss="search-nombre"
                 placeholder="Escribe un nombre..."
                 value={searchTermInput}
                 onChange={handleSearchInputChange}
@@ -706,7 +705,7 @@ function AppContent() {
   const { isAuthenticated, isGuestMode, currentUser } = useAuth();
   const navigate = useNavigate();
 
-  const [vistaActual, setVistaActual] = useState("tabla");
+  const [vistaActual, setVistaActual] = useState("graficas");
   // --- NUEVO ESTADO PARA DISPARAR REFETCH EN HomePageContent ---
   const [doctorListRefreshKey, setDoctorListRefreshKey] = useState(0);
 
