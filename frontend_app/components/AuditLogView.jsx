@@ -266,9 +266,10 @@ const styles = {
   },
 };
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
-const ITEMS_PER_PAGE = 20;
+
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+const ITEMS_PER_PAGE = 15;
 
 function AuditLogView() {
   const { token: authToken, currentUser } = useAuth();
@@ -311,22 +312,19 @@ function AuditLogView() {
   const handlePinInputChange = (e, index) => {
     const digit = e.target.value;
 
-    // Solo permitir un dígito numérico o un string vacío (para borrar)
     if (!/^\d?$/.test(digit)) {
       return;
     }
 
-    const newPinArray = [...pinInput.padEnd(4, " ").split("")]; // Crea un array, rellena con espacios si es corto
-    newPinArray[index] = digit; // Establece o borra el dígito en el índice actual
+    const newPinArray = [...pinInput.padEnd(4, " ").split("")];
+    newPinArray[index] = digit;
 
-    // Actualiza el estado principal del PIN
     const newPinString = newPinArray
       .join("")
       .replace(/\s/g, "")
       .substring(0, 4);
     setPinInput(newPinString);
 
-    // Mover el foco al siguiente input si se ingresó un dígito y no es el último input
     if (digit && index < 3) {
       inputRefs.current[index + 1]?.focus();
     }
@@ -334,13 +332,9 @@ function AuditLogView() {
 
   const handlePinKeyDown = (e, index) => {
     if (e.key === "Backspace") {
-      // Si el input actual está vacío y no es el primer input, mover el foco al anterior
       if (!pinInput[index] && index > 0) {
         inputRefs.current[index - 1]?.focus();
       }
-      // Si el input actual tiene un valor, el comportamiento normal de backspace lo borrará.
-      // El `onChange` (handlePinInputChange) actualizará el estado.
-      // Una vez borrado, un segundo backspace en el mismo input (ahora vacío) activará la condición de arriba.
     } else if (e.key === "ArrowLeft" && index > 0) {
       inputRefs.current[index - 1]?.focus();
     } else if (e.key === "ArrowRight" && index < 3) {
@@ -350,36 +344,21 @@ function AuditLogView() {
       !/^\d$/.test(e.key) &&
       !["Tab", "Enter", "Shift", "Control", "Alt", "Meta"].includes(e.key)
     ) {
-      // Prevenir la entrada de caracteres no numéricos (excepto teclas de navegación/control)
       e.preventDefault();
     }
   };
 
   const handlePinPaste = (e) => {
     e.preventDefault();
-    const pastedData = e.clipboardData.getData("text").replace(/\D/g, ""); // Obtener solo dígitos
+    const pastedData = e.clipboardData.getData("text").replace(/\D/g, "");
     if (pastedData) {
       const newPin = pastedData.substring(0, 4);
       setPinInput(newPin);
 
-      // Distribuir los datos pegados en los inputs (esto es más para la visualización inmediata)
-      // y enfocar el input correcto.
-      const pinChars = newPin.split("");
-      pinChars.forEach((char, i) => {
-        if (inputRefs.current[i]) {
-          // Esta línea es para asegurar que el valor visual se actualice si React no lo hace de inmediato
-          // tras el setPinInput, aunque con value={pinInput[i] || ''} debería ser suficiente.
-          // inputRefs.current[i].value = char;
-        }
-      });
-
-      // Enfocar el siguiente input vacío o el último si el PIN está completo
-      const focusIndex = Math.min(newPin.length, 3); // Si pega 4 dígitos, el foco va al último (índice 3)
-      // Si pega menos, al siguiente vacío
+      const focusIndex = Math.min(newPin.length, 3);
       if (inputRefs.current[focusIndex]) {
         inputRefs.current[focusIndex]?.focus();
       } else if (inputRefs.current[3]) {
-        // Fallback al último si algo sale mal
         inputRefs.current[3]?.focus();
       }
     }
@@ -390,8 +369,6 @@ function AuditLogView() {
       if (!authToken || currentUser?.role !== "admin") return;
       setIsLoadingUsers(true);
       try {
-        // TODO: Reemplaza esta URL con tu endpoint real para obtener usuarios únicos
-        // Ejemplo: `${API_BASE_URL}/api/admin/audit-logs/distinct-users`
         const response = await fetch(
           `${API_BASE_URL}/api/admin/audit-log-options/users`,
           {
@@ -400,7 +377,7 @@ function AuditLogView() {
         );
         if (!response.ok)
           throw new Error("Error al cargar la lista de usuarios");
-        const data = await response.json(); // Asume que devuelve un array de strings
+        const data = await response.json();
         setAllUniqueUsers(Array.isArray(data) ? data.sort() : []);
       } catch (err) {
         console.error("Error fetching unique users:", err.message);
@@ -417,8 +394,6 @@ function AuditLogView() {
       if (!authToken || currentUser?.role !== "admin") return;
       setIsLoadingActions(true);
       try {
-        // TODO: Reemplaza esta URL con tu endpoint real para obtener acciones únicas
-        // Ejemplo: `${API_BASE_URL}/api/admin/audit-logs/distinct-actions`
         const response = await fetch(
           `${API_BASE_URL}/api/admin/audit-log-options/actions`,
           {
@@ -427,7 +402,7 @@ function AuditLogView() {
         );
         if (!response.ok)
           throw new Error("Error al cargar la lista de acciones");
-        const data = await response.json(); // Asume que devuelve un array de strings
+        const data = await response.json();
         setAllUniqueActions(Array.isArray(data) ? data.sort() : []);
       } catch (err) {
         console.error("Error fetching unique actions:", err.message);
@@ -441,7 +416,6 @@ function AuditLogView() {
 
   const fetchAuditLogs = useCallback(
     async (page, startDate, endDate, usuario, accion) => {
-      //console.log("AuditLogView: Iniciando fetchAuditLogs. Página:", page, "Token:", !!authToken, "Admin:", currentUser?.role);
       if (!authToken || currentUser?.role !== "admin") {
         setError("Acceso denegado o no autenticado.");
         setIsLoading(false);
@@ -464,19 +438,15 @@ function AuditLogView() {
       if (usuario) fetchUrl += `&username=${encodeURIComponent(usuario)}`;
       if (accion) fetchUrl += `&action_type=${encodeURIComponent(accion)}`;
 
-      //console.log("AuditLogView: Fetching URL:", fetchUrl);
-
       try {
         const response = await fetch(fetchUrl, {
           headers: { Authorization: `Bearer ${authToken}` },
         });
-        //console.log("AuditLogView: Respuesta del fetch recibida, status:", response.status);
 
         if (!response.ok) {
           let errorDetail = `Error ${response.status}`;
           try {
             const errorData = await response.json();
-            //console.error("AuditLogView: Error data from server:", errorData);
             errorDetail =
               errorData.detail ||
               JSON.stringify(errorData) ||
@@ -485,7 +455,6 @@ function AuditLogView() {
             const textError = await response
               .text()
               .catch(() => "No se pudo leer el cuerpo del error.");
-            //console.error("AuditLogView: Error response no es JSON, texto:", textError);
             errorDetail =
               textError || `Error ${response.status} al cargar los logs.`;
           }
@@ -493,9 +462,7 @@ function AuditLogView() {
         }
 
         const data = await response.json();
-        //console.log("AuditLogView: Datos recibidos del backend:", data);
 
-        // --- LÓGICA CORREGIDA PARA MANEJAR LA RESPUESTA DEL BACKEND ---
         let receivedLogs = [];
         let receivedTotalCount = 0;
 
@@ -526,14 +493,11 @@ function AuditLogView() {
         setIsLoading(false);
       }
     },
-    [authToken, currentUser] // Dependencias de useCallback
+    [authToken, currentUser]
   );
 
   useEffect(() => {
-    // Este useEffect ahora es el principal para disparar el fetch
     if (currentUser?.role === "admin" && authToken) {
-      // Asegurarse que authToken también exista
-      //console.log("useEffect [fetchTriggers]: User is admin, calling fetchAuditLogs. Page:", currentPage);
       fetchAuditLogs(
         currentPage,
         filterStartDate,
@@ -555,8 +519,8 @@ function AuditLogView() {
     currentPage,
     filterStartDate,
     filterEndDate,
-    filtroUsuario, // Re-fetch cuando cambie
-    filtroAccion, // Re-fetch cuando cambie
+    filtroUsuario,
+    filtroAccion,
     currentUser,
     authToken,
   ]);
@@ -582,7 +546,7 @@ function AuditLogView() {
   const totalPages = Math.ceil(totalLogs / ITEMS_PER_PAGE);
 
   const handlePageChange = (newPage) => {
-    setSelectedLogs(new Set()); // Limpiar selección al cambiar de página
+    setSelectedLogs(new Set());
     setCurrentPage(newPage);
   };
   const handlePreviousPage = () =>
@@ -591,7 +555,6 @@ function AuditLogView() {
     handlePageChange(Math.min(totalPages - 1, currentPage + 1));
 
   const formatDetailsForTooltip = (actionType, detailsString) => {
-    // ... (tu función formatDetailsForTooltip sin cambios, o la versión mejorada que tenías) ...
     if (!detailsString) return "Sin detalles específicos.";
     if (actionType === "UPDATE_DOCTOR" || actionType === "UPDATE_USER") {
       try {
@@ -645,7 +608,6 @@ function AuditLogView() {
   };
 
   const handleSelectLog = (logId) => {
-    /* ... (tu función sin cambios) ... */
     setSelectedLogs((prevSelected) => {
       const newSelected = new Set(prevSelected);
       if (newSelected.has(logId)) newSelected.delete(logId);
@@ -655,7 +617,6 @@ function AuditLogView() {
   };
 
   const handleSelectAllLogsOnPage = (event) => {
-    /* ... (tu función sin cambios) ... */
     const isChecked = event.target.checked;
     if (isChecked) setSelectedLogs(new Set(logs.map((log) => log.id)));
     else setSelectedLogs(new Set());
@@ -668,7 +629,7 @@ function AuditLogView() {
 
   const handleDateChange = (setterFunction, date) => {
     setterFunction(date);
-    setCurrentPage(0); // Resetear página al cambiar fecha
+    setCurrentPage(0);
   };
 
   const handleClearDateFilters = () => {
@@ -678,13 +639,13 @@ function AuditLogView() {
   };
   const handleSetFiltroUsuario = (usuario) => {
     setFiltroUsuario(usuario);
-    setCurrentPage(0); // Resetear página al cambiar filtro
+    setCurrentPage(0);
     setMostrarDropdownUsuario(false);
   };
 
   const handleSetFiltroAccion = (accion) => {
     setFiltroAccion(accion);
-    setCurrentPage(0); // Resetear página al cambiar filtro
+    setCurrentPage(0);
     setMostrarDropdownAccion(false);
   };
 
@@ -693,11 +654,12 @@ function AuditLogView() {
       alert("Por favor, seleccione al menos un registro para eliminar.");
       return;
     }
-    setConfirmationText(""); // Resetear campos del modal
+    setConfirmationText("");
     setPinInput("");
     setDeleteModalError("");
     setIsConfirmDeleteModalOpen(true);
   };
+
   const proceedWithActualDeletion = async () => {
     const expectedPhrase = getFullConfirmationPhrase(selectedLogs.size);
     if (confirmationText.trim() !== expectedPhrase) {
@@ -712,8 +674,8 @@ function AuditLogView() {
       return;
     }
 
-    setDeleteModalError(""); // Limpiar errores previos
-    setIsLoading(true); // Usar el isLoading general o uno específico para el modal
+    setDeleteModalError("");
+    setIsLoading(true);
 
     const idsToDelete = Array.from(selectedLogs);
     try {
@@ -725,45 +687,63 @@ function AuditLogView() {
             Authorization: `Bearer ${authToken}`,
             "Content-Type": "application/json",
           },
-          // --- AÑADIDO: Enviar el PIN al backend ---
           body: JSON.stringify({ ids: idsToDelete, pin: pinInput }),
         }
       );
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({
-          detail: `Error ${response.status} al eliminar logs. Intenta de nuevo.`,
-        }));
-        // Mostrar error específico del PIN si el backend lo envía
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (jsonError) {
+          errorData = { detail: `Error ${response.status}: ${response.statusText || "Respuesta no JSON."}` };
+        }
+
+        let displayErrorMessage = `Error ${response.status}.`;
+        if (errorData && errorData.detail) {
+            if (typeof errorData.detail === 'string') {
+                displayErrorMessage = errorData.detail;
+            } else if (Array.isArray(errorData.detail)) {
+                const messages = errorData.detail.map(err => {
+                    const loc = Array.isArray(err.loc) ? err.loc.join('.') : '';
+                    return err.msg ? `${loc}: ${err.msg}` : `Error en ${loc}`;
+                }).join('; ');
+                displayErrorMessage = `Datos inválidos: ${messages}`;
+            } else {
+                displayErrorMessage = `Error ${response.status}: ${JSON.stringify(errorData.detail)}`;
+            }
+        }
+
         if (
           response.status === 403 &&
-          errorData.detail.toLowerCase().includes("pin")
+          displayErrorMessage.toLowerCase().includes("pin")
         ) {
-          setDeleteModalError(errorData.detail); // Error específico del PIN desde el backend
+          setDeleteModalError(displayErrorMessage);
         } else {
-          setError(errorData.detail || `Error ${response.status}`); // Error general para la página
-          setIsConfirmDeleteModalOpen(false); // Cerrar modal si es un error general
+          setError(displayErrorMessage);
+          setIsConfirmDeleteModalOpen(false);
         }
-        throw new Error(errorData.detail || `Error ${response.status}`);
+        // Eliminado: throw new Error(...)
+        return; // ¡Importante: salir aquí si hay un error de la API!
       }
 
       setSuccessMessage(
         `${idsToDelete.length} registro(s) de auditoría eliminados exitosamente.`
       );
       setSelectedLogs(new Set());
-      setIsConfirmDeleteModalOpen(false);
+      setIsConfirmDeleteModalOpen(false); // Cerrar modal solo en caso de éxito
       fetchAuditLogs(
         0,
         filterStartDate,
         filterEndDate,
         filtroUsuario,
         filtroAccion
-      ); // Refrescar
+      );
     } catch (err) {
       console.error("Error deleting audit logs with confirmation:", err);
-      // El error ya se maneja arriba para el modal o la página
-      if (!deleteModalError && !isConfirmDeleteModalOpen) {
-        // Si no se seteó un error de modal y el modal se cerró
+      if (isConfirmDeleteModalOpen && !deleteModalError) {
+        setDeleteModalError(err.message || "Error de conexión o del servidor.");
+      } else if (!isConfirmDeleteModalOpen) {
         setError(err.message || "Ocurrió un error al eliminar los logs.");
       }
     } finally {
@@ -772,7 +752,6 @@ function AuditLogView() {
   };
 
   useEffect(() => {
-    /* ... (tu useEffect para mensajes sin cambios) ... */
     if (successMessage || error) {
       const timer = setTimeout(() => {
         setSuccessMessage("");
@@ -782,7 +761,6 @@ function AuditLogView() {
     }
   }, [successMessage, error]);
 
-  // Lógica de renderizado condicional (sin cambios)
   if (!currentUser && !isLoading && !error)
     return <div style={styles.message}>Verificando autenticación...</div>;
   if (!authToken && !isLoading)
@@ -820,7 +798,7 @@ function AuditLogView() {
           <label style={styles.datePickerLabel}>Hasta:</label>
           <DatePicker
             selected={filterEndDate}
-            onChange={(date) => handleDateChange(setFilterEndDate, date)} // Usar handleDateChange
+            onChange={(date) => handleDateChange(setFilterEndDate, date)}
             selectsEnd
             startDate={filterStartDate}
             endDate={filterEndDate}
@@ -998,9 +976,8 @@ function AuditLogView() {
             </tr>
           </thead>
           <tbody>
-            {/* Mostrar logs si hay y no está cargando */}
             {isLoading &&
-              logs.length === 0 && ( // Mensaje de carga dentro de la tabla
+              logs.length === 0 && (
                 <tr>
                   <td colSpan={numberOfColumns} style={styles.message}>
                     Cargando logs de auditoría...
@@ -1043,7 +1020,6 @@ function AuditLogView() {
                   </td>
                 </tr>
               ))}
-            {/* Mostrar mensaje de "No hay registros" si la carga terminó y no hay logs Y no hay un error general */}
             {!isLoading && logs.length === 0 && !error && (
               <tr>
                 <td colSpan={numberOfColumns} style={styles.message}>
@@ -1056,7 +1032,6 @@ function AuditLogView() {
         </table>
       )}
 
-      {/* Tooltips y Paginación (solo si hay logs y no está cargando) */}
       {!isLoading && logs.length > 0 && (
         <>
           {logs.map((log, index) => (
@@ -1102,7 +1077,6 @@ function AuditLogView() {
       {isConfirmDeleteModalOpen && (
         <div
           style={{
-            /* Estilos para el overlay del modal (fondo oscuro) */
             position: "fixed",
             top: 0,
             left: 0,
@@ -1117,7 +1091,7 @@ function AuditLogView() {
         >
           <div
             style={{
-              /* Estilos para el contenido del modal */ backgroundColor: "#fff",
+              backgroundColor: "#fff",
               padding: "25px",
               borderRadius: "8px",
               boxShadow: "0 5px 15px rgba(0,0,0,0.3)",
@@ -1125,11 +1099,10 @@ function AuditLogView() {
               maxWidth: "500px",
             }}
           >
-            {" "}
             <form
               onSubmit={(e) => {
-                e.preventDefault(); // Prevenir el envío tradicional del formulario
-                proceedWithActualDeletion(); // Llamar a tu función de lógica de eliminación
+                e.preventDefault();
+                proceedWithActualDeletion();
               }}
             >
               <h3
@@ -1168,19 +1141,18 @@ function AuditLogView() {
               </p>
               <div style={styles.pinContainer} onPaste={handlePinPaste}>
                 {" "}
-                {/* Contenedor para los inputs del PIN */}
                 {Array.from({ length: 4 }).map((_, i) => (
                   <input
                     key={i}
                     ref={(el) => (inputRefs.current[i] = el)}
-                    type="password" // Para que se muestren puntos o asteriscos
-                    inputMode="numeric" // Sugiere teclado numérico en móviles
+                    type="password"
+                    inputMode="numeric"
                     maxLength={1}
                     style={styles.pinBox}
                     value={pinInput[i] || ""}
                     onChange={(e) => handlePinInputChange(e, i)}
                     onKeyDown={(e) => handlePinKeyDown(e, i)}
-                    onFocus={(e) => e.target.select()} // Selecciona el contenido al enfocar para fácil reemplazo
+                    onFocus={(e) => e.target.select()}
                     aria-label={`Dígito ${i + 1} del PIN`}
                   />
                 ))}
@@ -1207,14 +1179,14 @@ function AuditLogView() {
               >
                 <button
                   onClick={() => setIsConfirmDeleteModalOpen(false)}
-                  style={{ ...styles.button, backgroundColor: "#6c757d" }} // Estilo de botón secundario/cancelar
+                  style={{ ...styles.button, backgroundColor: "#6c757d" }}
                   disabled={isLoading}
                 >
                   Cancelar
                 </button>
                 <button
-                  onClick={proceedWithActualDeletion}
-                  style={{ ...styles.button, ...styles.deleteButton }} // Estilo de botón de eliminación
+                  type="submit" // Correcto: Este botón enviará el formulario
+                  style={{ ...styles.button, ...styles.deleteButton }}
                   disabled={isLoading}
                 >
                   {isLoading ? "Eliminando..." : "Confirmar Eliminación"}
