@@ -223,7 +223,6 @@ const styles = {
     height: "60px", // Altura de cada cuadrito
     textAlign: "center",
     fontSize: "1.8em", // Tamaño del número/punto dentro del cuadrito
-    border: "none", // Quitar borde por defecto si solo quieres la línea inferior
     borderBottom: "2px solid #006657", // Línea inferior (tu color verde)
     // O si prefieres un borde completo para cada caja:
     border: "2px solid #006657",
@@ -1001,7 +1000,7 @@ function AuditLogView() {
                   <td style={styles.td}>{formatDate(log.timestamp)}</td>
                   <td style={styles.td}>{log.username || "N/A"}</td>
                   <td style={styles.td}>{log.action_type}</td>
-                  <td style={styles.td}>{log.target_id ?? "N/A"}</td>
+                  <td style={styles.td}>{log.target_id_str ?? "N/A"}</td>
                   <td
                     style={{ ...styles.td, ...styles.detailsCell }}
                     data-tooltip-id={`tooltip-details-${log.id || index}`}
