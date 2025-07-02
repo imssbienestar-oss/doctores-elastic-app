@@ -845,7 +845,7 @@ async def get_data_grafica_doctores_por_estado(
     db: Session = Depends(get_db_session), current_user: Optional[models.User] = Depends(security.get_optional_current_user)
 ):
     # ... (tu código sin cambios) ...
-    query = text("SELECT entidad as label, COUNT(*) as value FROM doctores WHERE entidad IS NOT NULL AND entidad != '' AND entidad != 'NO APLICA'GROUP BY entidad ORDER BY value ASC;")
+      query = text("SELECT entidad as label, COUNT(*) as value FROM doctores WHERE estatus = '01 ACTIVO' AND entidad IS NOT NULL AND entidad != '' AND entidad != 'NO APLICA'GROUP BY entidad ORDER BY value ASC;")
     result = db.execute(query); return [{"label": row.label, "value": row.value} for row in result]
 
 @app.get("/api/graficas/doctores_por_especialidad", response_model=List[schemas.DataGraficaItem], tags=["Gráficas"])
