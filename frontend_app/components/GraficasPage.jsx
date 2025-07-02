@@ -24,22 +24,29 @@ const styles = {
     borderTop: "1px solid #eee",
     paddingTop: "30px",
   },
-  chartsGridContainer: {
+   chartsGridContainer: {
     display: "grid",
-    marginBottom: "80px",
-    gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))",
+    gridTemplateColumns: "1fr 1.5fr", // Columna para pasteles, columna para barras
     gap: "25px",
     width: "100%",
     maxWidth: "1200px",
     margin: "0 auto 40px auto",
   },
+  // Columna para apilar las gráficas de pastel
+  pieChartsColumn: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '25px',
+  },
   chartWrapper: {
-    height: "750px",
-    with: "100%",
+    height: "450px", // Una altura base para las de pastel
+    width: "100%",
     background: "#f9f9f9",
-    padding: "10px",
+    padding: "20px",
+    borderRadius: "8px",
     boxSizing: "border-box",
-
+    display: "flex", // Usamos flex para centrar el título
+    flexDirection: "column", // y que la gráfica ocupe el espacio restante
   },
   chartTitle: {
     textAlign: "center",
@@ -47,6 +54,7 @@ const styles = {
     fontSize: "18px",
     fontWeight: "500",
     marginBottom: "5px",
+    flexShrink: 0,
   },
   treemapWithLegendWrapper: {
     height: "400px",
@@ -213,7 +221,6 @@ function GraficasPage() {
   const [especialidadesAgrupadas, setEspecialidadesAgrupadas] = useState([]);
   const [loadingEspecialidades, setLoadingEspecialidades] = useState(true);
   const [errorEspecialidades, setErrorEspecialidades] = useState("");
-  const [nivelesAtencion, setNivelesAtencion] = useState([]);
   const [cedulasData, setCedulasData] = useState(null);
   const [loadingNiveles, setLoadingNiveles] = useState(true);
   const [loadingCedulas, setLoadingCedulas] = useState(true);
@@ -222,8 +229,9 @@ function GraficasPage() {
   // pieData ahora simplemente usa dataPorEstatus, ya que la transformación se hará en el fetch.
   const pieData = useMemo(() => dataPorEstatus, [dataPorEstatus]);
 
+  const misColoresPastel = ['#10312B', '#BC955C', '#691C32', '#DDC9A3', '#669BBC'];
   const fetchNivelesAtencion = useCallback(async () => {
-    if (!isAuthenticated && !isGuestMode && !token) {
+    if (!isAuthenticated && !token) {
       setErrorNiveles("No autorizado para ver niveles de atención.");
       setLoadingNiveles(false);
       return;
@@ -248,7 +256,12 @@ function GraficasPage() {
       }
 
       const data = await response.json();
-      setNivelesAtencion(data);
+      const formattedData = data.map((item) => ({
+        id: item.label, // Antes: item.nivel_atencion
+        value: item.value, // Antes: item.total_doctores
+      }));
+
+      setDataPorNivelAtencion(formattedData);
     } catch (err) {
       console.error("Error obteniendo niveles de atención:", err);
       setErrorNiveles(err.message || "Error al cargar niveles de atención");
@@ -345,13 +358,14 @@ function GraficasPage() {
           setter: setDataPorEstado,
           transform: (d) =>
             Array.isArray(d)
-              ? d.map((item) => ({
-                  id: String(item.label || item.id || "Desconocido"),
-                  label: String(item.label || item.id || "Desconocido"),
-                  value: Number(item.value) || 0,
-                }))
-                .sort((a, b) => b.value - a.value) // Orden descendente
-                .reverse()
+              ? d
+                  .map((item) => ({
+                    id: String(item.label || item.id || "Desconocido"),
+                    label: String(item.label || item.id || "Desconocido"),
+                    value: Number(item.value) || 0,
+                  }))
+                  .sort((a, b) => b.value - a.value) // Orden descendente
+                  .reverse()
               : [],
           name: "estado",
         },
@@ -428,7 +442,7 @@ function GraficasPage() {
     }
   }, [isAuthenticated, isGuestMode, token, authLogout]);
 
-   const fetchEstadisticaData = useCallback(
+  const fetchEstadisticaData = useCallback(
     async (page) => {
       if (!isAuthenticated && !isGuestMode && !token) {
         setStatsError("No autenticado para ver estadísticas.");
@@ -483,9 +497,8 @@ function GraficasPage() {
   useEffect(() => {
     // Solo resetea si la página no es ya 0 para evitar un ciclo si el efecto anterior también se ejecuta.
     // Sin embargo, al cambiar un filtro, queremos ir a la página 0 de esos nuevos resultados.
-    setCurrentPageEstadistica(0); 
+    setCurrentPageEstadistica(0);
   }, [filtroEntidad, filtroEspecialidad, filtroNivel]);
-
 
   useEffect(() => {
     if (dataPorEstado.length > 0) {
@@ -514,7 +527,7 @@ function GraficasPage() {
       "02 SNA",
       "03 TNA",
       "04 OTRO",
-      "05 NO APLICA"
+      "05 NO APLICA",
     ];
     setOpcionesNivel([
       { value: "", label: "Todos los Niveles" },
@@ -528,12 +541,12 @@ function GraficasPage() {
         setError("No autorizado para ver esta página.");
         setIsLoadingGraphs(false);
         // También resetea los loadings de las otras tablas si es necesario
-        // setLoadingEspecialidades(false); 
+        // setLoadingEspecialidades(false);
         // setLoadingNiveles(false);
         // setLoadingCedulas(false);
         return;
       }
-      
+
       setIsLoadingGraphs(true); // Para las gráficas principales
       // setIsLoadingStats(true); // El loading de la tabla de estadística se manejará en su propio efecto
       setError("");
@@ -547,16 +560,16 @@ function GraficasPage() {
     };
 
     loadTopLevelData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    isAuthenticated, 
-    isGuestMode, 
+    isAuthenticated,
+    isGuestMode,
     token, // Incluir token si es necesario para que se recarguen si cambia
     // Las funciones fetch memoizadas solo cambiarán si sus propias dependencias (como token o authLogout) cambian
-    fetchGraphData, 
+    fetchGraphData,
     fetchEspecialidadesAgrupadas,
     fetchNivelesAtencion,
-    fetchCedulasData
+    fetchCedulasData,
     // NO incluir fetchEstadisticaData ni sus filtros aquí
   ]);
 
@@ -564,25 +577,25 @@ function GraficasPage() {
     // Este efecto se encarga de la carga inicial de la tabla de estadística (cuando currentPageEstadistica es 0)
     // y de recargarla cuando currentPageEstadistica cambia o cuando los filtros (a través de fetchEstadisticaData) cambian.
     if (isAuthenticated || isGuestMode) {
-        // fetchEstadisticaData es un useCallback que depende de los filtros:
-        // filtroEntidad, filtroEspecialidad, filtroNivel.
-        // Cuando esos filtros cambian, fetchEstadisticaData obtiene una nueva referencia,
-        // lo que hace que este useEffect se vuelva a ejecutar.
-        fetchEstadisticaData(currentPageEstadistica);
+      // fetchEstadisticaData es un useCallback que depende de los filtros:
+      // filtroEntidad, filtroEspecialidad, filtroNivel.
+      // Cuando esos filtros cambian, fetchEstadisticaData obtiene una nueva referencia,
+      // lo que hace que este useEffect se vuelva a ejecutar.
+      fetchEstadisticaData(currentPageEstadistica);
     } else {
-        // Manejar caso no autenticado para esta tabla específica
-        setDataEstadistica([]);
-        setTotalGroupsEstadistica(0);
-        setTotalDoctorsInGroups(0);
-        setStatsError("No autorizado para ver esta estadística.");
-        setIsLoadingStats(false); // Asegurar que el loading se detenga
+      // Manejar caso no autenticado para esta tabla específica
+      setDataEstadistica([]);
+      setTotalGroupsEstadistica(0);
+      setTotalDoctorsInGroups(0);
+      setStatsError("No autorizado para ver esta estadística.");
+      setIsLoadingStats(false); // Asegurar que el loading se detenga
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps  
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    currentPageEstadistica, 
+    currentPageEstadistica,
     fetchEstadisticaData, // Esta es la clave: depende de los filtros de la tabla
-    isAuthenticated, 
-    isGuestMode
+    isAuthenticated,
+    isGuestMode,
     // No depende de isLoadingGraphs
   ]);
 
@@ -629,8 +642,8 @@ function GraficasPage() {
     !isLoadingGraphs &&
     dataPorEstado.length === 0 &&
     dataPorEspecialidad.children.length === 0 &&
-    dataPorEstatus.length === 0;
-    dataPorNivelAtencion.length === 0; 
+    dataPorEstatus.length === 0 &&
+    dataPorNivelAtencion.length === 0;
 
   return (
     <div style={styles.pageContainerStyle}>
@@ -655,21 +668,185 @@ function GraficasPage() {
           No hay datos disponibles para las gráficas.
         </p>
       )}
-  <div style={styles.chartsGridContainer}> 
-        {/* Celda 2: Gráfica de Barras (Estado) */}
+      <div style={styles.chartsGridContainer}>
+        <div style={styles.pieChartsColumn}>
+          {/* Doctores por estatus */}
+          {dataPorEstatus.length > 0 ? (
+            <div style={styles.chartWrapper}>
+              <h2 style={styles.chartTitle}>Médicos Extranjeros segun estatus de cooperación</h2>
+              <ResponsivePie
+                data={dataPorEstatus}
+                margin={{ top: 40, right: 80, bottom: 80, left: 80 }}
+                innerRadius={0.5}
+                padAngle={0.7}
+                cornerRadius={3}
+                activeOuterRadiusOffset={8}
+                colors={misColoresPastel}
+                borderWidth={1}
+                borderColor={{ from: "color", modifiers: [["darker", 0.2]] }}
+                arcLinkLabelsSkipAngle={10}
+                arcLinkLabelsTextColor="#333333"
+                arcLinkLabelsThickness={2}
+                arcLinkLabelsColor={{ from: "color" }}
+                arcLabelsSkipAngle={10}
+                arcLabelsTextColor="#ffffff"
+                defs={[
+                  {
+                    id: "dots",
+                    type: "patternDots",
+                    background: "inherit",
+                    color: "rgba(255, 255, 255, 0.3)",
+                    size: 5,
+                    padding: 1,
+                    stagger: true,
+                  },
+                  {
+                    id: "lines",
+                    type: "patternLines",
+                    background: "inherit",
+                    color: "rgba(255, 255, 255, 0.3)",
+                    rotation: -45,
+                    lineWidth: 6,
+                    spacing: 10,
+                  },
+                ]}
+                fill={[
+                  { match: { id: "Activo" }, id: "dots" },
+                  { match: { id: "Baja" }, id: "lines" },
+                ]}
+                legends={[
+                  {
+                    anchor: "bottom",
+                    direction: "row",
+                    justify: false,
+                    translateX: 0,
+                    translateY: 56,
+                    itemsSpacing: 0,
+                    itemWidth: 100,
+                    itemHeight: 18,
+                    itemTextColor: "#999",
+                    itemDirection: "left-to-right",
+                    itemOpacity: 1,
+                    symbolSize: 18,
+                    symbolShape: "circle",
+                    effects: [
+                      {
+                        on: "hover",
+                        style: {
+                          itemTextColor: "#000",
+                        },
+                      },
+                    ],
+                  },
+                ]}
+                tooltip={({ datum: { id, value, color } }) => (
+                  <div
+                    style={{
+                      padding: "5px 10px",
+                      background: "white",
+                      color: "#333",
+                      border: "1px solid #ccc",
+                    }}
+                  >
+                    <strong style={{ color }}>{id}:</strong> {value}
+                  </div>
+                )}
+              />
+            </div>
+          ) : (
+            !isLoadingStats && (
+              <div style={styles.chartWrapper}>
+                <p style={styles.message}>No hay datos por estatus.</p>
+              </div>
+            )
+          )}
+
+          {/* Doctores por Nivel Atencion */}
+          {dataPorNivelAtencion.length > 0 ? (
+            <div style={styles.chartWrapper}>
+              <h2 style={styles.chartTitle}>Médicos Extranjeros con Estatus Activo, segun Nivel de Atención</h2>
+              <ResponsivePie
+                data={dataPorNivelAtencion}
+                margin={{ top: 60, right: 80, bottom: 80, left: 80 }}
+                innerRadius={0.5}
+                padAngle={0.7}
+                cornerRadius={3}
+                activeOuterRadiusOffset={8}
+                 colors={misColoresPastel}
+                borderWidth={1}
+                borderColor={{ from: "color", modifiers: [["darker", 0.2]] }}
+                arcLinkLabelsSkipAngle={10}
+                arcLinkLabelsTextColor="#333333"
+                arcLinkLabelsThickness={2}
+                arcLinkLabelsColor={{ from: "color" }}
+                arcLabel={(e) => e.value}
+                arcLinkLabel={(e) => `${e.id}`}
+                arcLabelsSkipAngle={10}
+                arcLabelsTextColor="#ffffff"
+                legends={[
+                  {
+                    anchor: "bottom",
+                    direction: "row",
+                    justify: false,
+                    translateX: 0,
+                    translateY: 56,
+                    itemsSpacing: 0,
+                    itemWidth: 100,
+                    itemHeight: 18,
+                    itemTextColor: "#999",
+                    itemDirection: "left-to-right",
+                    itemOpacity: 1,
+                    symbolSize: 18,
+                    symbolShape: "circle",
+                    effects: [
+                      {
+                        on: "hover",
+                        style: {
+                          itemTextColor: "#000",
+                        },
+                      },
+                    ],
+                  },
+                ]}
+                tooltip={({ datum: { id, value, color } }) => (
+                  <div
+                    style={{
+                      padding: "5px 10px",
+                      background: "white",
+                      color: "#333",
+                      border: "1px solid #ccc",
+                    }}
+                  >
+                    <strong style={{ color }}>{id}:</strong> {value}
+                  </div>
+                )}
+              />
+            </div>
+          ) : (
+            !isLoadingStats && (
+              <div style={styles.chartWrapper}>
+                <p style={styles.message}>
+                  No hay datos por nivel de atención.
+                </p>
+              </div>
+            )
+          )}
+        </div>
+
+        {/* Doctores por estado */}
         {dataPorEstado.length > 0 ? (
-          <div style={styles.chartWrapper}>
-            <h2 style={styles.chartTitle}>Doctores por Estado</h2>
+           <div style={{ ...styles.chartWrapper, height: '925px' }}>
+            <h2 style={styles.chartTitle}>Médicos Extranjeros con Estatus Activo, según Entidad Federativa</h2>
             <ResponsiveBar
               data={dataPorEstado}
               keys={["value"]}
-              indexBy="id" 
+              indexBy="id"
               layout="horizontal"
-              margin={{ top: 10, right: 60, bottom:100, left: 120 }} // Ajustar bottom para labels
+              margin={{ top: 10, right: 60, bottom: 100, left: 120 }} // Ajustar bottom para labels
               padding={0.35}
               valueScale={{ type: "linear" }}
               indexScale={{ type: "band", round: true }}
-              colors={{ scheme: "spectral" }}
+              colors="#BC955C"
               borderColor={{ from: "color", modifiers: [["darker", 1.6]] }}
               axisTop={null}
               axisRight={null}
@@ -693,7 +870,7 @@ function GraficasPage() {
               }}
               labelSkipWidth={12}
               labelSkipHeight={12}
-              labelTextColor = "white"
+              labelTextColor="white"
               animate={true}
               motionStiffness={90}
               motionDamping={15}
@@ -719,171 +896,7 @@ function GraficasPage() {
             </div>
           )
         )}
-
-          {dataPorEstatus.length > 0 ? (
-          <div style={styles.chartWrapper}>
-            <h2 style={styles.chartTitle}>Doctores por Estatus</h2>
-            <ResponsivePie
-              data={dataPorEstatus}
-              margin={{ top: 40, right: 80, bottom: 80, left: 80 }}
-              innerRadius={0.5}
-              padAngle={0.7}
-              cornerRadius={3}
-              activeOuterRadiusOffset={8}
-              colors={{ scheme: "paired" }} // Puedes elegir otro esquema de colores
-              borderWidth={1}
-              borderColor={{ from: "color", modifiers: [["darker", 0.2]] }}
-              arcLinkLabelsSkipAngle={10}
-              arcLinkLabelsTextColor="#333333"
-              arcLinkLabelsThickness={2}
-              arcLinkLabelsColor={{ from: "color" }}
-              arcLabelsSkipAngle={10}
-              arcLabelsTextColor={{
-                from: "color",
-                modifiers: [["darker", 2]],
-              }}
-              defs={[
-                {
-                  id: "dots",
-                  type: "patternDots",
-                  background: "inherit",
-                  color: "rgba(255, 255, 255, 0.3)",
-                  size: 4,
-                  padding: 1,
-                  stagger: true,
-                },
-                {
-                  id: "lines",
-                  type: "patternLines",
-                  background: "inherit",
-                  color: "rgba(255, 255, 255, 0.3)",
-                  rotation: -45,
-                  lineWidth: 6,
-                  spacing: 10,
-                },
-              ]}
-              fill={[
-                { match: { id: "Activo" }, id: "dots" },
-                { match: { id: "Baja" }, id: "lines" },
-              ]}
-              legends={[
-                {
-                  anchor: "bottom",
-                  direction: "row",
-                  justify: false,
-                  translateX: 0,
-                  translateY: 56,
-                  itemsSpacing: 0,
-                  itemWidth: 100,
-                  itemHeight: 18,
-                  itemTextColor: "#999",
-                  itemDirection: "left-to-right",
-                  itemOpacity: 1,
-                  symbolSize: 18,
-                  symbolShape: "circle",
-                  effects: [
-                    {
-                      on: "hover",
-                      style: {
-                        itemTextColor: "#000",
-                      },
-                    },
-                  ],
-                },
-              ]}
-              tooltip={({ datum: { id, value, color } }) => (
-                <div
-                  style={{
-                    padding: "5px 10px",
-                    background: "white",
-                    color: "#333",
-                    border: "1px solid #ccc",
-                  }}
-                >
-                  <strong style={{ color }}>{id}:</strong> {value}
-                </div>
-              )}
-            />
-          </div>
-        ) : (
-          !isLoadingStats && (
-            <div style={styles.chartWrapper}>
-              <p style={styles.message}>No hay datos por estatus.</p>
-            </div>
-          )
-        )}
-
-        {dataPorNivelAtencion.length > 0 ? (
-          <div style={styles.chartWrapper}>
-            <h2 style={styles.chartTitle}>Doctores por Nivel de Atención</h2>
-            <ResponsivePie
-              data={dataPorNivelAtencion}
-              margin={{ top: 40, right: 80, bottom: 80, left: 80 }}
-              innerRadius={0.5}
-              padAngle={0.7}
-              cornerRadius={3}
-              activeOuterRadiusOffset={8}
-              colors={{ scheme: "nivo" }} // Puedes elegir otro esquema de colores
-              borderWidth={1}
-              borderColor={{ from: "color", modifiers: [["darker", 0.2]] }}
-              arcLinkLabelsSkipAngle={10}
-              arcLinkLabelsTextColor="#333333"
-              arcLinkLabelsThickness={2}
-              arcLinkLabelsColor={{ from: "color" }}
-              arcLabelsSkipAngle={10}
-              arcLabelsTextColor={{
-                from: "color",
-                modifiers: [["darker", 2]],
-              }}
-              legends={[
-                {
-                  anchor: "bottom",
-                  direction: "row",
-                  justify: false,
-                  translateX: 0,
-                  translateY: 56,
-                  itemsSpacing: 0,
-                  itemWidth: 100,
-                  itemHeight: 18,
-                  itemTextColor: "#999",
-                  itemDirection: "left-to-right",
-                  itemOpacity: 1,
-                  symbolSize: 18,
-                  symbolShape: "circle",
-                  effects: [
-                    {
-                      on: "hover",
-                      style: {
-                        itemTextColor: "#000",
-                      },
-                    },
-                  ],
-                },
-              ]}
-              tooltip={({ datum: { id, value, color } }) => (
-                <div
-                  style={{
-                    padding: "5px 10px",
-                    background: "white",
-                    color: "#333",
-                    border: "1px solid #ccc",
-                  }}
-                >
-                  <strong style={{ color }}>{id}:</strong> {value}
-                </div>
-              )}
-            />
-          </div>
-        ) : (
-          !isLoadingStats && (
-            <div style={styles.chartWrapper}>
-              <p style={styles.message}>No hay datos por nivel de atención.</p>
-            </div>
-          )
-        )}
-
       </div>
-    
 
       {/* --- NUEVA SECCIÓN DE ESTADÍSTICA --- */}
       <h2 style={styles.sectionTitle}>Estadística Detallada</h2>
@@ -1046,6 +1059,7 @@ function GraficasPage() {
           )}
         </div>
       )}
+
       {/* --- TABLAS DINÁMICAS DE ESPECIALIDADES --- */}
       <h2 style={styles.sectionTitle}>
         Distribución de Doctores por Especialidades
@@ -1101,9 +1115,7 @@ function GraficasPage() {
                   >
                     <td style={styles.dataTableTd}>Total</td>
                     <td style={{ ...styles.dataTableTd, textAlign: "center" }}>
-                       {grupo.total != null
-                        ? grupo.total.toLocaleString()
-                        : "0"}
+                      {grupo.total != null ? grupo.total.toLocaleString() : "0"}
                     </td>
                   </tr>
                 </tbody>
@@ -1132,7 +1144,7 @@ function GraficasPage() {
               </tr>
             </thead>
             <tbody>
-              {nivelesAtencion.map((nivel, index) => (
+              {dataPorNivelAtencion.map((nivel, index) => (
                 <tr
                   key={nivel.id}
                   style={index % 2 === 0 ? styles.dataTableTrEven : {}}
@@ -1148,8 +1160,8 @@ function GraficasPage() {
               <tr style={{ backgroundColor: "#f8f9fa", fontWeight: "bold" }}>
                 <td style={styles.dataTableTd}>Total</td>
                 <td style={{ ...styles.dataTableTd, textAlign: "center" }}>
-                  {nivelesAtencion
-                    .reduce((sum, nivel) => sum + nivel.total_doctores, 0)
+                  {dataPorNivelAtencion
+                    .reduce((sum, nivel) => sum + nivel.value, 0)
                     .toLocaleString()}
                 </td>
               </tr>
@@ -1185,7 +1197,7 @@ function GraficasPage() {
                   <tr style={styles.dataTableTrEven}>
                     <td style={styles.dataTableTd}>Con cédula</td>
                     <td style={{ ...styles.dataTableTd, textAlign: "center" }}>
-                     {cedulasData.con_licenciatura != null
+                      {cedulasData.con_licenciatura != null
                         ? cedulasData.con_licenciatura.toLocaleString()
                         : "0"}
                     </td>
@@ -1193,7 +1205,7 @@ function GraficasPage() {
                   <tr>
                     <td style={styles.dataTableTd}>Sin cédula</td>
                     <td style={{ ...styles.dataTableTd, textAlign: "center" }}>
-                         {cedulasData.sin_licenciatura != null
+                      {cedulasData.sin_licenciatura != null
                         ? cedulasData.sin_licenciatura.toLocaleString()
                         : "0"}
                     </td>
