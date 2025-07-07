@@ -125,7 +125,7 @@ async def startup_event():
 origins = [
     "http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173",
     "https://doctores-elastic-app.vercel.app",
-    "https://gestion-imssb.vercel.app/login",
+    "https://gestion-imssb.vercel.app/",
     "https://doctores-elastic-2khh14iea-imssbienestars-projects.vercel.app"
 ]
 app.add_middleware(
