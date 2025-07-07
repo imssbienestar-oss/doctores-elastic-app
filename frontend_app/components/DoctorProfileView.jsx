@@ -1608,29 +1608,34 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
               <span>Sin Foto</span>
             </div>
           )}
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleProfilePicSelect}
-            style={profileStyles.fileInput}
-            disabled={
-              isLoading ||
-              edicionGeneralBloqueada ||
-              (isEditing && edicionGeneralBloqueada)
-            }
-          />
-          {selectedProfilePicFile && (
-            <button
-              onClick={uploadProfilePic}
-              disabled={
-                isLoading ||
-                edicionGeneralBloqueada ||
-                (isEditing && edicionGeneralBloqueada)
-              }
-              style={profileStyles.uploadButton}
-            >
-              {isLoading ? "Subiendo Foto..." : "Subir Foto"}
-            </button>
+
+          {currentUser && currentUser.role !== "consulta" && (
+            <>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleProfilePicSelect}
+                style={profileStyles.fileInput}
+                disabled={
+                  isLoading ||
+                  edicionGeneralBloqueada ||
+                  (isEditing && edicionGeneralBloqueada)
+                }
+              />
+              {selectedProfilePicFile && (
+                <button
+                  onClick={uploadProfilePic}
+                  disabled={
+                    isLoading ||
+                    edicionGeneralBloqueada ||
+                    (isEditing && edicionGeneralBloqueada)
+                  }
+                  style={profileStyles.uploadButton}
+                >
+                  {isLoading ? "Subiendo Foto..." : "Subir Foto"}
+                </button>
+              )}
+            </>
           )}
         </div>
 
@@ -1669,22 +1674,26 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
               No hay expedientes adjuntos.
             </p>
           )}
-          <input
-            id="attachment-file-input"
-            type="file"
-            accept=".pdf,.doc,.docx,image/*"
-            onChange={handleAttachmentSelect}
-            style={profileStyles.fileInput}
-            disabled={isLoading || isEditing}
-          />
-          {selectedAttachmentFile && (
-            <button
-              onClick={uploadAttachment}
-              disabled={isLoading || isEditing}
-              style={profileStyles.uploadButton}
-            >
-              {isLoading ? "Subiendo Adjunto..." : "Subir Adjunto"}
-            </button>
+          {currentUser && currentUser.role !== "consulta" && (
+            <>
+              <input
+                id="attachment-file-input"
+                type="file"
+                accept=".pdf,.doc,.docx,image/*"
+                onChange={handleAttachmentSelect}
+                style={profileStyles.fileInput}
+                disabled={isLoading || isEditing}
+              />
+              {selectedAttachmentFile && (
+                <button
+                  onClick={uploadAttachment}
+                  disabled={isLoading || isEditing}
+                  style={profileStyles.uploadButton}
+                >
+                  {isLoading ? "Subiendo Adjunto..." : "Subir Adjunto"}
+                </button>
+              )}
+            </>
           )}
         </div>
         {isLoading && (selectedProfilePicFile || selectedAttachmentFile) && (
