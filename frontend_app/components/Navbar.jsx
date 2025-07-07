@@ -152,17 +152,19 @@ function Navbar({
           <button key="verTabla" onClick={onVerTablaClick} style={styles.button} title="Ir a la vista de tabla de doctores">Ver Tabla</button>
         );
       }
-    } else if (currentPath.startsWith("/admin")) { // Si estamos en cualquier página de admin
-      // Mostrar ambos botones para navegar de vuelta a la vista principal
-      navActionItems.push(
-        <button key="verTablaAdmin" onClick={onVerTablaClick} style={styles.button} title="Ir a la vista de tabla de doctores">Ver Tabla</button>
-      );
-      navActionItems.push(
-        <button key="verGraficasAdmin" onClick={onVerGraficasClick} style={styles.button} title="Ir a la vista de gráficas de doctores">Ver Gráficas</button>
-      );
-    }
-    // Puedes añadir más lógica 'else if' para otras rutas si es necesario
+    } else if ( currentPath.startsWith("/admin") || currentPath === "/perfil"
+  ) { 
+    // Si estamos en cualquier página de admin O en la página de perfil
+    // Mostrar ambos botones para navegar de vuelta a la vista principal
+    navActionItems.push(
+      <button key="verTablaAdmin" onClick={onVerTablaClick} style={styles.button} title="Ir a la vista de tabla de doctores">Ver Tabla</button>
+    );
+    navActionItems.push(
+      <button key="verGraficasAdmin" onClick={onVerGraficasClick} style={styles.button} title="Ir a la vista de gráficas de doctores">Ver Gráficas</button>
+    );
   }
+}
+
 
   // Botón de Descarga Excel
   if (currentPath === "/" && vistaActual === "tabla" && showViewToggleButtons) {
@@ -216,7 +218,8 @@ function Navbar({
             {title || "Sistema Doctores"}
             {isGuestMode && !isAuthenticated && (<span style={styles.guestIndicator}> (Invitado)</span>)}
             {isAuthenticated && currentUser && currentUser.username && (
-              <span style={styles.usernameIndicator}> ({currentUser.username} - {currentUser.role})</span>
+              <Link to="/perfil" title="Ir a mi perfil" style={{ textDecoration: 'none', color: 'inherit' }}>
+              <span style={styles.usernameIndicator}> ({currentUser.username} - {currentUser.role})</span>  </Link>
             )}
           </span>
         </div>
