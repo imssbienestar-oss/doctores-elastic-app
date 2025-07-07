@@ -404,7 +404,6 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
         correo_electronico: "",
         fecha_nacimiento: "",
         entidad_nacimiento: "",
-        matrimonio_id: "",
         cedula_lic: "",
         cedula_esp: "",
         nombre_unidad: "",
@@ -823,33 +822,38 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
             >
               &larr; Volver
             </button>
-            {!edicionGeneralBloqueada &&
-              (isEditing ? (
-                <>
-                  <button
-                    onClick={handleSaveProfile}
-                    style={profileStyles.saveButton}
-                    disabled={isLoading}
-                  >
-                    {isLoading ? "Guardando..." : "Guardar Cambios"}
-                  </button>
-                  <button
-                    onClick={handleEditToggle}
-                    style={profileStyles.cancelButton}
-                    disabled={isLoading}
-                  >
-                    Cancelar
-                  </button>
-                </>
-              ) : (
-                <button
-                  onClick={handleEditToggle}
-                  style={profileStyles.editButton}
-                  disabled={isLoading}
-                >
-                  Editar Expediente
-                </button>
-              ))}
+
+            {currentUser && currentUser.role !== "consulta" && (
+              <>
+                {!edicionGeneralBloqueada &&
+                  (isEditing ? (
+                    <>
+                      <button
+                        onClick={handleSaveProfile}
+                        style={profileStyles.saveButton}
+                        disabled={isLoading}
+                      >
+                        {isLoading ? "Guardando..." : "Guardar Cambios"}
+                      </button>
+                      <button
+                        onClick={handleEditToggle}
+                        style={profileStyles.cancelButton}
+                        disabled={isLoading}
+                      >
+                        Cancelar
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={handleEditToggle}
+                      style={profileStyles.editButton}
+                      disabled={isLoading}
+                    >
+                      Editar Expediente
+                    </button>
+                  ))}
+              </>
+            )}
           </div>
         </div>
 
@@ -934,10 +938,8 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
               onChange={handleInputChange}
               isLoading={isLoading}
             />
-
           </div>
           <div>
-            
             <FieldRenderer
               label="Sexo"
               fieldName="sexo"
@@ -967,14 +969,6 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
               fieldName="entidad_nacimiento"
               isEditing={isEditing}
               currentValue={editableDoctorData.entidad_nacimiento}
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
-            <FieldRenderer
-              label="Estado Civil"
-              fieldName="estado_civil"
-              isEditing={isEditing}
-              currentValue={editableDoctorData.estado_civil}
               onChange={handleInputChange}
               isLoading={isLoading}
             />
