@@ -492,8 +492,7 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
     {
       name: "especialidad",
       label: "Especialidad",
-      type: "text",
-       type: "select",
+      type: "select",
       options: ESPECIALIDAD_OPTIONS,
       required: true,
     },
