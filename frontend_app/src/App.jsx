@@ -24,7 +24,6 @@ import Modal from "react-modal";
 import DoctorProfileView from "../components/DoctorProfileView";
 import AuditLogView from "../components/AuditLogView";
 import DeletedDoctorsView from "../components/DeletedDoctorsView";
-import ChangePasswordPage from "../components/ChangePasswordPage";
 import ProfilePage from "../components/ProfilePage";
 
 // Configuración de React Modal (generalmente se hace una vez)
