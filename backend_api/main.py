@@ -46,6 +46,7 @@ except pytz.exceptions.UnknownTimeZoneError:
     ##print((f"ADVERTENCIA: Zona horaria '{USER_TIMEZONE_STR}' desconocida. Usando UTC como fallback.")
     USER_TIMEZONE = pytz.utc
 
+
 # --- FUNCIÓN DE INICIALIZACIÓN DE FIREBASE (SE LLAMARÁ AL INICIAR FASTAPI) ---
 def initialize_firebase():
     global FIREBASE_STORAGE_BUCKET_NAME_GLOBAL # Para actualizar la variable global
@@ -88,6 +89,7 @@ def initialize_firebase():
 SUPER_ADMIN_PIN_HASH = os.getenv("SUPER_ADMIN_PIN_HASH")
 # --- FIN FUNCIÓN DE INICIALIZACIÓN DE FIREBASE ---
 app = FastAPI(title="API de Doctores IMSS Bienestar")
+
 Generic_pass = os.getenv("GENERIC_PASSWORD")
 
 # En algún lugar accesible, quizás un archivo utils.py o dentro de main.py
@@ -125,7 +127,7 @@ async def startup_event():
 origins = [
     "http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173",
     "https://doctores-elastic-app.vercel.app",
-    "https://gestion-imssb.vercel.app",
+    "https://gestion-imssb.vercel.app/",
     "https://doctores-elastic-2khh14iea-imssbienestars-projects.vercel.app"
 ]
 app.add_middleware(
@@ -498,6 +500,13 @@ async def actualizar_doctor_perfil_completo(
     db: Session = Depends(get_db_session),
     current_user: models.User = Depends(security.get_current_user)
 ):
+    
+    if current_user.role == 'consulta':
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tiene permisos para modificar datos."
+        )
+     
     db_doctor = db.query(models.Doctor).filter(models.Doctor.id_imss == id_imss).first()
     if db_doctor is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Doctor no encontrado")
@@ -707,8 +716,14 @@ async def user_change_own_password(
 # --- Endpoints de Administración de Usuarios ---
 @app.get("/api/admin/users", response_model=List[schemas.UserAdminView], tags=["Admin - Usuarios"])
 async def admin_leer_usuarios(
-    db: Session = Depends(get_db_session), current_admin: models.User = Depends(get_current_admin_user)
+    db: Session = Depends(get_db_session), current_admin: models.User = Depends(get_current_admin_user),
+    current_user: models.User = Depends(security.get_current_user)
 ):
+    if current_user.role == 'consulta':
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tiene permisos para modificar datos."
+        )
     # ... (tu código sin cambios) ...
     users = db.query(models.User).order_by(models.User.id).all()
     return users
@@ -717,12 +732,14 @@ async def admin_leer_usuarios(
 async def admin_crear_usuario(
     user_data: schemas.UserCreateAdmin, 
     db: Session = Depends(get_db_session),
-    current_admin: models.User = Depends(get_current_admin_user)
+    current_admin: models.User = Depends(get_current_admin_user),
+    current_user: models.User = Depends(security.get_current_user)
 ):
+ 
     # ... (tu código sin cambios) ...
     existing_user = db.query(models.User).filter(models.User.username == user_data.username).first()
     if existing_user: raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Nombre de usuario ya existe.")
-    valid_roles = ["user", "admin"];
+    valid_roles = ["user", "admin","consulta"];
     if user_data.role not in valid_roles: raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Rol inválido.")
     hashed_password = security.get_password_hash(Generic_pass)
     db_user = models.User(username=user_data.username, hashed_password=hashed_password, role=user_data.role, must_change_password=True)
@@ -735,8 +752,14 @@ async def admin_crear_usuario(
 @app.delete("/api/admin/users/{user_id}", status_code=status.HTTP_200_OK, tags=["Admin - Usuarios"])
 async def admin_eliminar_usuario(
     user_id: int, db: Session = Depends(get_db_session),
-    current_admin: models.User = Depends(get_current_admin_user)
+    current_admin: models.User = Depends(get_current_admin_user),
+    current_user: models.User = Depends(security.get_current_user)
 ):
+    if current_user.role == 'consulta':
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tiene permisos para modificar datos."
+        )
     # ... (tu código sin cambios) ...
     if current_admin.id == user_id: raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No puedes eliminarte.")
     user_to_delete = db.query(models.User).filter(models.User.id == user_id).first()
@@ -750,8 +773,14 @@ async def admin_eliminar_usuario(
 @app.put("/api/admin/users/{user_id}/reset-password", status_code=status.HTTP_200_OK, tags=["Admin - Usuarios"])
 async def admin_reset_password(
     user_id: int,
-    db: Session = Depends(get_db_session), current_admin: models.User = Depends(get_current_admin_user)
+    db: Session = Depends(get_db_session), current_admin: models.User = Depends(get_current_admin_user),
+    current_user: models.User = Depends(security.get_current_user)
 ):
+    if current_user.role == 'consulta':
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tiene permisos para modificar datos."
+        )
     # ... (tu código sin cambios) ...
     user_to_update = db.query(models.User).filter(models.User.id == user_id).first()
     if user_to_update is None:
@@ -770,8 +799,14 @@ async def admin_reset_password(
 # --- Endpoints de Reportes y Gráficas ---
 @app.get("/api/reporte/xlsx", tags=["Reportes"])
 async def generar_reporte_excel(
-    db: Session = Depends(get_db_session)
+    db: Session = Depends(get_db_session),
+    current_user: models.User = Depends(security.get_current_user)
 ):
+    if current_user.role == 'consulta':
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tiene permisos para modificar datos."
+        )
     try:
         # Construir la consulta base
         query = db.query(models.Doctor)
@@ -893,8 +928,14 @@ async def generar_reporte_excel(
 
 @app.get("/api/reporte/pdf", tags=["Reportes"])
 async def generar_reporte_resumen_pdf(
-    db: Session = Depends(get_db_session)
+    db: Session = Depends(get_db_session),
+    current_user: models.User = Depends(security.get_current_user)
 ):
+    if current_user.role == 'consulta':
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tiene permisos para modificar datos."
+        )
     # ... (tu código sin cambios, con pdf.output()) ...
     query_total_general = text("SELECT COUNT(*) FROM doctores;"); total_general_doctores = db.execute(query_total_general).scalar_one_or_none() or 0
     query_estado = text("SELECT entidad, COUNT(*) as total FROM doctores WHERE entidad IS NOT NULL AND entidad != '' GROUP BY entidad ORDER BY entidad;"); result_estado = db.execute(query_estado); data_por_estado = [{"label": row[0], "total": row[1]} for row in result_estado]
@@ -987,8 +1028,14 @@ async def leer_logs_auditoria(
     start_date: Optional[date] = Query(None, description="Fecha de inicio (YYYY-MM-DD) en zona horaria local del usuario"),
     end_date: Optional[date] = Query(None, description="Fecha de fin (YYYY-MM-DD) en zona horaria local del usuario"),
     username: Optional[str] = Query(None, description="Filtrar por nombre de usuario exacto"),
-    action_type: Optional[str] = Query(None, description="Filtrar por tipo de acción exacto")
+    action_type: Optional[str] = Query(None, description="Filtrar por tipo de acción exacto"),
+    current_user: models.User = Depends(security.get_current_user)
 ):
+    if current_user.role == 'consulta':
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tiene permisos para modificar datos."
+        )
     logs_query = db.query(models.AuditLog)
 
     if username:
@@ -1037,8 +1084,14 @@ async def leer_doctores_eliminados(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=200),
     db: Session = Depends(get_db_session),
-    current_admin: models.User = Depends(security.get_current_admin_user)
+    current_admin: models.User = Depends(security.get_current_admin_user),
+    current_user: models.User = Depends(security.get_current_user)
 ):
+    if current_user.role == 'consulta':
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tiene permisos para modificar datos."
+        )
     base_query = db.query(models.Doctor).filter(models.Doctor.is_deleted == True)
     total_count = base_query.count() 
     doctores_eliminados_orm = base_query.options(
@@ -1066,8 +1119,14 @@ async def leer_doctores_eliminados(
 async def restaurar_doctor(
      id_imss: str,
      db: Session = Depends(get_db_session),
-     current_admin: models.User = Depends(security.get_current_admin_user)
+     current_admin: models.User = Depends(security.get_current_admin_user),
+     current_user: models.User = Depends(security.get_current_user)
  ):
+    if current_user.role == 'consulta':
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tiene permisos para modificar datos."
+        )
     db_doctor = db.query(models.Doctor).filter(models.Doctor.id_imss == id_imss, models.Doctor.is_deleted == True).first()
     if db_doctor is None:
         # Verificar si no existe o si no estaba eliminado
