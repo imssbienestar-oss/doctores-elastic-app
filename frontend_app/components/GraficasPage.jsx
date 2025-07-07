@@ -676,15 +676,16 @@ function GraficasPage() {
               <h2 style={styles.chartTitle}>Médicos Extranjeros segun estatus de cooperación</h2>
               <ResponsivePie
                 data={dataPorEstatus}
-                margin={{ top: 40, right: 80, bottom: 80, left: 80 }}
-                innerRadius={0.5}
-                padAngle={0.7}
+                margin={{ top: 40, right: 160, bottom: 120, left: 20 }}
+                innerRadius={0.6}
+                padAngle={3}
                 cornerRadius={3}
                 activeOuterRadiusOffset={8}
                 colors={misColoresPastel}
                 borderWidth={1}
                 borderColor={{ from: "color", modifiers: [["darker", 0.2]] }}
-                arcLinkLabelsSkipAngle={10}
+                enableArcLinkLabels={false}
+                arcLinkLabelsSkipAngle={20}
                 arcLinkLabelsTextColor="#333333"
                 arcLinkLabelsThickness={2}
                 arcLinkLabelsColor={{ from: "color" }}
@@ -716,18 +717,18 @@ function GraficasPage() {
                 ]}
                 legends={[
                   {
-                    anchor: "bottom",
-                    direction: "row",
+                    anchor: "right",
+                    direction: "column",
                     justify: false,
-                    translateX: 0,
-                    translateY: 56,
-                    itemsSpacing: 0,
+                    translateX: 140,
+                    translateY: 0,
+                    itemsSpacing: 5,
                     itemWidth: 100,
-                    itemHeight: 18,
-                    itemTextColor: "#999",
+                    itemHeight: 20,
+                    itemTextColor: "#333",
                     itemDirection: "left-to-right",
                     itemOpacity: 1,
-                    symbolSize: 18,
+                    symbolSize: 20,
                     symbolShape: "circle",
                     effects: [
                       {
@@ -767,14 +768,15 @@ function GraficasPage() {
               <h2 style={styles.chartTitle}>Médicos Extranjeros con Estatus Activo, segun Nivel de Atención</h2>
               <ResponsivePie
                 data={dataPorNivelAtencion}
-                margin={{ top: 60, right: 80, bottom: 80, left: 80 }}
-                innerRadius={0.5}
-                padAngle={0.7}
+                margin={{ top: 40, right: 160, bottom: 120, left: 20 }}
+                innerRadius={0.6}
+                padAngle={3}
                 cornerRadius={3}
                 activeOuterRadiusOffset={8}
                  colors={misColoresPastel}
                 borderWidth={1}
                 borderColor={{ from: "color", modifiers: [["darker", 0.2]] }}
+                enableArcLinkLabels={false}
                 arcLinkLabelsSkipAngle={10}
                 arcLinkLabelsTextColor="#333333"
                 arcLinkLabelsThickness={2}
@@ -785,18 +787,18 @@ function GraficasPage() {
                 arcLabelsTextColor="#ffffff"
                 legends={[
                   {
-                    anchor: "bottom",
-                    direction: "row",
+                    anchor: "right",
+                    direction: "column",
                     justify: false,
-                    translateX: 0,
-                    translateY: 56,
-                    itemsSpacing: 0,
+                    translateX: 140,
+                    translateY: 0,
+                    itemsSpacing: 5,
                     itemWidth: 100,
-                    itemHeight: 18,
-                    itemTextColor: "#999",
+                    itemHeight: 20,
+                    itemTextColor: "#333",
                     itemDirection: "left-to-right",
                     itemOpacity: 1,
-                    symbolSize: 18,
+                    symbolSize: 20,
                     symbolShape: "circle",
                     effects: [
                       {
@@ -854,7 +856,7 @@ function GraficasPage() {
                 tickSize: 5,
                 tickPadding: 5,
                 tickRotation: 0,
-                legend: "Número de Doctores",
+                legend: "Número de Médicos",
                 legendPosition: "middle",
                 legendOffset: 50,
                 truncateTickAt: 12,
@@ -987,7 +989,7 @@ function GraficasPage() {
                 <th style={styles.dataTableTh}>Especialidad</th>
                 <th style={styles.dataTableTh}>Nivel de Atención</th>
                 <th style={{ ...styles.dataTableTh, textAlign: "center" }}>
-                  Cantidad Doctores
+                  Cantidad Médicos
                 </th>
               </tr>
             </thead>
@@ -1019,7 +1021,7 @@ function GraficasPage() {
               paddingRight: "10px",
             }}
           >
-            Total de Doctores (con filtros aplicados): {totalDoctorsInGroups}
+            Total de Médicos (con filtros aplicados): {totalDoctorsInGroups}
           </div>
           {totalPagesEstadistica > 1 && (
             <div style={styles.paginationControls}>
@@ -1060,9 +1062,9 @@ function GraficasPage() {
         </div>
       )}
 
-      {/* --- TABLAS DINÁMICAS DE ESPECIALIDADES --- */}
+      {/* --- TABLAS DINÁMICAS DE ESPECIALIDADES --- 
       <h2 style={styles.sectionTitle}>
-        Distribución de Doctores por Especialidades
+        Distribución de Médicos por Especialidades
       </h2>
 
       {loadingEspecialidades && (
@@ -1090,7 +1092,7 @@ function GraficasPage() {
                   <tr>
                     <th style={styles.dataTableTh}>Especialidad</th>
                     <th style={{ ...styles.dataTableTh, textAlign: "center" }}>
-                      Número de Doctores
+                      Número de Médicos
                     </th>
                   </tr>
                 </thead>
@@ -1122,9 +1124,9 @@ function GraficasPage() {
               </table>
             </div>
           </div>
-        ))}
+        ))}*/}
 
-      {/* --- TABLA DE NIVELES DE ATENCIÓN --- */}
+      {/* --- TABLA DE NIVELES DE ATENCIÓN ---
       <h2 style={styles.sectionTitle}>Profesionales por Nivel de Atención</h2>
 
       {loadingNiveles && (
@@ -1139,7 +1141,7 @@ function GraficasPage() {
               <tr>
                 <th style={styles.dataTableTh}>Nivel de Atención</th>
                 <th style={{ ...styles.dataTableTh, textAlign: "center" }}>
-                  Número de Doctores
+                  Número de Médicos
                 </th>
               </tr>
             </thead>
@@ -1168,9 +1170,9 @@ function GraficasPage() {
             </tbody>
           </table>
         </div>
-      )}
+      )} */}
 
-      {/* --- TABLAS DE CÉDULAS PROFESIONALES --- */}
+      {/* --- TABLAS DE CÉDULAS PROFESIONALES --- 
       <h2 style={styles.sectionTitle}>Cédulas Profesionales</h2>
 
       {loadingCedulas && (
@@ -1179,8 +1181,8 @@ function GraficasPage() {
       {errorCedulas && <p style={styles.errorStyle}>{errorCedulas}</p>}
 
       {!loadingCedulas && !errorCedulas && cedulasData && (
-        <div style={{ display: "flex", gap: "20px", flexWrap: "wrap" }}>
-          {/* Tabla de Cédulas de Licenciatura */}
+        <div style={{ display: "flex", gap: "20px", flexWrap: "wrap" }}>*/}
+          {/* Tabla de Cédulas de Licenciatura 
           <div style={{ flex: 1, minWidth: "300px" }}>
             <h3 style={styles.subSectionTitle}>Cédula de Licenciatura</h3>
             <div style={styles.tableContainer}>
@@ -1189,7 +1191,7 @@ function GraficasPage() {
                   <tr>
                     <th style={styles.dataTableTh}>Estatus</th>
                     <th style={{ ...styles.dataTableTh, textAlign: "center" }}>
-                      Número de Doctores
+                      Número de Médicos
                     </th>
                   </tr>
                 </thead>
@@ -1223,9 +1225,9 @@ function GraficasPage() {
                 </tbody>
               </table>
             </div>
-          </div>
+          </div>*/}
 
-          {/* Tabla de Cédulas de Especialidad */}
+          {/* Tabla de Cédulas de Especialidad 
           <div style={{ flex: 1, minWidth: "300px" }}>
             <h3 style={styles.subSectionTitle}>Cédula de Especialidad</h3>
             <div style={styles.tableContainer}>
@@ -1234,7 +1236,7 @@ function GraficasPage() {
                   <tr>
                     <th style={styles.dataTableTh}>Estatus</th>
                     <th style={{ ...styles.dataTableTh, textAlign: "center" }}>
-                      Número de Doctores
+                      Número de Médicos
                     </th>
                   </tr>
                 </thead>
@@ -1270,9 +1272,10 @@ function GraficasPage() {
             </div>
           </div>
         </div>
-      )}
+      )}*/}
     </div>
   );
 }
 
 export default GraficasPage;
+
