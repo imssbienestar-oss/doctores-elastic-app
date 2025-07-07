@@ -24,6 +24,8 @@ import Modal from "react-modal";
 import DoctorProfileView from "../components/DoctorProfileView";
 import AuditLogView from "../components/AuditLogView";
 import DeletedDoctorsView from "../components/DeletedDoctorsView";
+import ChangePasswordPage from "../components/ChangePasswordPage";
+import ProfilePage from "../components/ProfilePage";
 
 // Configuración de React Modal (generalmente se hace una vez)
 Modal.setAppElement("#root");
@@ -234,7 +236,7 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey }) {
     let url = `${API_BASE_URL}/api/doctores?skip=${skip}&limit=${itemsPerPage}`;
 
     if (debouncedSearchTerm && String(debouncedSearchTerm).trim() !== "") {
-      url += `&nombre=${encodeURIComponent(
+      url += `&search=${encodeURIComponent(
         String(debouncedSearchTerm).trim()
       )}`;
     }
@@ -255,14 +257,14 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey }) {
       }
 
       const response = await fetch(url, { method: "GET", headers });
-  
+
       if (response.ok) {
         const data = await response.json();
         setDoctores(data.doctores || []);
         setTotalDoctores(data.total_count || 0);
       } else {
         const errorText = await response.text(); // Usar .text() para obtener cualquier tipo de error
-  
+
         let detailErrorMessage = `Error del servidor: ${response.status}.`;
         try {
           // Intentar parsear como JSON para un mensaje de error más específico si está disponible
@@ -312,23 +314,20 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey }) {
   ]);
 
   useEffect(() => {
-
     let shouldFetch = false;
     if (isGuestMode && !isAuthenticated) {
       // Modo invitado explícito
       shouldFetch = true;
-    
     } else if (isAuthenticated && authToken && currentUser) {
       // Autenticado y con toda la info necesaria
       shouldFetch = true;
-    } 
+    }
 
     if (shouldFetch && viewMode === "table") {
       fetchDoctores();
     } else if (viewMode !== "profile") {
       // Limpiar datos si no se debe hacer fetch Y no estamos en modo perfil (para evitar limpiar si solo cambiamos de vista)
       if (!shouldFetch) {
-
         setDoctores([]);
         setTotalDoctores(0);
       }
@@ -549,7 +548,7 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey }) {
     return (
       <>
         <div>
-          <h1 style={{ marginTop: "30px" }}>Lista de Doctores</h1>
+          <h1 style={{ marginTop: "30px" }}>Registro de Médicos</h1>
           {isGuestMode && !isAuthenticated && (
             <p
               style={{
@@ -575,7 +574,7 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey }) {
               <input
                 type="search"
                 id_imss="search-nombre"
-                placeholder="Escribe un nombre..."
+                placeholder="Escribe un nombre o ID..."
                 value={searchTermInput}
                 onChange={handleSearchInputChange}
                 onKeyPress={(e) => {
@@ -600,7 +599,7 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey }) {
                 >
                   ➕
                 </span>
-                Agregar Doctor
+                Registrar Médico
               </button>
             )}
             {isAuthenticated && currentUser?.role === "admin" && (
@@ -612,7 +611,7 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey }) {
                   color: "white" /* Un color diferente para distinguirlo */,
                 }}
               >
-                Ver Eliminados
+                Registros Eliminados
               </button>
             )}
           </div>
@@ -720,7 +719,6 @@ function AppContent() {
 
   // --- DEFINIR handleDoctorHasBeenRestored AQUÍ ---
   const handleDoctorHasBeenRestored = () => {
- 
     setDoctorListRefreshKey((prevKey) => prevKey + 1); // Cambia la clave para disparar useEffect en HomePageContent
     // Opcional: Navegar de vuelta a la tabla principal si no se hace automáticamente
     // navigate("/");
@@ -729,7 +727,7 @@ function AppContent() {
   // --- FIN DEFINICIÓN ---
 
   const navbarProps = {
-    title: "Sistema de Control de Médicos Especialistas",
+    title: "Sistema de Gestión de Información de Médicos Extranjeros",
     vistaActual: vistaActual,
     onVerGraficasClick: handleVerGraficas,
     onVerTablaClick: handleVerTabla,
@@ -790,6 +788,23 @@ function AppContent() {
               <DeletedDoctorsView
                 onDoctorRestored={handleDoctorHasBeenRestored}
               />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/cambiar-contrasena"
+          element={
+            <ProtectedRoute>
+              <ChangePasswordPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/perfil"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
             </ProtectedRoute>
           }
         />
