@@ -1,4 +1,4 @@
-// frontend_app/src/App.jsx
+ // frontend_app/src/App.jsx
 import React, { useState, useEffect, useCallback } from "react";
 import {
   BrowserRouter,
