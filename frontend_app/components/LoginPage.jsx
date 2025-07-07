@@ -17,6 +17,17 @@ function LoginPage({ onLoginSuccess, onGuestLogin }) {
   const navigate = useNavigate();
   const auth = useAuth(); // Obtener el contexto de autenticación
 
+   useEffect(() => {
+    if (!auth.token) {
+      return;
+    }
+    if (auth.currentUser?.must_change_password) {
+        return;
+    }
+    navigate("/doctores");
+  }, [auth.token, auth.currentUser, navigate]); // Se ejecuta si el token cambia o al cargar la página
+
+  // --- FIN DEL BLOQUE AÑADIDO ---
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
@@ -32,44 +43,35 @@ function LoginPage({ onLoginSuccess, onGuestLogin }) {
     try {
       const response = await fetch(tokenUrl, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: loginData,
       });
 
+      // Primero, verifica si la respuesta es exitosa (status 200)
       if (response.ok) {
         const data = await response.json();
+        
+        // Guarda el token en cualquier caso de éxito
         auth.login(data.access_token, data.user);
 
-        if (onLoginSuccess) {
-          onLoginSuccess();
+        // Ahora, decide a dónde redirigir
+        if (data.action_required === "change_password") {
+          navigate("/cambiar-contrasena");
+        } else {
+          navigate("/doctores");
         }
-        navigate("/doctores");
       } else {
-        let errorDetail = "Usuario o contraseña incorrectos.";
-        try {
-          const errorData = await response.json();
-          if (errorData.detail) errorDetail = errorData.detail;
-        } catch (e) {
-          // No hacer nada si el error no es JSON
-        }
-        setError(errorDetail);
+        // Maneja errores reales (como 401 por contraseña incorrecta)
+        const errorData = await response.json();
+        setError(errorData.detail || "Usuario o contraseña incorrectos.");
       }
     } catch (err) {
-      setError("Error de conexión con el servidor. Intenta de nuevo.");
+      // Maneja errores de red
+      setError("Error de conexión con el servidor.");
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleGuestLogin = () => {
-    auth.enterGuestMode();
-    if (onGuestLogin) {
-      onGuestLogin();
-    }
-    navigate("/doctores");
-  };
+};
 
   // NUEVO: Función para alternar la visibilidad de la contraseña
   const toggleShowPassword = () => {
@@ -80,11 +82,7 @@ function LoginPage({ onLoginSuccess, onGuestLogin }) {
     <div style={styles.container}>
       <div style={styles.loginContainer}>
         <div style={styles.imageContainer}>
-          <img
-            src={image}
-            alt="Logo de la aplicación"
-            style={styles.logo}
-          />
+          <img src={image} alt="Logo de la aplicación" style={styles.logo} />
         </div>
 
         <h2 style={styles.title}>Iniciar Sesión</h2>
@@ -111,7 +109,9 @@ function LoginPage({ onLoginSuccess, onGuestLogin }) {
             <label htmlFor="password" style={styles.label}>
               Contraseña:
             </label>
-            <div style={styles.passwordInputContainer}> {/* NUEVO: Contenedor para input y botón */}
+            <div style={styles.passwordInputContainer}>
+              {" "}
+              {/* NUEVO: Contenedor para input y botón */}
               <input
                 type={showPassword ? "text" : "password"} // MODIFICADO: Tipo dinámico
                 id="password"
@@ -150,139 +150,143 @@ function LoginPage({ onLoginSuccess, onGuestLogin }) {
 // Tus estilos
 const styles = {
   container: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: '100vh',
-    backgroundColor: '#235B4E',
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    minHeight: "100vh",
+    backgroundColor: "#235B4E",
     fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
   },
   loginContainer: {
-    backgroundColor: 'white',
-    borderRadius: '10px',
-    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
-    padding: '30px',
-    width: '350px',
-    textAlign: 'center',
+    backgroundColor: "white",
+    borderRadius: "10px",
+    boxShadow: "0 4px 15px rgba(0, 0, 0, 0.1)",
+    padding: "30px",
+    width: "350px",
+    textAlign: "center",
   },
   imageContainer: {
-    marginBottom: '20px',
-    display: 'flex',
-    justifyContent: 'center',
+    marginBottom: "20px",
+    display: "flex",
+    justifyContent: "center",
   },
   logo: {
-    width: '150px',
-    height: '150px',
-    objectFit: 'contain',
+    width: "150px",
+    height: "150px",
+    objectFit: "contain",
   },
   title: {
-    color: '#333',
-    marginBottom: '25px',
-    fontSize: '24px',
+    color: "#333",
+    marginBottom: "25px",
+    fontSize: "24px",
   },
   form: {
-    marginBottom: '20px',
+    marginBottom: "20px",
   },
   inputGroup: {
-    marginBottom: '20px',
-    textAlign: 'left',
+    marginBottom: "20px",
+    textAlign: "left",
   },
   label: {
-    display: 'block',
-    marginBottom: '8px',
-    color: '#555',
-    fontWeight: '500',
+    display: "block",
+    marginBottom: "8px",
+    color: "#555",
+    fontWeight: "500",
   },
-  input: { // Estilo para inputs que ocupan todo el ancho del inputGroup
-    width: '100%',
-    padding: '12px',
-    border: '1px solid #ddd',
-    borderRadius: '5px',
-    fontSize: '14px',
-    boxSizing: 'border-box',
-    transition: 'border 0.3s',
+  input: {
+    // Estilo para inputs que ocupan todo el ancho del inputGroup
+    width: "100%",
+    padding: "12px",
+    border: "1px solid #ddd",
+    borderRadius: "5px",
+    fontSize: "14px",
+    boxSizing: "border-box",
+    transition: "border 0.3s",
   },
-  passwordInputContainer: { // NUEVO: Contenedor para el input de contraseña y el botón
-    display: 'flex',
-    alignItems: 'center',
-    width: '100%', // Para que ocupe el ancho del inputGroup
+  passwordInputContainer: {
+    // NUEVO: Contenedor para el input de contraseña y el botón
+    display: "flex",
+    alignItems: "center",
+    width: "100%", // Para que ocupe el ancho del inputGroup
   },
-  inputFieldInGroup: { // NUEVO: Estilo para el input cuando está junto a un botón
+  inputFieldInGroup: {
+    // NUEVO: Estilo para el input cuando está junto a un botón
     flexGrow: 1, // Para que ocupe el espacio restante
-    padding: '12px',
-    border: '1px solid #ddd',
-    borderRadius: '5px 0 0 5px', // Redondear solo esquinas izquierdas
-    fontSize: '14px',
-    boxSizing: 'border-box',
-    transition: 'border 0.3s',
+    padding: "12px",
+    border: "1px solid #ddd",
+    borderRadius: "5px 0 0 5px", // Redondear solo esquinas izquierdas
+    fontSize: "14px",
+    boxSizing: "border-box",
+    transition: "border 0.3s",
     // Se elimina width: '100%' porque flexGrow lo maneja
   },
-  togglePasswordButton: { // NUEVO: Estilo para el botón de mostrar/ocultar
-    padding: '12px', // Misma altura que el input
-    border: '1px solid #ddd',
-    borderLeft: 'none', // Quitar borde izquierdo para que se una al input
-    borderRadius: '0 5px 5px 0', // Redondear solo esquinas derechas
-    backgroundColor: '#f0f0f0', // Un color de fondo sutil
-    cursor: 'pointer',
-    fontSize: '12px', // Un poco más pequeño
-    color: '#333', // Color de texto
-    height: 'auto', // Ajustar altura al contenido
-    lineHeight: 'normal', // Asegurar alineación vertical del texto
-    whiteSpace: 'nowrap', // Para que "Mostrar" / "Ocultar" no se parta
+  togglePasswordButton: {
+    // NUEVO: Estilo para el botón de mostrar/ocultar
+    padding: "12px", // Misma altura que el input
+    border: "1px solid #ddd",
+    borderLeft: "none", // Quitar borde izquierdo para que se una al input
+    borderRadius: "0 5px 5px 0", // Redondear solo esquinas derechas
+    backgroundColor: "#f0f0f0", // Un color de fondo sutil
+    cursor: "pointer",
+    fontSize: "12px", // Un poco más pequeño
+    color: "#333", // Color de texto
+    height: "auto", // Ajustar altura al contenido
+    lineHeight: "normal", // Asegurar alineación vertical del texto
+    whiteSpace: "nowrap", // Para que "Mostrar" / "Ocultar" no se parta
   },
   button: {
-    width: '100%',
-    padding: '12px',
-    backgroundColor: '#235B4E',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    fontSize: '16px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    transition: 'background-color 0.3s ease',
+    width: "100%",
+    padding: "12px",
+    backgroundColor: "#235B4E",
+    color: "white",
+    border: "none",
+    borderRadius: "5px",
+    fontSize: "16px",
+    fontWeight: "600",
+    cursor: "pointer",
+    transition: "background-color 0.3s ease",
   },
   buttonLoading: {
-    width: '100%',
-    padding: '12px',
-    backgroundColor: '#a0c4ff',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    fontSize: '16px',
-    fontWeight: '600',
-    cursor: 'not-allowed',
+    width: "100%",
+    padding: "12px",
+    backgroundColor: "#a0c4ff",
+    color: "white",
+    border: "none",
+    borderRadius: "5px",
+    fontSize: "16px",
+    fontWeight: "600",
+    cursor: "not-allowed",
   },
   guestButton: {
-    width: '100%',
-    padding: '12px',
-    backgroundColor: '#6c757d',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    fontSize: '16px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    transition: 'background-color 0.3s ease',
-    marginTop: '10px',
+    width: "100%",
+    padding: "12px",
+    backgroundColor: "#6c757d",
+    color: "white",
+    border: "none",
+    borderRadius: "5px",
+    fontSize: "16px",
+    fontWeight: "600",
+    cursor: "pointer",
+    transition: "background-color 0.3s ease",
+    marginTop: "10px",
   },
   error: {
-    color: '#dc3545',
-    margin: '10px 0',
-    fontSize: '14px',
+    color: "#dc3545",
+    margin: "10px 0",
+    fontSize: "14px",
   },
   separator: {
-    display: 'flex',
-    alignItems: 'center',
-    textAlign: 'center',
-    margin: '20px 0',
-    color: '#999',
-    width: '100%', /* Asegura que el contenedor tome todo el ancho */
+    display: "flex",
+    alignItems: "center",
+    textAlign: "center",
+    margin: "20px 0",
+    color: "#999",
+    width: "100%" /* Asegura que el contenedor tome todo el ancho */,
   },
   separatorText: {
-    padding: '0 170px', 
-    fontSize: '20px', 
-    color: '#6c757d',
+    padding: "0 170px",
+    fontSize: "20px",
+    color: "#6c757d",
   },
 };
 
@@ -290,17 +294,17 @@ const styles = {
 // Añade esto *después* de la definición del objeto `styles` si quieres que la línea pase por detrás del texto "o"
 styles.separator = {
   ...styles.separator, // Mantiene las propiedades existentes
-  position: 'relative', // Necesario para el pseudo-elemento
+  position: "relative", // Necesario para el pseudo-elemento
 };
-styles.separator['::before'] = { // La línea del separador
+styles.separator["::before"] = {
+  // La línea del separador
   content: '""',
-  position: 'absolute',
-  top: '50%',
+  position: "absolute",
+  top: "50%",
   left: 0,
   right: 0,
-  borderBottom: '1px solid #ddd', // Color de la línea
+  borderBottom: "1px solid #ddd", // Color de la línea
   zIndex: 0, // Detrás del texto
 };
-
 
 export default LoginPage;
