@@ -4,6 +4,7 @@ from sqlalchemy.orm import relationship # Para definir relaciones entre tablas
 from sqlalchemy.sql import func # Para funciones SQL como now() para timestamps
 from database import Base # Importa la Base que definimos en database.py
 
+
 class Doctor(Base):
     __tablename__ = "doctores" # Nombre exacto de la tabla en PostgreSQL
 
@@ -78,6 +79,8 @@ class User(Base):
     username = Column(String(100), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
     role = Column(String, default="admin")
+    must_change_password = Column(Boolean, default=True) 
+
     __table_args__ = {'extend_existing': True}
     audit_log_entries = relationship("AuditLog", back_populates="user")
 
