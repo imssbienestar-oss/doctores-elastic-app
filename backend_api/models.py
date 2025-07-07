@@ -4,7 +4,6 @@ from sqlalchemy.orm import relationship # Para definir relaciones entre tablas
 from sqlalchemy.sql import func # Para funciones SQL como now() para timestamps
 from database import Base # Importa la Base que definimos en database.py
 
-
 class Doctor(Base):
     __tablename__ = "doctores" # Nombre exacto de la tabla en PostgreSQL
 
@@ -44,7 +43,6 @@ class Doctor(Base):
     pasaporte = Column(String(50), nullable=True)
     fecha_emision = Column(Date, nullable=True) # Asumiendo que es la vigencia del pasaporte (fecha)
     fecha_expiracion = Column(Date, nullable=True) # Asumiendo que es la vigencia del pasaporte (fecha)
-    estado_civil = Column(String(50), nullable=True)
     domicilio = Column(Text, nullable=True)
     licenciatura = Column(String(255), nullable=True) # Nombre de la carrera
     institucion_lic = Column(String(255), nullable=True)
