@@ -284,18 +284,24 @@ async def root():
 async def leer_doctores(
     skip: int = Query(0, ge=0), 
     limit: int = Query(30, ge=1, le=200),
-    nombre: Optional[str] = Query(None, min_length=1, max_length=100),
+    search: Optional[str] = Query(None, min_length=1, max_length=100),
     estatus: Optional[str] = Query("01 ACTIVO", min_length=1, max_length=50),
     # El parámetro 'incluir_eliminados' se ha eliminado de este endpoint
     db: Session = Depends(get_db_session),
-    current_user: Optional[models.User] = Depends(security.get_optional_current_user) # Se mantiene por si se usa para otra lógica
-):
+   ):
     # Aplicar SIEMPRE el filtro para excluir doctores eliminados
     query = db.query(models.Doctor).filter(models.Doctor.is_deleted == False)
 
-    if nombre:
-        query = query.filter(models.Doctor.nombre.ilike(f'%{nombre}%'))
-        #print(f"DEBUG: Aplicando filtro por nombre: '%{nombre}%'")
+    if search and search.strip():
+        search_term = f"%{search.strip()}%"
+        query = query.filter(
+            or_(
+                models.Doctor.nombre.ilike(search_term),
+                models.Doctor.apellido_paterno.ilike(search_term),
+                models.Doctor.apellido_materno.ilike(search_term),
+                models.Doctor.id_imss.ilike(search_term)
+            )
+        )
     if estatus and estatus.lower() != "todos":
           query = query.filter(
         func.upper(func.trim(models.Doctor.estatus)) == estatus.strip().upper()
@@ -311,8 +317,7 @@ async def leer_doctores(
 @app.get("/api/doctores/{id_imss}", response_model=schemas.DoctorDetail, tags=["Doctores"])
 async def leer_doctor_por_id(
     id_imss: str, db: Session = Depends(get_db_session),
-    current_user: Optional[models.User] = Depends(security.get_optional_current_user)
-):
+  ):
     db_doctor = db.query(models.Doctor).options(selectinload(models.Doctor.attachments)).filter(func.upper(models.Doctor.id_imss) == func.upper(id_imss)).first()
     if db_doctor is None:
         raise HTTPException(status_code=404, detail="Doctor no encontrado")
@@ -332,7 +337,7 @@ async def crear_doctor(
         
         db.add(db_doctor)
         db.flush()
-        log_action(db, current_user, "Crear Doctor", "Doctor", target_id_str=db_doctor.id_imss, details=f"Doctor creado: {db_doctor.nombre}")
+        log_action(db, current_user, "Crear Registro", "Doctor", target_id_str=db_doctor.id_imss, details=f"Doctor creado: {db_doctor.nombre}")
         
         db.commit()
         db.refresh(db_doctor)
@@ -361,8 +366,8 @@ async def eliminar_doctor(
         db_doctor.deleted_at = datetime.now(timezone.utc)
         db_doctor.deleted_by_user_id = current_user.id
         
-        log_details = f"Doctor marcado como eliminado: {db_doctor.nombre} (ID: {db_doctor.id_imss})"
-        log_action(db, current_user, "Eliminar Doctor", "Doctor", target_id_str=id_imss, details=log_details)
+        log_details = f"Médico marcado como eliminado: {db_doctor.nombre} (ID: {db_doctor.id_imss})"
+        log_action(db, current_user, "Eliminar Registro", "Doctor", target_id_str=id_imss, details=log_details)
         
         db.commit()
         return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -449,8 +454,7 @@ async def subir_expediente_doctor(
 @app.get("/api/doctores/{id_imss}/attachments", response_model=List[schemas.DoctorAttachment], tags=["Doctores - Archivos"])
 async def listar_expedientes_doctor(
     id_imss: str, db: Session = Depends(get_db_session),
-    current_user: Optional[models.User] = Depends(security.get_optional_current_user)
-):
+    ):
     # ... (sin cambios) ...
     #print((f"--- Listando expedientes para doctor ID: {doctor_id} ---")
     db_doctor = db.query(models.Doctor).filter(models.Doctor.id_imss == id_imss).first()
@@ -591,7 +595,7 @@ async def actualizar_doctor_perfil_completo(
 
         if changed_field_names:
             # Crear un string como "Campos actualizados: Nombre Completo, Estatus, Telefono"
-            details_for_log = f"Se actualizo Doctor:  {db_doctor.nombre}: {', '.join(changed_field_names)}."
+            details_for_log = f"Se actualizo Registro:  {db_doctor.nombre}: {', '.join(changed_field_names)}."
         else:
             # Si no hubo cambios de valor, aunque se haya hecho un PUT
             details_for_log = "Actualización procesada, sin cambios de valor detectados en los campos enviados."
@@ -600,7 +604,7 @@ async def actualizar_doctor_perfil_completo(
         log_action(
             db=db, 
             user=current_user, 
-            action_type="Actualizar Doctor", 
+            action_type="Actualizar Registro", 
             target_entity="Doctor",
             target_id_str =id_imss,
             details=details_for_log # Usar el nuevo string descriptivo
@@ -647,12 +651,58 @@ async def login_for_access_token(
     # ... (tu código sin cambios) ...
     user = db.query(models.User).filter(models.User.username == form_data.username).first()
     if not user or not security.verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Credenciales incorrectas",headers={"WWW-Authenticate": "Bearer"},)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Nombre de usuario o contraseña incorrectos",
+        )
+    # Crea el token de acceso siempre
     access_token_expires = timedelta(minutes=security.ACCESS_TOKEN_EXPIRE_MINUTES)
-    token_data = {"sub": user.username, "role": user.role, "userId": user.id}
-    access_token = security.create_access_token(data=token_data, expires_delta=access_token_expires)
-    return {"access_token": access_token, "token_type": "bearer"}
+    access_token = security.create_access_token(
+        data={"sub": user.username, "role": user.role, "userId": user.id}
+    )
+    
+    # Prepara la respuesta base
+    response_data = {
+        "access_token": access_token, 
+        "token_type": "bearer", 
+        "user": {"id": user.id, "username": user.username, "role": user.role}
+    }
 
+    # Si el usuario debe cambiar su contraseña, AÑADE el flag a la respuesta exitosa
+    if user.must_change_password:
+        response_data["action_required"] = "change_password"
+
+    return response_data
+@app.put("/api/users/me/change-password", status_code=status.HTTP_200_OK, tags=["Usuarios"])
+async def user_change_own_password(
+    payload: schemas.UserChangePassword,
+    db: Session = Depends(get_db_session),
+    current_user: models.User = Depends(security.get_current_user) # Tu función para obtener el usuario actual
+):
+    if not payload.new_password or len(payload.new_password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La nueva contraseña debe tener al menos 8 caracteres."
+        )
+    
+    user_to_update = db.query(models.User).filter(models.User.id == current_user.id).first()
+    if not user_to_update:
+        raise HTTPException(status_code=404, detail="No se encontró el usuario para actualizar.")
+
+    user_to_update.hashed_password = security.get_password_hash(payload.new_password)
+    user_to_update.must_change_password = False
+    
+    try:
+        # Ya no es necesario db.add() porque el objeto fue obtenido de esta sesión
+        db.commit()
+        return {"detail": "Contraseña actualizada exitosamente. Por favor, inicia sesión de nuevo."}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail="Error al guardar la nueva contraseña."
+        )
+    
 # --- Endpoints de Administración de Usuarios ---
 @app.get("/api/admin/users", response_model=List[schemas.UserAdminView], tags=["Admin - Usuarios"])
 async def admin_leer_usuarios(
@@ -664,7 +714,8 @@ async def admin_leer_usuarios(
 
 @app.post("/api/admin/users/register", response_model=schemas.UserAdminView, status_code=status.HTTP_201_CREATED, tags=["Admin - Usuarios"])
 async def admin_crear_usuario(
-    user_data: schemas.UserCreateAdmin, db: Session = Depends(get_db_session),
+    user_data: schemas.UserCreateAdmin, 
+    db: Session = Depends(get_db_session),
     current_admin: models.User = Depends(get_current_admin_user)
 ):
     # ... (tu código sin cambios) ...
@@ -672,8 +723,8 @@ async def admin_crear_usuario(
     if existing_user: raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Nombre de usuario ya existe.")
     valid_roles = ["user", "admin"];
     if user_data.role not in valid_roles: raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Rol inválido.")
-    hashed_password = security.get_password_hash(user_data.password)
-    db_user = models.User(username=user_data.username, hashed_password=hashed_password, role=user_data.role)
+    hashed_password = security.get_password_hash(Generic_pass)
+    db_user = models.User(username=user_data.username, hashed_password=hashed_password, role=user_data.role, must_change_password=True)
     try:
         db.add(db_user); db.commit(); db.refresh(db_user)
         return db_user
@@ -697,16 +748,20 @@ async def admin_eliminar_usuario(
 
 @app.put("/api/admin/users/{user_id}/reset-password", status_code=status.HTTP_200_OK, tags=["Admin - Usuarios"])
 async def admin_reset_password(
-    user_id: int, payload: schemas.UserResetPasswordPayload,
+    user_id: int,
     db: Session = Depends(get_db_session), current_admin: models.User = Depends(get_current_admin_user)
 ):
     # ... (tu código sin cambios) ...
-    if not payload.new_password or len(payload.new_password) < 4: raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Contraseña inválida.")
     user_to_update = db.query(models.User).filter(models.User.id == user_id).first()
-    if user_to_update is None: raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
-    new_hashed_password = security.get_password_hash(payload.new_password)
+    if user_to_update is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+
+    new_hashed_password = security.get_password_hash(Generic_pass)
+    
     try:
-        user_to_update.hashed_password = new_hashed_password; db.add(user_to_update); db.commit()
+        user_to_update.hashed_password = new_hashed_password
+        user_to_update.must_change_password = True
+        db.add(user_to_update); db.commit()
         return {"detail": f"Contraseña para '{user_to_update.username}' restablecida."}
     except Exception as e:
         db.rollback(); traceback.print_exc(); raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error al resetear contraseña.")
@@ -714,7 +769,7 @@ async def admin_reset_password(
 # --- Endpoints de Reportes y Gráficas ---
 @app.get("/api/reporte/xlsx", tags=["Reportes"])
 async def generar_reporte_excel(
-    db: Session = Depends(get_db_session), current_user: Optional[models.User] = Depends(security.get_optional_current_user)
+    db: Session = Depends(get_db_session)
 ):
     try:
         # Construir la consulta base
@@ -727,7 +782,7 @@ async def generar_reporte_excel(
 
         
         # Ordenar los resultados si es necesario
-        if hasattr(models.Doctor, 'id'):
+        if hasattr(models.Doctor, 'id_imss'):
             query = query.order_by(models.Doctor.id_imss)
         
         doctores_orm = query.all()
@@ -738,11 +793,13 @@ async def generar_reporte_excel(
             #print("DEBUG Reporte Excel: No hay doctores para el reporte.")
             # Crear un DataFrame vacío con las columnas esperadas para que el archivo no esté corrupto
             column_names = [
-                "Identificador IMSS", "Nombre Completo", "Estatus", "CURP", 
-                "Especialidad", "Entidad", "Fecha de Nacimiento", "Sexo", "Turno",
-                "Unidad Médica", "Municipio", "Nivel de Atención", "Fecha de Estatus",
-                "Teléfono", "Correo Electrónico", "Cédula Licenciatura", "Cédula Especialidad",
-                # Añade todos los campos que quieras en el reporte
+                "ID_IMSS", "NOMBRE","APELLIDO_PATERNO","APELLIDO_MATERNO", "ESTATUS","MATRIMONIO_ID", "CURP", 
+                "CEDULA_ESP","CEDULA_LIC","ESPECIALIDAD","ENTIDAD","CLUES","FORMA_NOTIFICACION","MOTIVO_BAJA",
+                "FECHA_EXTRACCION","FECHA_NOTIFICACION","SEXO","TURNO","NOMBRE_UNIDAD","MUNICIPIO","NIVEL_ATENCION",
+                "FECHA_ESTATUS","DESPLIEGUE","FECHA_VUELO","ESTRATO","ACUERDO","CORREO","ENTIDAD_NACIMIENTO","TELEFONO",
+                "COMENTARIOS_ESTATUS","FECHA_NACIMIENTO","PASAPORTE","FECHA_EMISION","FECHA_EXPIRACION",
+                "DOMICILIO","LICENCIATURA","INSTITUCION_LIC","INSTITUCION_ESP","FECHA_EGRESO_LIC", "FECHA_EGRESO_ESP", "TIPO_ESTABLECIMIENTO","SUBTIPO_ESTABLECIMIENTO","DIRECCION_UNIDAD","REGION"
+                "FECHA_INICIO","FECHA_FIN","MOTIVO","TIPO_INCAPACIDAD",
             ]
             df = pd.DataFrame(columns=column_names)
 
@@ -752,28 +809,54 @@ async def generar_reporte_excel(
             doctores_data = []
             for doc in doctores_orm:
                 doctores_data.append({
-                    "Identificador IMSS": doc.identificador_imss,
-                    "Nombre Completo": doc.nombre,
-                    "Estatus": doc.estatus,
-                    "CURP": doc.curp,
-                    "Especialidad": doc.especialidad,
-                    "Entidad": doc.entidad,
-                    "Fecha de Nacimiento": doc.fecha_nacimiento,
-                    "Sexo": doc.sexo,
-                    "Turno": doc.turno,
-                    "Unidad Médica": doc.nombre_unidad,
-                    "Municipio": doc.municipio,
-                    "Nivel de Atención": doc.nivel_atencion,
-                    "Fecha de Estatus": doc.fecha_estatus,
-                    "Teléfono": doc.tel,
-                    "Correo Electrónico": doc.correo_electronico,
-                    "Cédula Licenciatura": doc.cedula_lic,
-                    "Cédula Especialidad": doc.cedula_esp,
-                    "Fecha Notificación Baja": doc.fecha_notificacion,
-                    "Motivo Baja": doc.motivo_baja,
-                    "Comentarios Estatus": doc.comentarios_estatus,
-                    "Fecha Fallecimiento": doc.fecha_fallecimiento,
-                    # Asegúrate de incluir todos los campos que quieres
+                    "ID_IMSS": doc.id_imss,
+                    "NOMBRE": doc.nombre,
+                    "APELLIDO_PATERNO": doc.apellido_paterno,
+                    "APELLIDO_MATERNO": doc.apellido_materno, 
+                    "ESTATUS": doc.estatus,
+                    "MATRIMONIO_ID": doc.matrimonio_id, 
+                    "CURP": doc.curp, 
+                    "CEDULA_ESP": doc.cedula_esp,
+                    "CEDULA_LIC": doc.cedula_lic,
+                    "ESPECIALIDAD": doc.especialidad,
+                    "ENTIDAD": doc.entidad,
+                    "CLUES": doc.clues,
+                    "FORMA_NOTIFICACION":doc.forma_notificacion,
+                    "MOTIVO_BAJA": doc.motivo_baja,
+                    "FECHA_EXTRACCION": doc.fecha_extraccion,
+                    "FECHA_NOTIFICACION":  doc.fecha_notificacion,
+                    "SEXO": doc.sexo,
+                    "TURNO": doc.turno,
+                    "NOMBRE_UNIDAD": doc.nombre_unidad,
+                    "MUNICIPIO": doc.municipio,
+                    "NIVEL_ATENCION": doc.nivel_atencion,
+                    "FECHA_ESTATUS" : doc.fecha_estatus,
+                    "DESPLIEGUE" : doc.despliegue,
+                    "FECHA_VUELO" : doc.fecha_vuelo,
+                    "ESTRATO" : doc.estrato,
+                    "ACUERDO" : doc.acuerdo,
+                    "CORREO" : doc.correo,
+                    "ENTIDAD_NACIMIENTO" : doc.entidad_nacimiento,
+                    "TELEFONO" : doc.telefono,
+                    "COMENTARIOS_ESTATUS" : doc.comentarios_estatus,
+                    "FECHA_NACIMIENTO" : doc.fecha_nacimiento,
+                    "PASAPORTE" : doc.pasaporte,
+                    "FECHA_EMISION": doc.fecha_emision,
+                    "FECHA_EXPIRACION": doc.fecha_expiracion,
+                    "DOMICILIO" : doc.domicilio,
+                    "LICENCIATURA" : doc.licenciatura,
+                    "INSTITUCION_LIC" : doc.institucion_lic,
+                    "INSTITUCION_ESP" : doc.institucion_esp,
+                    "FECHA_EGRESO_LIC" : doc.fecha_egreso_lic, 
+                    "FECHA_EGRESO_ESP" : doc.fecha_egreso_esp, 
+                    "TIPO_ESTABLECIMIENTO" : doc.tipo_establecimiento ,
+                    "SUBTIPO_ESTABLECIMIENTO": doc. subtipo_establecimiento,
+                    "DIRECCION_UNIDAD": doc.direccion_unidad,
+                    "REGION": doc.region,
+                    "FECHA_INICIO" : doc.fecha_inicio,
+                    "FECHA_FIN": doc.fecha_fin,
+                    "MOTIVO": doc.motivo,
+                    "TIPO_INCAPACIDAD":doc.tipo_incapacidad
                 })
             df = pd.DataFrame(doctores_data)
 
@@ -787,7 +870,7 @@ async def generar_reporte_excel(
             # Si son strings que representan fechas, pandas podría inferirlos como datetime al crear el DataFrame.
         # --- FIN CORRECCIÓN ---
 
-        output = BytesIO()
+        output = GlobalBytesIO()
         # Usar with para asegurar que el writer se cierre correctamente
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             df.to_excel(writer, index=False, sheet_name='Doctores')
@@ -809,7 +892,7 @@ async def generar_reporte_excel(
 
 @app.get("/api/reporte/pdf", tags=["Reportes"])
 async def generar_reporte_resumen_pdf(
-    db: Session = Depends(get_db_session), current_user: Optional[models.User] = Depends(security.get_optional_current_user)
+    db: Session = Depends(get_db_session)
 ):
     # ... (tu código sin cambios, con pdf.output()) ...
     query_total_general = text("SELECT COUNT(*) FROM doctores;"); total_general_doctores = db.execute(query_total_general).scalar_one_or_none() or 0
@@ -842,7 +925,7 @@ async def generar_reporte_resumen_pdf(
 
 @app.get("/api/graficas/doctores_por_estado", response_model=List[schemas.DataGraficaItem], tags=["Gráficas"])
 async def get_data_grafica_doctores_por_estado(
-    db: Session = Depends(get_db_session), current_user: Optional[models.User] = Depends(security.get_optional_current_user)
+    db: Session = Depends(get_db_session)
 ):
     # ... (tu código sin cambios) ...
     query = text("SELECT entidad as label, COUNT(*) as value FROM doctores WHERE estatus = '01 ACTIVO' AND entidad IS NOT NULL AND entidad != '' AND entidad != 'NO APLICA'GROUP BY entidad ORDER BY value ASC;")
@@ -850,7 +933,7 @@ async def get_data_grafica_doctores_por_estado(
 
 @app.get("/api/graficas/doctores_por_especialidad", response_model=List[schemas.DataGraficaItem], tags=["Gráficas"])
 async def get_data_grafica_doctores_por_especialidad(
-    db: Session = Depends(get_db_session), current_user: Optional[models.User] = Depends(security.get_optional_current_user)
+    db: Session = Depends(get_db_session)
 ):
     # ... (tu código sin cambios) ...
     query = text("SELECT especialidad as label, COUNT(*) as value FROM doctores WHERE especialidad IS NOT NULL AND especialidad != '' GROUP BY especialidad ORDER BY value DESC;")
@@ -858,7 +941,7 @@ async def get_data_grafica_doctores_por_especialidad(
 
 @app.get("/api/graficas/doctores_por_estatus", response_model=List[schemas.DataGraficaItem], tags=["Gráficas"])
 async def get_data_grafica_doctores_por_estatus(
-    db: Session = Depends(get_db_session), current_user: Optional[models.User] = Depends(security.get_optional_current_user)
+    db: Session = Depends(get_db_session)
 ):
     # ... (tu código sin cambios) ...
     query = text("""SELECT COALESCE(estatus, 'SD') as label, COUNT(*) as value FROM doctores WHERE estatus IS NOT NULL AND estatus != '' GROUP BY label ORDER BY value DESC;""")
@@ -869,8 +952,7 @@ async def get_data_grafica_doctores_por_estatus(
 
 @app.get("/api/graficas/doctores_por_nivel_atencion", response_model=List[schemas.DataGraficaItem], tags=["Gráficas"])
 async def get_data_grafica_doctores_por_nivel_atencion(
-    db: Session = Depends(get_db_session), 
-    current_user: Optional[models.User] = Depends(security.get_optional_current_user)
+    db: Session = Depends(get_db_session)
 ):
     """
     Obtiene el número de doctores agrupados por su nivel de atención.
@@ -999,8 +1081,8 @@ async def restaurar_doctor(
         # Considera si quieres limpiar deleted_by_user_id o mantenerlo para el historial
         # db_doctor.deleted_by_user_id = None 
         
-        log_details = f"Doctor restaurado: {db_doctor.nombre} (ID: {db_doctor.id_imss})"
-        log_action(db, current_admin, "Restaurar Doctor", "Doctor", id_imss, log_details)
+        log_details = f"Registro restaurado: {db_doctor.nombre} (ID: {db_doctor.id_imss})"
+        log_action(db, current_admin, "Restaurar Registro", "Doctor", id_imss, log_details)
         
         db.commit()
         db.refresh(db_doctor)
@@ -1192,34 +1274,92 @@ async def obtener_especialidades_agrupadas(db: Session = Depends(get_db_session)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error al obtener especialidades agrupadas: {str(e)}")
 
 @app.get("/api/graficas/doctores_por_nivel_atencion", response_model=List[schemas.NivelAtencionItem], tags=["Graficas y Estadísticas"])
-async def obtener_doctores_por_nivel_atencion(db: Session = Depends(get_db_session), current_user: models.User = Depends(security.get_current_user)):
+async def obtener_doctores_por_nivel_atencion(
+    db: Session = Depends(get_db_session),
+    current_user: models.User = Depends(security.get_current_user)
+):
     try:
-        niveles_predefinidos = ["01 PNA", "02 SNA", "03 TNA", "04 OTRO", "05 NO APLICA"]
-        
-        nivel_normalizado = func.coalesce(func.nullif(func.trim(models.Doctor.nivel_atencion), ""), "SIN REGISTRO")
-        
-        query = db.query(
-            nivel_normalizado.label("nivel_atencion"),
-            func.count(models.Doctor.id_imss).label("total_doctores")
+        # Lista de los niveles de atención predefinidos tal como los conoces.
+        niveles_predefinidos_raw = ["01 PNA", "02 SNA", "03 TNA", "04 OTRO", "05 NO APLICA"]
+
+        # Normaliza estos niveles predefinidos para que coincidan con cómo se procesan los datos de la DB.
+        # Esto es crucial para la comparación posterior en Python.
+        niveles_predefinidos_normalizados = [
+            (nivel.strip() if nivel is not None else "") or "SIN REGISTRO"
+            for nivel in niveles_predefinidos_raw
+        ]
+
+        # Define cómo la columna 'nivel_atencion' de la base de datos será normalizada para la consulta.
+        # Esto asegura que los valores de la DB se limpien y unifiquen antes de agruparlos.
+        nivel_normalizado_db = func.coalesce(
+            func.nullif(func.trim(models.Doctor.nivel_atencion), ""),
+            "SIN REGISTRO"
+        )
+
+        # --- SECCIÓN DE DEBUGGING: Vista previa de la normalización de datos RAW ---
+        # Este bloque te ayudará a ver si hay caracteres inesperados en tus datos originales
+        # y cómo la normalización de la DB los está transformando.
+        raw_data_check_query = db.query(
+            models.Doctor.nivel_atencion,
+            nivel_normalizado_db.label("nivel_atencion_normalizado")
         ).filter(
-            models.Doctor.is_deleted == False
-        ).group_by(nivel_normalizado)
+            models.Doctor.is_deleted == False # Solo mira los doctores activos
+        ).limit(10).all() # Limita la salida para no llenar la terminal
         
+        print("\n--- DEBUG: Vista previa de la normalización de datos RAW (primeros 10 doctores activos) ---")
+        if not raw_data_check_query:
+            print("  No se encontraron registros de doctores activos para la comprobación RAW.")
+        for row in raw_data_check_query:
+            # Usamos repr() para mostrar la representación exacta de la cadena, incluyendo caracteres ocultos
+            print(f"  RAW: {repr(row.nivel_atencion)} -> NORMALIZADO DB: {repr(row.nivel_atencion_normalizado)}")
+        print("-------------------------------------------------------------------------------------\n")
+
+
+        # Consulta principal: Agrupa y cuenta doctores activos por su nivel de atención normalizado.
+        query = db.query(
+            nivel_normalizado_db.label("nivel_atencion"), # El nombre del nivel normalizado
+            func.count('*').label("total_doctores")     # Contar *todas* las filas en el grupo (confiable)
+        ).filter(
+            models.Doctor.is_deleted == False # Filtra solo doctores "activos"
+        ).group_by(nivel_normalizado_db) # Agrupa por el nivel ya normalizado
+
+        # Ejecuta la consulta y obtiene los resultados (una lista de objetos con 'nivel_atencion' y 'total_doctores').
         resultados = query.all()
-        
+
+        # --- SECCIÓN DE DEBUGGING: Resultados de la consulta y el diccionario ---
+        print("Resultados de la consulta de base de datos (normalizados DB y conteos):", resultados)
+        print("Niveles predefinidos normalizados (Python para comparación):", niveles_predefinidos_normalizados)
+
+        # Crea un diccionario para acceso rápido a los conteos por nivel de atención.
+        # Las claves de este diccionario serán los niveles NORMALIZADOS tal como vienen de la DB.
         resultados_dict = {item.nivel_atencion: item.total_doctores for item in resultados}
-        
+        print("Diccionario de resultados (tras la consulta):", resultados_dict)
+
+        # Prepara la lista de respuesta final para el frontend.
         response = []
-        for nivel in niveles_predefinidos:
-            response.append({"nivel_atencion": nivel, "total_doctores": resultados_dict.get(nivel, 0)})
+        # 1. Añade los niveles predefinidos. Si un nivel predefinido no se encontró en la DB, su conteo será 0.
+        for nivel_norm in niveles_predefinidos_normalizados:
+            count = resultados_dict.get(nivel_norm, 0)
+            # Aquí, la respuesta incluirá el nombre del nivel NORMALIZADO.
+            response.append({"nivel_atencion": nivel_norm, "total_doctores": count})
             
-        otros_niveles = set(resultados_dict.keys()) - set(niveles_predefinidos)
+        # 2. Identifica y añade cualquier "otro" nivel de atención que haya salido de la base de datos
+        #    pero que no estaba en tu lista de niveles predefinidos.
+        otros_niveles = set(resultados_dict.keys()) - set(niveles_predefinidos_normalizados)
         for nivel_extra in otros_niveles:
             response.append({"nivel_atencion": nivel_extra, "total_doctores": resultados_dict[nivel_extra]})
             
+        # --- SECCIÓN DE DEBUGGING: Respuesta final ---
+        print("Respuesta FINAL que el backend enviará al frontend:", response)
+        
         return response
+
     except Exception as e:
+        # Si ocurre un error, imprime el traceback completo en la terminal para depuración
+        # y devuelve un error HTTP 500 al cliente.
+        traceback.print_exc()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error al obtener doctores por nivel de atención: {str(e)}")
+
 
 @app.get("/api/graficas/doctores_por_cedulas", response_model=schemas.CedulasCount, tags=["Graficas y Estadísticas"])
 async def obtener_doctores_por_cedulas(db: Session = Depends(get_db_session), current_user: models.User = Depends(security.get_current_user)):
