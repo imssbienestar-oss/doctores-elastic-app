@@ -416,8 +416,8 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey }) {
       navigate("/login");
       return;
     }
-    if (currentUser?.role === "guest") {
-      alert("Los invitados no pueden agregar doctores.");
+    if (currentUser?.role === "consulta") {
+      alert("El Rol Consulta no pueden agregar doctores.");
       return;
     }
     openModal(null);
@@ -587,7 +587,7 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey }) {
               />
               {/* El filtro de estatus se maneja dentro de DoctorTable, pero podría ir aquí */}
             </div>
-            {isAuthenticated && currentUser?.role !== "guest" && (
+            {isAuthenticated && currentUser?.role !== "consulta" && (
               <button
                 onClick={handleOpenCreateDoctorModal}
                 style={styles.addButton}
