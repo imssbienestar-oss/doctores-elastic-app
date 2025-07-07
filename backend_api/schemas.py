@@ -2,7 +2,6 @@ from pydantic import BaseModel, EmailStr, Field
 from typing import List, Optional, Union
 from datetime import date, datetime
 
-# Schema base con los campos comunes para Doctor
 class DoctorBase(BaseModel):
     id_imss: str = Field(..., max_length=100)
     nombre: Optional[str] = Field(None, max_length=255)
@@ -10,7 +9,7 @@ class DoctorBase(BaseModel):
     apellido_materno: Optional[str] = Field(None, max_length=255)
     estatus: Optional[str] = Field(None, max_length=50)
     matrimonio_id: Optional[str] = Field(None, max_length=100)
-    curp: Optional[str] = Field(None, pattern=r'^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$|^$', min_length=18, max_length=18)
+    curp: Optional[str] = Field(None, max_length=50) 
     cedula_esp: Optional[str] = Field(None, max_length=100)
     cedula_lic: Optional[str] = Field(None, max_length=100)
     especialidad: Optional[str] = Field(None, max_length=255)
@@ -36,6 +35,7 @@ class DoctorBase(BaseModel):
     comentarios_estatus:  Optional[str] = Field(None, max_length=255)
     fecha_fallecimiento:  Optional[date] = None
     fecha_nacimiento: Optional[date] = None
+    edad: Optional[str] = Field(None, max_length=10)
     pasaporte: Optional[str] = Field(None, max_length=255)
     fecha_emision: Optional[date] = None
     fecha_expiracion: Optional[date] = None
@@ -83,7 +83,7 @@ class DoctorCreate(BaseModel): # No hereda de DoctorBase para ser explícito con
     apellido_paterno: str = Field(..., min_length=1, max_length=255)
     apellido_materno: str = Field(..., min_length=1, max_length=255)
     estatus: str = Field(..., min_length=1, max_length=50)
-    curp: Optional[str] = Field(None, pattern=r'^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$|^$', min_length=18, max_length=18)
+    curp: Optional[str] = Field(None, pattern=r'^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$|^$', max_length=25)
     especialidad: str = Field(..., min_length=1, max_length=255)
     entidad: str = Field(..., min_length=1, max_length=100) # Entidad de adscripción inicial
     fecha_nacimiento: Optional[date] = None # Se calcula desde CURP, se envía opcionalmente
@@ -123,7 +123,7 @@ class DoctorDetail(Doctor):
 # --- Schemas para Usuarios y Autenticación ---
 class UserBase(BaseModel): # Definición única y consolidada
     username: str = Field(..., min_length=3)
-    role: str = Field(default="user", pattern=r'^(admin|user|guest)$') # Rol con default y patrón
+    role: str = Field(default="user", pattern=r'^(admin|user|consulta)$') # Rol con default y patrón
 
 class User(UserBase): # Schema para leer User desde la DB
     id: int
@@ -132,7 +132,7 @@ class User(UserBase): # Schema para leer User desde la DB
 
 class UserCreateAdmin(BaseModel): # Schema para crear usuario desde panel admin
     username: str = Field(..., min_length=3)
-    role: str = Field(default="user", pattern=r'^(admin|user|guest)$')
+    role: str = Field(default="user", pattern=r'^(admin|user|consulta)$')
 
 class UserAdminView(UserBase): 
     id: int
