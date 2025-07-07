@@ -2,8 +2,6 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../src/contexts/AuthContext"; // Para obtener token y datos del admin actual
-
-// Componente principal de la página de administración
 function AdminUsersPage() {
   const { token, currentUser } = useAuth(); // Obtener token y datos del admin logueado
   const [users, setUsers] = useState([]); // Estado para la lista de usuarios
@@ -14,13 +12,11 @@ function AdminUsersPage() {
   // Estado para el formulario de nuevo usuario
   const [newUser, setNewUser] = useState({
     username: "",
-    password: "",
     role: "user",
   });
   const [isSubmitting, setIsSubmitting] = useState(false); // Para deshabilitar botón de crear
   const [formError, setFormError] = useState(""); // Errores específicos del formulario
   const [formSuccess, setFormSuccess] = useState(""); // Mensajes de éxito del formulario
-  const [showNewUserPassword, setShowNewUserPassword] = useState(false); // NUEVO: Estado para mostrar/ocultar contraseña
 
   const apiUrlBase =
     import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
@@ -90,14 +86,15 @@ function AdminUsersPage() {
     e.preventDefault();
     if (!token) return;
 
-    if (!newUser.username || !newUser.password) {
-      setFormError("Nombre de usuario y contraseña son requeridos.");
+    if (!newUser.username) {
+      setFormError("El nombre de usuario es requerido.");
       return;
     }
 
     setIsSubmitting(true);
     setFormError("");
     setFormSuccess("");
+    setError("");
 
     try {
       const response = await fetch(`${apiUrlBase}/api/admin/users/register`, {
@@ -114,8 +111,8 @@ function AdminUsersPage() {
       if (response.ok) {
         // status 201 Created
         setFormSuccess(`Usuario '${data.username}' creado exitosamente.`);
-        setNewUser({ username: "", password: "", role: "user" }); // Limpiar formulario
-        setShowNewUserPassword(false); // NUEVO: Asegurar que la contraseña vuelva a estar oculta
+        setNewUser({ username: "", role: "user" }); // Limpiar formulario
+        setTimeout(() => setFormSuccess(""), 5000);
         fetchUsers(); // Recargar la lista de usuarios
       } else {
         console.error("Error handleCreateUser:", response.status, data);
@@ -179,45 +176,14 @@ function AdminUsersPage() {
   // --- Manejador para Restablecer Contraseña ---
   const handleResetPassword = async (userId, username) => {
     if (!token) {
-      setError("No estás autenticado. Inicia sesión como administrador.");
+      setError("No estás autenticado.");
       return;
     }
 
-    // Usar un modal personalizado o lógica más robusta que window.prompt
-    let newPassword;
-    let isValidPassword = false;
-    while (!isValidPassword) {
-    newPassword = window.prompt(
-      `Nueva contraseña para ${username} (mínimo 8 caracteres):`,
-      "" // Valor inicial vacío
-    );
-    
-    // Si el usuario cancela
-    if (newPassword === null) return;
-    
-    // Validar longitud
-    if (newPassword.length < 8) {
-      alert("La contraseña debe tener al menos 8 caracteres");
-      continue;
+    if (!window.confirm(`¿Seguro que quieres restablecer la contraseña de '${username}' a la genérica?`)) {
+        return;
     }
-    
-    // Validar contenido (opcional)
-    if (!/[A-Z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
-      if (!confirm("Contraseña poco segura. ¿Deseas usar esta contraseña igualmente?")) {
-        continue;
-      }
-    }
-    
-    // Pedir confirmación
-    const confirmPassword = window.prompt("Confirma la nueva contraseña:");
-    if (newPassword !== confirmPassword) {
-      alert("Las contraseñas no coinciden");
-      continue;
-    }
-    
-    isValidPassword = true;
-  }
-
+  
   setError("");
   setSuccess("");
 
@@ -230,39 +196,23 @@ function AdminUsersPage() {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ 
-          new_password: newPassword // Nombre exacto del campo que espera el backend
-        }),
       }
     );
 
     const data = await response.json();
 
-    if (!response.ok) {
-      console.error("Detalles del error del servidor:", data);
-      let errorMessage = "Error al restablecer contraseña";
-      
-      if (data.detail) {
-        errorMessage = Array.isArray(data.detail) 
-          ? data.detail.map(err => err.msg || err).join(", ")
-          : data.detail;
+    
+      if (!response.ok) {
+        throw new Error(data.detail || "Error desconocido del servidor.");
       }
+
+      setSuccess(data.detail); // Muestra el mensaje de éxito del backend
+      fetchUsers(); // Recargamos para ver el estado actualizado si lo muestras en la tabla
       
-      throw new Error(errorMessage);
+    } catch (err) {
+      console.error("Error en reset de contraseña:", err);
+      setError(err.message || "Error al comunicarse con el servidor");
     }
-
-    setSuccess(`Contraseña para ${username} actualizada correctamente`);
-    setTimeout(() => setSuccess(""), 5000);
-
-  } catch (err) {
-    console.error("Error en reset de contraseña:", err);
-    setError(err.message || "Error al comunicarse con el servidor");
-    setTimeout(() => setError(""), 5000);
-  }
-};
-  // NUEVO: Función para alternar la visibilidad de la contraseña de nuevo usuario
-  const toggleShowNewUserPassword = () => {
-    setShowNewUserPassword(!showNewUserPassword);
   };
 
   // --- Renderizado del Componente ---
@@ -288,34 +238,6 @@ function AdminUsersPage() {
               style={styles.input}
               autoComplete="username"
             />
-          </div>
-          <div style={styles.formGroup}>
-            {" "}
-            {/* MODIFICADO: Contenedor para input y botón */}
-            <label htmlFor="password" style={styles.label}>
-              Contraseña (mínimo 8 caracteres): 
-            </label>
-            <div style={styles.passwordInputContainer}>
-              {" "}
-              {/* NUEVO: Contenedor específico */}
-              <input
-                type={showNewUserPassword ? "text" : "password"} // MODIFICADO: Tipo dinámico
-                id="password"
-                name="password"
-                value={newUser.password}
-                onChange={handleInputChange}
-                required
-                style={styles.inputFieldInGroup} // MODIFICADO: Usar nuevo estilo para que ocupe el espacio disponible
-                autoComplete="new-password"
-              />
-              <button
-                type="button" // NUEVO: Importante para no enviar el formulario
-                onClick={toggleShowNewUserPassword}
-                style={styles.togglePasswordButton} // NUEVO: Estilo para el botón
-              >
-                {showNewUserPassword ? "Ocultar" : "Mostrar"}
-              </button>
-            </div>
           </div>
           <div style={styles.formGroup}>
             <label htmlFor="role" style={styles.label}>
@@ -535,3 +457,4 @@ const styles = {
 };
 
 export default AdminUsersPage;
+
