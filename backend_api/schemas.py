@@ -39,7 +39,6 @@ class DoctorBase(BaseModel):
     pasaporte: Optional[str] = Field(None, max_length=255)
     fecha_emision: Optional[date] = None
     fecha_expiracion: Optional[date] = None
-    estado_civil: Optional[str] = Field(None, max_length=255)
     domicilio: Optional[str] = Field(None, max_length=255)
     licenciatura: Optional[str] = Field(None, max_length=255)
     institucion_lic: Optional[str] = Field(None, max_length=255)
@@ -133,13 +132,16 @@ class User(UserBase): # Schema para leer User desde la DB
 
 class UserCreateAdmin(BaseModel): # Schema para crear usuario desde panel admin
     username: str = Field(..., min_length=3)
-    password: str = Field(..., min_length=8) # Contraseña más larga
     role: str = Field(default="user", pattern=r'^(admin|user|guest)$')
 
 class UserAdminView(UserBase): 
     id: int
+    username: str
+    role: str
+    must_change_password: bool # <-- NUEVO
+
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 class Token(BaseModel):
     access_token: str
@@ -239,3 +241,6 @@ class CedulasCount(BaseModel):
 class DoctorPermanentDeleteRequest(BaseModel):
      ids: List[str]
      pin: str
+     
+class UserChangePassword(BaseModel):
+    new_password: str
