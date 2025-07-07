@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../src/contexts/AuthContext"; // Para obtener token y datos del admin actual
+
+// Componente principal de la página de administración
 function AdminUsersPage() {
   const { token, currentUser } = useAuth(); // Obtener token y datos del admin logueado
   const [users, setUsers] = useState([]); // Estado para la lista de usuarios
@@ -252,6 +254,7 @@ function AdminUsersPage() {
             >
               <option value="user">Usuario</option>
               <option value="admin">Administrador</option>
+              <option value="consulta">Consulta</option>
             </select>
           </div>
           {formError && <p style={styles.errorMessage}>{formError}</p>}
@@ -457,4 +460,3 @@ const styles = {
 };
 
 export default AdminUsersPage;
-
