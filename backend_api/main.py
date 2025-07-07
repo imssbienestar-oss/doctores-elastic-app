@@ -88,7 +88,7 @@ def initialize_firebase():
 SUPER_ADMIN_PIN_HASH = os.getenv("SUPER_ADMIN_PIN_HASH")
 # --- FIN FUNCIÓN DE INICIALIZACIÓN DE FIREBASE ---
 app = FastAPI(title="API de Doctores IMSS Bienestar")
-
+Generic_pass = os.getenv("GENERIC_PASSWORD")
 
 # En algún lugar accesible, quizás un archivo utils.py o dentro de main.py
 def log_action(db: Session, user: models.User, action_type: str, target_entity: str = None, target_id_str: str = None, details: str = None):
