@@ -1278,4 +1278,3 @@ function GraficasPage() {
 }
 
 export default GraficasPage;
-
