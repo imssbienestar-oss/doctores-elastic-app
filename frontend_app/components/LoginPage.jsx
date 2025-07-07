@@ -1,8 +1,8 @@
 // src/components/LoginPage.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom"; // Para la redirección
 import { useAuth } from "../src/contexts/AuthContext"; // Asegúrate que la ruta sea correcta
-import image from "../components/IMSSB.png";
+import image from "./IMSSB.png";
 
 // Las props onLoginSuccess y onGuestLogin pueden mantenerse si App.js
 // necesita reaccionar directamente, pero la lógica principal de auth
