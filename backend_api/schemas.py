@@ -58,6 +58,7 @@ class DoctorBase(BaseModel):
     motivo: Optional[str] = Field(None, max_length=255)
     tipo_incapacidad: Optional[str] = Field(None, max_length=255)
     entidad_nacimiento: Optional[str] = Field(None, max_length=255)
+    coordinacion: Optional[str] = Field(None, max_length=100)
 
 class UserSimple(BaseModel): # Un schema simple para el usuario
     id: int
