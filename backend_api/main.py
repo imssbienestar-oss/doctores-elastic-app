@@ -970,7 +970,7 @@ async def get_data_grafica_doctores_por_estado(
     db: Session = Depends(get_db_session)
 ):
     # ... (tu código sin cambios) ...
-    query = text("SELECT entidad as label, COUNT(*) as value FROM doctores WHERE estatus = '01 ACTIVO' AND entidad IS NOT NULL AND entidad != '' AND entidad != 'NO APLICA'GROUP BY entidad ORDER BY value ASC;")
+    query = text("SELECT entidad as label, COUNT(*) as value FROM doctores WHERE estatus = '01 ACTIVO' AND entidad IS NOT NULL AND coordinacion != '1' AND entidad != '' AND entidad != 'NO APLICA'GROUP BY entidad ORDER BY value ASC;")
     result = db.execute(query); return [{"label": row.label, "value": row.value} for row in result]
 
 @app.get("/api/graficas/doctores_por_especialidad", response_model=List[schemas.DataGraficaItem], tags=["Gráficas"])
@@ -986,7 +986,7 @@ async def get_data_grafica_doctores_por_estatus(
     db: Session = Depends(get_db_session)
 ):
     # ... (tu código sin cambios) ...
-    query = text("""SELECT COALESCE(estatus, 'SD') as label, COUNT(*) as value FROM doctores WHERE estatus IS NOT NULL AND estatus != '' GROUP BY label ORDER BY value DESC;""")
+    query = text("""SELECT COALESCE(estatus, 'SD') as label, COUNT(*) as value FROM doctores WHERE estatus IS NOT NULL AND coordinacion != '1' AND estatus != '' GROUP BY label ORDER BY value DESC;""")
     result = db.execute(query); data_items = []
     for row in result:
         if row.label: data_items.append({"id": row.label, "label": row.label, "value": row.value})
@@ -1005,8 +1005,8 @@ async def get_data_grafica_doctores_por_nivel_atencion(
             COALESCE(nivel_atencion, 'SD') as label,  -- Asigna 'SD' si es NULL o vacío
             COUNT(*) as value 
         FROM doctores 
-        -- ELIMINA O COMENTA LA CLÁUSULA WHERE QUE FILTRA NULLS/VACÍOS
-        -- WHERE nivel_atencion IS NOT NULL AND nivel_atencion != '' 
+            WHERE 
+            estatus = '01 ACTIVO' AND coordinacion = '0'  
         GROUP BY label 
         ORDER BY value DESC;
     """)
