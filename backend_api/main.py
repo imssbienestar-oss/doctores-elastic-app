@@ -293,7 +293,9 @@ async def leer_doctores(
     db: Session = Depends(get_db_session),
    ):
     # Aplicar SIEMPRE el filtro para excluir doctores eliminados
-    query = db.query(models.Doctor).filter(models.Doctor.is_deleted == False)
+    query = db.query(models.Doctor)\
+              .filter(models.Doctor.is_deleted == False)\
+              .filter(models.Doctor.coordinacion == '0')
 
     if search and search.strip():
         search_term = f"%{search.strip()}%"
@@ -1239,7 +1241,9 @@ async def obtener_estadistica_doctores_agrupados(
     try:
         # CORRECCIÓN: Se elimina el filtro forzado por estatus 'Activo'
         base_filtered_query = db.query(models.Doctor).filter(
-            models.Doctor.is_deleted == False
+            models.Doctor.is_deleted == False,
+            models.Doctor.estatus == '01 ACTIVO',
+            models.Doctor.coordinacion == '0'
         )
         if entidad: base_filtered_query = base_filtered_query.filter(models.Doctor.entidad == entidad)
         if especialidad: base_filtered_query = base_filtered_query.filter(models.Doctor.especialidad == especialidad)
