@@ -245,3 +245,13 @@ class DoctorPermanentDeleteRequest(BaseModel):
      
 class UserChangePassword(BaseModel):
     new_password: str
+
+class DoctorDetalleItem(BaseModel):
+    id_imss: str  # O el ID que uses para ir al perfil
+    nombre_completo: str
+    especialidad: Optional[str] = "N/A"
+    nivel_atencion: Optional[str] = "N/A"
+    entidad: str
+
+    class Config:
+        from_attributes = True
