@@ -26,6 +26,7 @@ import AuditLogView from "../components/AuditLogView";
 import DeletedDoctorsView from "../components/DeletedDoctorsView";
 import ChangePasswordPage from "../components/ChangePasswordPage";
 import ProfilePage from "../components/ProfilePage";
+import { useSearchParams } from "react-router-dom";
 
 // Configuración de React Modal (generalmente se hace una vez)
 Modal.setAppElement("#root");
@@ -158,7 +159,7 @@ function Layout({ navbarProps }) {
 }
 
 // 2. COMPONENTE PARA LA PÁGINA PRINCIPAL (Tabla de Doctores / Gráficas)
-function HomePageContent({ vistaActualProp, doctorListRefreshKey }) {
+function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTableView }) {
   const {
     isAuthenticated,
     isGuestMode,
@@ -190,7 +191,7 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey }) {
 
   const [viewMode, setViewMode] = useState("table"); // 'table' o 'profile'
   const [selectedDoctorProfile, setSelectedDoctorProfile] = useState(null);
-
+  const [searchParams] = useSearchParams(); 
   const totalPages = Math.ceil(totalDoctores / itemsPerPage);
   const API_BASE_URL =
     import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
@@ -202,6 +203,20 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey }) {
       clearTimeout(timerId); // Limpia el temporizador si el usuario sigue escribiendo
     };
   }, [searchTermInput]); // Se ejecuta cada vez que searchTermInput cambia
+
+  useEffect(() => {
+  const profileId = searchParams.get('profile');
+
+  if (profileId) {
+    // Si la URL tiene un ID de perfil, forzamos el cambio de vista.
+    
+    // 1. Avisa al componente "jefe" (AppContent) que debe mostrar la vista de tabla.
+    onSwitchToTableView(); 
+    
+    // 2. Llama a la función que ya tienes para cargar los datos y mostrar el perfil.
+    handleViewProfileClick({ id_imss: profileId });
+  }
+}, [searchParams]);
 
   // Función para obtener doctores (sin cambios respecto a tu versión original)
   const fetchDoctores = useCallback(async () => {
@@ -703,12 +718,12 @@ function ProtectedRoute({ adminOnly = false, children }) {
 function AppContent() {
   const { isAuthenticated, isGuestMode, currentUser } = useAuth();
   const navigate = useNavigate();
-
-  const [vistaActual, setVistaActual] = useState("graficas");
+  const initialVista = new URLSearchParams(window.location.search).has('profile') ? 'tabla' : 'graficas';
+  const [vistaActual, setVistaActual] = useState(initialVista);
   // --- NUEVO ESTADO PARA DISPARAR REFETCH EN HomePageContent ---
   const [doctorListRefreshKey, setDoctorListRefreshKey] = useState(0);
 
-  const handleVerGraficas = () => {
+  const handleVerGraficas = () => { 
     setVistaActual("graficas");
     navigate("/");
   };
@@ -755,6 +770,7 @@ function AppContent() {
               // Pasar doctorListRefreshKey a HomePageContent
               <HomePageContent
                 vistaActualProp={vistaActual}
+                onSwitchToTableView={handleVerTabla} 
                 doctorListRefreshKey={doctorListRefreshKey}
               />
             ) : (
