@@ -1231,9 +1231,9 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                     fieldName="nivel_atencion"
                     type="select"
                     options={[
-                      { value: "01 PNA", label: "01 PNA" },
-                      { value: "02 SNA", label: "02 SNA" },
-                      { value: "03 TNA", label: "03 TNA" },
+                      { value: "01 PNA", label: "01 PRIMER NIVEL" },
+                      { value: "02 SNA", label: "02 SEGUNDO NIVEL" },
+                      { value: "03 TNA", label: "03 TERCER NIVEL" },
                       { value: "04 OTRO", label: "04 OTRO" },
                       { value: "05 NO APLICA", label: "05 NO APLICA" },
                     ]}
