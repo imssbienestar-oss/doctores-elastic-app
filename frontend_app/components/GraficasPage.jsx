@@ -4,6 +4,8 @@ import { useAuth } from "../src/contexts/AuthContext";
 import { ResponsiveBar } from "@nivo/bar";
 import { ResponsiveTreeMap } from "@nivo/treemap";
 import { ResponsivePie } from "@nivo/pie";
+import DoctoresModal from "./DoctoresModal";
+import { useNavigate } from 'react-router-dom';
 
 const styles = {
   pageContainerStyle: { padding: "20px" },
@@ -24,7 +26,7 @@ const styles = {
     borderTop: "1px solid #eee",
     paddingTop: "30px",
   },
-   chartsGridContainer: {
+  chartsGridContainer: {
     display: "grid",
     gridTemplateColumns: "1fr 1.5fr", // Columna para pasteles, columna para barras
     gap: "25px",
@@ -34,9 +36,9 @@ const styles = {
   },
   // Columna para apilar las gráficas de pastel
   pieChartsColumn: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '25px',
+    display: "flex",
+    flexDirection: "column",
+    gap: "25px",
   },
   chartWrapper: {
     height: "450px", // Una altura base para las de pastel
@@ -226,10 +228,30 @@ function GraficasPage() {
   const [loadingCedulas, setLoadingCedulas] = useState(true);
   const [errorNiveles, setErrorNiveles] = useState("");
   const [errorCedulas, setErrorCedulas] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [doctoresEnModal, setDoctoresEnModal] = useState([]);
+  const [isLoadingModal, setIsLoadingModal] = useState(false);
+
+  const navigate = useNavigate();
+  const handleViewProfile = (doctor) => {
+    // 1. Cierra el modal de la lista de doctores
+    setIsModalOpen(false); 
+
+    // 2. Navega a la página principal de doctores.
+    //    Tu App.jsx probablemente ya sabe qué hacer cuando
+    //    recibe un parámetro 'profile' en la URL. 
+    navigate(`/?profile=${doctor.id_imss}`); 
+  };
   // pieData ahora simplemente usa dataPorEstatus, ya que la transformación se hará en el fetch.
   const pieData = useMemo(() => dataPorEstatus, [dataPorEstatus]);
 
-  const misColoresPastel = ['#10312B', '#BC955C', '#691C32', '#DDC9A3', '#669BBC'];
+  const misColoresPastel = [
+    "#10312B",
+    "#BC955C",
+    "#691C32",
+    "#DDC9A3",
+    "#669BBC",
+  ];
   const fetchNivelesAtencion = useCallback(async () => {
     if (!isAuthenticated && !token) {
       setErrorNiveles("No autorizado para ver niveles de atención.");
@@ -645,6 +667,32 @@ function GraficasPage() {
     dataPorEstatus.length === 0 &&
     dataPorNivelAtencion.length === 0;
 
+  const handleVisualizarClick = async () => {
+    setIsLoadingModal(true);
+    setIsModalOpen(true);
+
+    // Construye la URL con los filtros actuales
+    const params = new URLSearchParams();
+    if (filtroEntidad) params.append("entidad", filtroEntidad);
+    if (filtroEspecialidad)
+      params.append("especialidad", filtroEspecialidad);
+    if (filtroNivel) params.append("nivel_atencion", filtroNivel);
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/doctores/detalles_filtrados?${params.toString()}`
+      );
+      if (!response.ok) throw new Error("Error al obtener los detalles");
+      const data = await response.json();
+      setDoctoresEnModal(data);
+    } catch (error) {
+      console.error("Error:", error);
+      // Aquí podrías mostrar una notificación de error
+    } finally {
+      setIsLoadingModal(false);
+    }
+  };
+
   return (
     <div style={styles.pageContainerStyle}>
       <h1 style={styles.headerTitle}>Gráficas</h1>
@@ -673,7 +721,9 @@ function GraficasPage() {
           {/* Doctores por estatus */}
           {dataPorEstatus.length > 0 ? (
             <div style={styles.chartWrapper}>
-              <h2 style={styles.chartTitle}>Médicos Extranjeros segun estatus de cooperación</h2>
+              <h2 style={styles.chartTitle}>
+                Médicos extranjeros con Estatus Activo, según Egitstatus de cooperación
+              </h2>
               <ResponsivePie
                 data={dataPorEstatus}
                 margin={{ top: 40, right: 160, bottom: 120, left: 20 }}
@@ -765,7 +815,9 @@ function GraficasPage() {
           {/* Doctores por Nivel Atencion */}
           {dataPorNivelAtencion.length > 0 ? (
             <div style={styles.chartWrapper}>
-              <h2 style={styles.chartTitle}>Médicos Extranjeros con Estatus Activo, segun Nivel de Atención</h2>
+              <h2 style={styles.chartTitle}>
+                Médicos extranjeros con Estatus Activo, según Nivel de Atención
+              </h2>
               <ResponsivePie
                 data={dataPorNivelAtencion}
                 margin={{ top: 40, right: 160, bottom: 120, left: 20 }}
@@ -773,7 +825,7 @@ function GraficasPage() {
                 padAngle={3}
                 cornerRadius={3}
                 activeOuterRadiusOffset={8}
-                 colors={misColoresPastel}
+                colors={misColoresPastel}
                 borderWidth={1}
                 borderColor={{ from: "color", modifiers: [["darker", 0.2]] }}
                 enableArcLinkLabels={false}
@@ -837,8 +889,10 @@ function GraficasPage() {
 
         {/* Doctores por estado */}
         {dataPorEstado.length > 0 ? (
-           <div style={{ ...styles.chartWrapper, height: '925px' }}>
-            <h2 style={styles.chartTitle}>Médicos Extranjeros con Estatus Activo, según Entidad Federativa</h2>
+          <div style={{ ...styles.chartWrapper, height: "925px" }}>
+            <h2 style={styles.chartTitle}>
+              Médicos extranjeros con estatus Activo, según Entidad Federativa
+            </h2>
             <ResponsiveBar
               data={dataPorEstado}
               keys={["value"]}
@@ -954,17 +1008,31 @@ function GraficasPage() {
             ))}
           </select>
         </div>
+
         {(filtroEntidad || filtroEspecialidad || filtroNivel) && (
-          <button
-            onClick={handleClearStatisticFilters}
-            style={{
-              ...styles.button,
-              ...styles.buttonSmall,
-              backgroundColor: "#6c757d",
-            }}
-          >
-            Limpiar Filtros
-          </button>
+          <>
+            <button
+              onClick={handleClearStatisticFilters}
+              style={{
+                ...styles.button,
+                ...styles.buttonSmall,
+                backgroundColor: "#6c757d",
+              }}
+            >
+              Limpiar Filtros
+            </button>
+
+            <button
+              onClick={handleVisualizarClick}
+              style={{
+                ...styles.button,
+                ...styles.buttonSmall,
+                backgroundColor: "#6c757d",
+              }}
+            >
+              Visualizar Registros
+            </button>
+          </>
         )}
       </div>
 
@@ -1182,7 +1250,7 @@ function GraficasPage() {
 
       {!loadingCedulas && !errorCedulas && cedulasData && (
         <div style={{ display: "flex", gap: "20px", flexWrap: "wrap" }}>*/}
-          {/* Tabla de Cédulas de Licenciatura 
+      {/* Tabla de Cédulas de Licenciatura 
           <div style={{ flex: 1, minWidth: "300px" }}>
             <h3 style={styles.subSectionTitle}>Cédula de Licenciatura</h3>
             <div style={styles.tableContainer}>
@@ -1227,7 +1295,7 @@ function GraficasPage() {
             </div>
           </div>*/}
 
-          {/* Tabla de Cédulas de Especialidad 
+      {/* Tabla de Cédulas de Especialidad 
           <div style={{ flex: 1, minWidth: "300px" }}>
             <h3 style={styles.subSectionTitle}>Cédula de Especialidad</h3>
             <div style={styles.tableContainer}>
@@ -1273,6 +1341,14 @@ function GraficasPage() {
           </div>
         </div>
       )}*/}
+
+      <DoctoresModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        doctores={doctoresEnModal}
+        isLoading={isLoadingModal}
+        onViewProfile={handleViewProfile}
+      />
     </div>
   );
 }
