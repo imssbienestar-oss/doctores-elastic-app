@@ -319,6 +319,48 @@ async def leer_doctores(
     doctores = query.order_by(models.Doctor.id_imss).offset(skip).limit(limit).all()
     return {"total_count": total_count, "doctores": doctores}
 
+@app.get("/api/doctores/detalles_filtrados", response_model=List[schemas.DoctorDetalleItem], tags=["Doctores"])
+async def obtener_detalles_doctores_filtrados(
+    db: Session = Depends(get_db_session),
+    entidad: Optional[str] = Query(None),
+    especialidad: Optional[str] = Query(None),
+    nivel_atencion: Optional[str] = Query(None)
+):
+    """
+    Obtiene la lista detallada de doctores según los filtros aplicados.
+    Solo incluye doctores activos y no de coordinación.
+    """
+    query = db.query(models.Doctor).filter(
+        models.Doctor.is_deleted == False,
+        models.Doctor.estatus == '01 ACTIVO',
+        models.Doctor.coordinacion == '0'
+    )
+
+    if entidad:
+        query = query.filter(models.Doctor.entidad == entidad)
+    if especialidad:
+        query = query.filter(models.Doctor.especialidad == especialidad)
+    if nivel_atencion:
+        query = query.filter(models.Doctor.nivel_atencion == nivel_atencion)
+
+    doctores_filtrados = query.order_by(models.Doctor.nombre.asc()).all()
+
+    # Preparamos la respuesta para que coincida con el schema DoctorDetalleItem
+    doctores_para_respuesta = []
+    for doc in doctores_filtrados:
+        # Creamos un diccionario para cada doctor
+        detalle_doctor = {
+            "id_imss": doc.id_imss,
+            "nombre_completo": f"{doc.nombre or ''} {doc.apellido_paterno or ''} {doc.apellido_materno or ''}".strip(),
+            "entidad": doc.entidad or "N/A",
+            "especialidad": doc.especialidad or "N/A",
+            "nivel_atencion": doc.nivel_atencion or "N/A"
+        }
+        doctores_para_respuesta.append(detalle_doctor)
+        
+    return doctores_para_respuesta
+
+
 @app.get("/api/doctores/{id_imss}", response_model=schemas.DoctorDetail, tags=["Doctores"])
 async def leer_doctor_por_id(
     id_imss: str, db: Session = Depends(get_db_session),
@@ -1424,7 +1466,6 @@ async def obtener_doctores_por_nivel_atencion(
         traceback.print_exc()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error al obtener doctores por nivel de atención: {str(e)}")
 
-
 @app.get("/api/graficas/doctores_por_cedulas", response_model=schemas.CedulasCount, tags=["Graficas y Estadísticas"])
 async def obtener_doctores_por_cedulas(db: Session = Depends(get_db_session), current_user: models.User = Depends(security.get_current_user)):
     try:
@@ -1616,3 +1657,4 @@ async def leer_acciones_unicas_auditoria(
     except Exception as e:
         # Loggear el error e
         raise HTTPException(status_code=500, detail=f"Error al obtener acciones únicas: {str(e)}")
+
