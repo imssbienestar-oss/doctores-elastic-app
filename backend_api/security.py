@@ -17,7 +17,7 @@ load_dotenv() # Cargar variables de .env
 # --- Configuración de Seguridad ---
 SECRET_KEY = os.getenv("SECRET_KEY", "tu_clave_secreta_por_defecto_si_no_esta_en_env")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 43200))
 
 if not SECRET_KEY or SECRET_KEY == "tu_clave_secreta_por_defecto_si_no_esta_en_env":
     # Es mejor advertir si se usa la clave por defecto en lugar de salir
