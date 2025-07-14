@@ -298,15 +298,20 @@ async def leer_doctores(
               .filter(models.Doctor.coordinacion == '0')
 
     if search and search.strip():
-        search_term = f"%{search.strip()}%"
-        query = query.filter(
-            or_(
-                models.Doctor.nombre.ilike(search_term),
-                models.Doctor.apellido_paterno.ilike(search_term),
-                models.Doctor.apellido_materno.ilike(search_term),
-                models.Doctor.id_imss.ilike(search_term)
+        search_words = search.strip().split()
+        search_conditions = []
+        for word in search_words:
+            word_term = f"%{word}%"
+            search_conditions.append(
+                or_(
+                    models.Doctor.nombre.ilike(word_term),
+                    models.Doctor.apellido_paterno.ilike(word_term),
+                    models.Doctor.apellido_materno.ilike(word_term),
+                    models.Doctor.id_imss.ilike(word_term)
+                )
             )
-        )
+            query = query.filter(and_(*search_conditions))
+
     if estatus and estatus.lower() != "todos":
           query = query.filter(
         func.upper(func.trim(models.Doctor.estatus)) == estatus.strip().upper()
