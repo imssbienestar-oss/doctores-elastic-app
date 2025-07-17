@@ -106,6 +106,7 @@ const profileStyles = {
     color: "#333",
     textAlign: "left",
     wordBreak: "break-word",
+    textTransform: "uppercase",
   },
   fieldInput: {
     // Estilo para los inputs en modo edición
