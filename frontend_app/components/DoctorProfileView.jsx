@@ -1,6 +1,7 @@
 // src/components/DoctorProfileView.jsx
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../src/contexts/AuthContext";
+import DisplayField from "./DisplayField";
 
 const profileStyles = {
   container: {
@@ -308,6 +309,8 @@ const FieldRenderer = React.memo(
       "fecha_fin",
       "fecha_egreso_esp",
       "fecha_egreso_lic",
+      "fecha_emision",
+      "fecha_expiracion",
     ];
 
     if (!isEditing && dateFieldsToFormat.includes(fieldName) && currentValue) {
@@ -403,6 +406,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
       const defaultFormValuesForAllFields = {
         telefono: "",
         correo_electronico: "",
+        edad: "",
         fecha_nacimiento: "",
         entidad_nacimiento: "",
         cedula_lic: "",
@@ -477,61 +481,88 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
     setSuccessMessage("");
   };
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    let newData = { ...editableDoctorData, [name]: value };
+  const fetchAndApplyCluesData = async (cluesCode) => {
+    // Evitar llamadas a la API si el código es muy corto
+    if (!cluesCode || cluesCode.length < 11) {
+      // Un código CLUES típico tiene más de 10 caracteres
+      return;
+    }
 
-    // Si el campo que cambió es el ESTATUS, aplicamos las reglas de negocio
-    if (name === "estatus") {
-      const nuevoEstatus = value;
+    setIsLoading(true);
+    setError("");
 
-      // Campos que pertenecen a un doctor activo o en despliegue
-      const camposActividad = [
-        "direccion_unidad",
-        "tipo_establecimiento",
-        "subtipo_establecimiento",
-        "municipio",
-        "region",
-        "turno",
-        "nivel_atencion",
-      ];
-      // Campos que pertenecen a un doctor dado de baja
-      const camposBaja = [
-        "fecha_extraccion",
-        "motivo_baja",
-        "fecha_notificacion",
-        "forma_notificacion",
-      ];
+    try {
+      const authToken = localStorage.getItem("authToken");
+      const response = await fetch(`${API_BASE_URL}/api/clues/${cluesCode}`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
 
-      const camposIncapacidad = [
-        "tipo_incapacidad",
-        "fecha_inicio",
-        "fecha_fin",
-      ];
-
-      const camposRetiro = ["motivo", "fecha_inicio", "fecha_fin"];
-
-      const camposSolicitud = ["motivo", "fecha_inicio", "fecha_fin"];
-
-      if (nuevoEstatus === "05 BAJA") {
-        // Si el estatus es BAJA, limpiamos los campos de actividad
-        camposActividad.forEach((campo) => {
-          newData[campo] = null;
-        });
-      } else {
-        // Si el estatus NO es BAJA, limpiamos los campos de baja
-        camposBaja.forEach((campo) => {
-          newData[campo] = null;
-        });
+      if (!response.ok) {
+        if (response.status === 404) {
+          setError("CLUES no encontrada en el catálogo.");
+        } else {
+          throw new Error("Error al buscar la CLUES.");
+        }
+        return;
       }
 
-      // Regla para Defunción (si es diferente de Baja)
+      const cluesData = await response.json();
+      setEditableDoctorData((prevData) => ({
+        ...prevData,
+        nombre_unidad: cluesData.nombre_unidad || prevData.nombre_unidad,
+        nivel_atencion: cluesData.nivel_atencion || prevData.nivel_atencion,
+        estrato: cluesData.estrato || prevData.estrato,
+        tipo_establecimiento:
+          cluesData.tipo_establecimiento || prevData.tipo_establecimiento,
+        subtipo_establecimiento:
+          cluesData.subtipo_establecimiento || prevData.subtipo_establecimiento,
+        entidad: cluesData.entidad || prevData.entidad,
+        municipio: cluesData.municipio || prevData.municipio,
+        direccion_unidad: cluesData.direccion_unidad || prevData.direccion_unidad
+      }));
+    } catch (err) {
+      console.error("Error al obtener datos de CLUES:", err);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+const handleInputChange = (e) => {
+  const { name, value } = e.target;
+
+  // Actualizamos el estado usando la forma funcional, que es más segura
+  setEditableDoctorData(prevData => {
+    let newData = { ...prevData, [name]: value };
+
+    // --- Lógica para autocompletado de CLUES ---
+    if (name === 'clues') {
+      // Llamamos a la función que busca los datos de la CLUES.
+      // No necesitamos 'await' aquí, la función se encargará de su propio estado de carga.
+      fetchAndApplyCluesData(value);
+    }
+
+    // --- Lógica existente para el campo ESTATUS ---
+    if (name === "estatus") {
+      const nuevoEstatus = value;
+      const camposActividad = ["direccion_unidad", "tipo_establecimiento", "subtipo_establecimiento", "municipio", "region", "turno", "nivel_atencion"];
+      const camposBaja = ["fecha_extraccion", "motivo_baja", "fecha_notificacion", "forma_notificacion"];
+      
+      if (nuevoEstatus === "05 BAJA") {
+        camposActividad.forEach((campo) => { newData[campo] = null; });
+      } else {
+        camposBaja.forEach((campo) => { newData[campo] = null; });
+      }
+
       if (nuevoEstatus !== "Defunción") {
         newData.fecha_fallecimiento = null;
       }
     }
-    setEditableDoctorData(newData);
-  };
+    
+    return newData;
+  });
+};
+
 
   const handleSaveProfile = async () => {
     if (!editableDoctorData || !doctor?.id_imss) {
@@ -942,6 +973,14 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
           </div>
           <div>
             <FieldRenderer
+              label="Edad"
+              fieldName="edad"
+              isEditing={isEditing}
+              currentValue={editableDoctorData.edad}
+              onChange={handleInputChange}
+              isLoading={isLoading}
+            />
+            <FieldRenderer
               label="Sexo"
               fieldName="sexo"
               type="select"
@@ -1117,7 +1156,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
               isLoading={isLoading}
             />
             <FieldRenderer
-              label="Fecha Inicio(vuelo)"
+              label="Fecha (inicio | vuelo)"
               fieldName="fecha_vuelo"
               type="date"
               isEditing={isEditing}
