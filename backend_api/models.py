@@ -125,3 +125,19 @@ class AuditLog(Base):
     user = relationship("User", foreign_keys=[user_id], back_populates="audit_log_entries")
     __table_args__ = {'extend_existing': True} # Mantener por si acaso, aunque no debería ser necesario si la tabla se crea correctamente
 
+class CatalogoClues(Base):
+    __tablename__ = "clues_catalogo"
+
+    # Usamos la CLUES como clave primaria ya que es única
+    clues = Column(String, primary_key=True, index=True) 
+    
+    nombre_unidad = Column(String, nullable=True)
+    nivel_atencion = Column(String, nullable=True)
+    estrato = Column(String, nullable=True)
+    tipo_establecimiento = Column(String, nullable=True)
+    subtipo_establecimiento = Column(String, nullable=True)
+    entidad = Column(String, nullable=True)
+    municipio = Column(String, nullable=True)
+    codigo_postal = Column(String, nullable=True)
+    direccion_unidad = Column(String, nullable=True)
+
