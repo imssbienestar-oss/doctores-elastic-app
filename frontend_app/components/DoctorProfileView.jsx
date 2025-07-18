@@ -1,7 +1,6 @@
 // src/components/DoctorProfileView.jsx
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../src/contexts/AuthContext";
-import DisplayField from "./DisplayField";
 
 const profileStyles = {
   container: {
