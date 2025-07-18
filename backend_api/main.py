@@ -307,7 +307,8 @@ async def leer_doctores(
                     models.Doctor.nombre.ilike(word_term),
                     models.Doctor.apellido_paterno.ilike(word_term),
                     models.Doctor.apellido_materno.ilike(word_term),
-                    models.Doctor.id_imss.ilike(word_term)
+                    models.Doctor.id_imss.ilike(word_term),
+                    models.Doctor.matrimonio_id.ilike(word_term)
                 )
             )
             query = query.filter(and_(*search_conditions))
@@ -1663,3 +1664,16 @@ async def leer_acciones_unicas_auditoria(
         # Loggear el error e
         raise HTTPException(status_code=500, detail=f"Error al obtener acciones únicas: {str(e)}")
 
+@app.get("/api/clues/{clues_code}", response_model=schemas.CluesData, tags=["Catálogos"])
+async def get_clues_data(clues_code: str, db: Session = Depends(get_db_session)):
+    """
+    Busca una CLUES en el catálogo y devuelve sus datos asociados.
+    """
+    clues_info = db.query(models.CatalogoClues).filter(models.CatalogoClues.clues == clues_code).first()
+    
+    if not clues_info:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="La CLUES no fue encontrada en el catálogo."
+        )
+    return clues_info
