@@ -255,3 +255,18 @@ class DoctorDetalleItem(BaseModel):
 
     class Config:
         from_attributes = True
+
+class CluesData(BaseModel):
+    clues: str
+    nombre_unidad: Optional[str] = None
+    nivel_atencion: Optional[str] = None
+    estrato: Optional[str] = None
+    tipo_establecimiento: Optional[str] = None
+    subtipo_establecimiento: Optional[str] = None
+    entidad: Optional[str] = None
+    municipio: Optional[str] = None
+    codigo_postal: Optional[str] = None
+    direccion_unidad: Optional[str] = None
+
+    class Config:
+        from_attributes = True
