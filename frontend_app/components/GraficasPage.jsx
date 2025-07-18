@@ -722,7 +722,7 @@ function GraficasPage() {
           {dataPorEstatus.length > 0 ? (
             <div style={styles.chartWrapper}>
               <h2 style={styles.chartTitle}>
-                Médicos extranjeros con Estatus Activo, según Egitstatus de cooperación
+                Médicos extranjeros con Estatus Activo, según Estatus de Cooperación
               </h2>
               <ResponsivePie
                 data={dataPorEstatus}
@@ -891,7 +891,7 @@ function GraficasPage() {
         {dataPorEstado.length > 0 ? (
           <div style={{ ...styles.chartWrapper, height: "925px" }}>
             <h2 style={styles.chartTitle}>
-              Médicos extranjeros con estatus Activo, según Entidad Federativa
+              Médicos extranjeros con Estatus Activo, según Entidad Federativa
             </h2>
             <ResponsiveBar
               data={dataPorEstado}
