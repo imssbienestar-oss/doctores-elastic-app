@@ -66,7 +66,7 @@ class UserSimple(BaseModel): # Un schema simple para el usuario
     class Config:
         from_attributes = True
 
-# Schema para leer un Doctor (incluye el ID y otros campos del modelo)
+# Schema para leer un Doctor
 class Doctor(DoctorBase):
     is_deleted: Optional[bool] = None # Es bueno tenerlo para esta vista
     deleted_at: Optional[datetime] = None
@@ -76,8 +76,7 @@ class Doctor(DoctorBase):
     class Config:
         from_attributes = True
 
-
-# Schema para recibir datos al CREAR un nuevo doctor (solo los campos iniciales del modal)
+# Schema para recibir datos al CREAR un nuevo doctor
 class DoctorCreate(BaseModel): # No hereda de DoctorBase para ser explícito con los campos requeridos
     id_imss: str = Field(..., min_length=1, max_length=100) # ID es requerido al crear
     nombre: str = Field(..., min_length=1, max_length=255)
@@ -92,7 +91,7 @@ class DoctorCreate(BaseModel): # No hereda de DoctorBase para ser explícito con
 
 # Schema para actualizar el perfil completo del doctor
 class DoctorProfileUpdateSchema(DoctorBase): # Hereda de DoctorBase, todos los campos son opcionales
-    pass # No es necesario redefinir los campos si son los mismos que en DoctorBase
+    pass
 
     class Config:
         from_attributes = True
@@ -115,9 +114,24 @@ class DoctorAttachment(DoctorAttachmentBase):
     class Config:
         from_attributes = True
 
-# Schema para DoctorDetail que incluye attachments
+class EstatusHistoricoBase(BaseModel):
+    estatus: str
+    fecha_efectiva: date
+    comentarios: Optional[str] = None
+
+class EstatusHistoricoCreate(EstatusHistoricoBase):
+    pass
+
+class EstatusHistoricoItem(EstatusHistoricoBase):
+    id: int
+    
+    class Config:
+        from_attributes = True
+        
+# Schema para DoctorDetail
 class DoctorDetail(Doctor): 
     attachments: List[DoctorAttachment] = []
+    historial: List[EstatusHistoricoItem] = []
     class Config:
         from_attributes = True
 
