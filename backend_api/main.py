@@ -400,7 +400,7 @@ async def crear_doctor(
         nuevo_registro_historial = models.EstatusHistorico(
             id_imss=db_doctor.id_imss,
             estatus=db_doctor.estatus,
-            fecha_efectiva=db_doctor.fecha_estatus or date.today(),
+            fecha_efectiva=db_doctor.fecha_estatus or datetime.now(USER_TIMEZONE).date(),
             comentarios="Registro inicial del médico en el sistema."
         )
         db.add(nuevo_registro_historial)
@@ -652,7 +652,7 @@ async def actualizar_doctor_perfil_completo(
             nuevo_registro_historial = models.EstatusHistorico(
                 id_imss=id_imss,
                 estatus=db_doctor.estatus,
-                fecha_efectiva=db_doctor.fecha_estatus or date.today(),
+                fecha_efectiva=db_doctor.fecha_estatus or datetime.now(USER_TIMEZONE).date(),
                 comentarios="Estatus actualizado automáticamente desde el perfil."
             )
             db.add(nuevo_registro_historial)
