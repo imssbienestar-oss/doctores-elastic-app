@@ -180,7 +180,7 @@ function DeletedDoctorsView({ onDoctorRestored }) {
     "Yo confirmo que quiero eliminar permanentemente";
   const getFullPermanentDeletePhrase = (count) => {
     const s_el = count === 1 ? "el" : "los";
-    const s_doctor = count === 1 ? "doctor" : "doctores";
+    const s_doctor = count === 1 ? "registro" : "registros";
     const s_seleccionado = count === 1 ? "seleccionado" : "seleccionados";
     return `${BASE_PERMANENT_DELETE_PHRASE} ${s_el} ${s_doctor} ${s_seleccionado}`;
   };
@@ -255,7 +255,7 @@ function DeletedDoctorsView({ onDoctorRestored }) {
         if (!response.ok) {
           const errorData = await response
             .json()
-            .catch(() => ({ detail: "Error al cargar doctores eliminados." }));
+            .catch(() => ({ detail: "Error al cargar registros eliminados." }));
           throw new Error(errorData.detail || `Error ${response.status}`);
         }
         const data = await response.json();
@@ -267,7 +267,7 @@ function DeletedDoctorsView({ onDoctorRestored }) {
         console.error("Error fetching deleted doctors:", err);
         setError(
           err.message ||
-            "Ocurrió un error al cargar los doctores con estatus 'eliminado'."
+            "Ocurrió un error al cargar los registros con estatus 'eliminado'."
         );
         setDeletedDoctors([]);
         setTotalDoctors(0);
@@ -282,16 +282,8 @@ function DeletedDoctorsView({ onDoctorRestored }) {
     const count = selectedDoctorIds.length;
     const expectedPhrase = getFullPermanentDeletePhrase(count);
 
-    console.log("--- Intentando eliminar (Doctores) ---");
-    console.log("Texto Esperado:", `"${expectedPhrase}"`);
-    console.log(
-      "Texto Ingresado:",
-      `"${permanentDeleteConfirmationText.trim()}"`
-    );
     const isPhraseMatching =
       permanentDeleteConfirmationText.trim() === expectedPhrase;
-    console.log("¿Frase Coincide?:", isPhraseMatching);
-    console.log("PIN Ingresado:", permanentDeletePinInput);
 
     if (!isPhraseMatching) {
       setPermanentDeleteModalError(
@@ -345,13 +337,13 @@ function DeletedDoctorsView({ onDoctorRestored }) {
         setIsDeleting(false);
         return;
       }
-      setSuccessMessage(`${count} doctor(es) eliminado(s) permanentemente.`);
+      setSuccessMessage(`${count} registro(s) eliminado(s) permanentemente.`);
       setIsConfirmPermanentDeleteModalOpen(false);
       fetchDeletedDoctors(0);
       setCurrentPage(0);
       setSelectedDoctorIds([]);
     } catch (err) {
-      console.error("Error en eliminación permanente de doctores:", err);
+      console.error("Error en eliminación permanente de registros:", err);
       if (isConfirmPermanentDeleteModalOpen && !permanentDeleteModalError) {
         setPermanentDeleteModalError(
           err.message || "Error de conexión o del servidor."
@@ -391,7 +383,7 @@ function DeletedDoctorsView({ onDoctorRestored }) {
     const count = selectedDoctorIds.length;
     if (count === 0) {
       alert(
-        "Por favor, seleccione al menos un doctor para eliminar permanentemente."
+        "Por favor, seleccione al menos un registro para eliminar permanentemente."
       );
       return;
     }
@@ -428,14 +420,14 @@ function DeletedDoctorsView({ onDoctorRestored }) {
   };
   const handleRestoreSelected = async () => {
     if (selectedDoctorIds.length === 0) {
-      alert("Seleccione al menos un doctor para restaurar.");
+      alert("Seleccione al menos un registro para restaurar.");
       return;
     }
 
     // Confirmación del usuario
     if (
       !window.confirm(
-        `¿Está seguro de que desea restaurar ${selectedDoctorIds.length} doctor(es) seleccionado(s)?`
+        `¿Está seguro de que desea restaurar ${selectedDoctorIds.length} registro(s) seleccionado(s)?`
       )
     ) {
       return;
@@ -490,21 +482,19 @@ function DeletedDoctorsView({ onDoctorRestored }) {
 
       if (successfulRestores > 0) {
         setSuccessMessage(
-          `${successfulRestores} doctor(es) restaurado(s) exitosamente.`
+          `${successfulRestores} registro(s) restaurado(s) exitosamente.`
         );
-        // Limpiar selección y recargar listas
+       
         setSelectedDoctorIds([]);
         fetchDeletedDoctors(0); // Recargar la lista de doctores eliminados (a la página 0)
         setCurrentPage(0); // Resetear la página actual de esta vista
 
-        // Notificar al componente padre que se restauraron doctores para que pueda
-        // recargar la tabla principal de doctores si es necesario.
         if (onDoctorRestored) {
           onDoctorRestored();
         }
       }
     } catch (err) {
-      console.error("Error restaurando doctores:", err);
+      console.error("Error restaurando registro:", err);
       setError(
         err.message || "Ocurrió un error de conexión durante la restauración."
       );
@@ -537,7 +527,7 @@ function DeletedDoctorsView({ onDoctorRestored }) {
   if (authToken && currentUser && currentUser?.role !== "admin" && !isLoading)
     return <div style={styles.error}>{error || "Acceso denegado."}</div>;
   if (isLoading && deletedDoctors.length === 0 && !error)
-    return <div style={styles.message}>Cargando doctores eliminados...</div>;
+    return <div style={styles.message}>Cargando registros eliminados...</div>;
 
   const numberOfColumns = 6; // Ajustado al número de columnas visibles en la tabla de doctores eliminados
 
@@ -589,7 +579,7 @@ function DeletedDoctorsView({ onDoctorRestored }) {
       )}
 
       {deletedDoctors.length === 0 && !isLoading && !error && (
-        <p style={styles.message}>No hay doctores eliminados para mostrar.</p>
+        <p style={styles.message}>No hay registros eliminados para mostrar.</p>
       )}
 
       {deletedDoctors.length > 0 && (
@@ -719,7 +709,7 @@ function DeletedDoctorsView({ onDoctorRestored }) {
               <p>
                 Esta acción es irreversible y eliminará{" "}
                 <strong>{selectedDoctorIds.length}</strong>
-                {selectedDoctorIds.length === 1 ? " doctor" : " doctores"}.
+                {selectedDoctorIds.length === 1 ? " registro" : " registros"}.
               </p>
               <p>
                 Para confirmar, por favor escribe la siguiente frase exactamente
@@ -780,7 +770,7 @@ function DeletedDoctorsView({ onDoctorRestored }) {
                 }}
               >
                 <button
-                  type="button" // CORRECTO
+                  type="button" 
                   onClick={() => setIsConfirmPermanentDeleteModalOpen(false)}
                   style={{ ...styles.button, backgroundColor: "#6c757d" }}
                   disabled={isDeleting}
@@ -788,7 +778,7 @@ function DeletedDoctorsView({ onDoctorRestored }) {
                   Cancelar
                 </button>
                 <button
-                  type="submit" // CORRECTO
+                  type="submit" 
                   style={{ ...styles.button, ...styles.deleteButton }}
                   disabled={
                     isDeleting ||
