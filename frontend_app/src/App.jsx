@@ -496,7 +496,7 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
     if (!isAuthenticated) return;
     if (
       window.confirm(
-        `¿Estás seguro de que quieres eliminar al doctor "${doctorNombre}" (ID: ${doctorId})?`
+        `¿Estás seguro de que quieres eliminar el registro "${doctorNombre}" (ID: ${doctorId})?`
       )
     ) {
       deleteDoctor(doctorId);
@@ -518,7 +518,7 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
         setFetchError("Tu sesión ha expirado.");
         authLogout();
       } else if (response.status === 404) {
-        setFetchError(`Error: No se encontró el doctor con ID ${doctorId}.`);
+        setFetchError(`Error: No se encontró el registro con ID ${doctorId}.`);
         fetchDoctores(currentPage, searchTerm); // Refresca lista
       } else {
         const errorData = await response.json().catch(() => null);
@@ -631,7 +631,7 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
             )}
           </div>
 
-          {isLoading && <p>Cargando doctores...</p>}
+          {isLoading && <p>Cargando registros...</p>}
           {fetchError && <p style={{ color: "red" }}>{fetchError}</p>}
 
           {/* --- Controles de Paginación --- */}
