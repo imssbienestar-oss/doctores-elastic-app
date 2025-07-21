@@ -127,7 +127,7 @@ async def startup_event():
 origins = [
     "http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173",
     "https://doctores-elastic-app.vercel.app",
-    "https://gestion-imssb.vercel.app",
+    "https://gestion-imssb.vercel.app/",
     "https://doctores-elastic-2khh14iea-imssbienestars-projects.vercel.app"
 ]
 app.add_middleware(
@@ -289,14 +289,13 @@ async def leer_doctores(
     limit: int = Query(30, ge=1, le=200),
     search: Optional[str] = Query(None, min_length=1, max_length=100),
     estatus: Optional[str] = Query("01 ACTIVO", min_length=1, max_length=50),
-    # El parámetro 'incluir_eliminados' se ha eliminado de este endpoint
     db: Session = Depends(get_db_session),
    ):
     # Aplicar SIEMPRE el filtro para excluir doctores eliminados
     query = db.query(models.Doctor)\
               .filter(models.Doctor.is_deleted == False)\
               .filter(models.Doctor.coordinacion == '0')
-
+    
     if search and search.strip():
         search_words = search.strip().split()
         search_conditions = []
@@ -375,6 +374,7 @@ async def leer_doctor_por_id(
         selectinload(models.Doctor.attachments),
         selectinload(models.Doctor.historial)
         ).filter(func.upper(models.Doctor.id_imss) == func.upper(id_imss)).first()
+    
     if db_doctor is None:
         raise HTTPException(status_code=404, detail="Doctor no encontrado")
     
@@ -581,57 +581,36 @@ async def actualizar_doctor_perfil_completo(
     db_doctor = db.query(models.Doctor).filter(models.Doctor.id_imss == id_imss).first()
     if db_doctor is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Doctor no encontrado")
+   
     original_estatus_guardado = db_doctor.estatus
-    nuevo_estatus_payload = doctor_update_data.estatus if hasattr(doctor_update_data, 'estatus') else None
 
-    # REGLA: Solo Admin puede cambiar el estatus DESDE "Defunción" a OTRO estatus
+    nuevo_estatus_payload = doctor_update_data.estatus if hasattr(doctor_update_data, 'estatus') else None
     if original_estatus_guardado == "Defunción":
         if nuevo_estatus_payload is not None and nuevo_estatus_payload != "Defunción":
             if current_user.role != "admin":
-                #print((f"ERROR BACKEND: Usuario '{current_user.username}' (Rol: {current_user.role}) intentó cambiar estatus 'Defunción'. Acceso denegado.")
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Solo un administrador puede cambiar el estatus de un registro marcado como 'Defunción'."
                 )
             #print((f"INFO BACKEND: Admin '{current_user.username}' cambiando estatus desde 'Defunción' a '{nuevo_estatus_payload}'.")
-    
-    if nuevo_estatus_payload == "Defunción" and original_estatus_guardado != "Defunción":
-        print(f"ALERTA BACKEND: Usuario '{current_user.username}' (Rol: {current_user.role}) está cambiando estatus a 'Defunción' para doctor ID {id_imss}")
+    update_data_dict = doctor_update_data.model_dump(exclude_unset=True)
+    changed_field_names = []
 
-    # 1. Obtener datos enviados por el cliente (SOLO UNA VEZ)
-    update_data_dict = doctor_update_data.model_dump(exclude_unset=True) # Solo campos que el cliente envió
-    changed_field_names = [] # Lista para guardar los nombres de los campos que realmente cambian
-
-    # 2. Sanear datos en update_data_dict ANTES de compararlos y aplicarlos
     if 'curp' in update_data_dict and update_data_dict['curp'] == '':
         update_data_dict['curp'] = None
     if 'comentarios_estatus' in update_data_dict and update_data_dict['comentarios_estatus'] == '':
         update_data_dict['comentarios_estatus'] = None
-    # Añade más saneamientos si es necesario
 
     # 3. Comparar y aplicar actualizaciones. Registrar campos cambiados.
     for key, new_value in update_data_dict.items():
         if hasattr(db_doctor, key):
             old_value = getattr(db_doctor, key)
-
-            # Normalizar para comparación (especialmente para fechas y None vs string vacío)
-            old_value_comp = old_value.isoformat() if isinstance(old_value, (date, datetime)) else (str(old_value) if old_value is not None else None)
-            new_value_comp = new_value.isoformat() if isinstance(new_value, (date, datetime)) else (str(new_value) if new_value is not None else None)
-            
-            if old_value_comp != new_value_comp:
-                # Transforma el nombre del campo a un formato más legible para el log si quieres
-                # legible_name = key.replace('_', ' ').title()
-                # changed_field_names.append(legible_name)
-                changed_field_names.append(key) # Guardar el nombre original del campo
-                #print((f"INFO BACKEND: Campo '{key}' cambiado de '{old_value_comp}' a '{new_value_comp}'")
-            
-            #print((f"INFO BACKEND: Aplicando setattr: db_doctor.{key} = {repr(new_value)}")
-            setattr(db_doctor, key, new_value) # Aplicar el nuevo valor
+            if str(old_value) != str(new_value):
+                 changed_field_names.append(key)
+            setattr(db_doctor, key, new_value)
 
     # 4. Lógica de Limpieza Basada en el ESTATUS FINAL que ahora tiene db_doctor
     estatus_final_en_db_obj = db_doctor.estatus
-    #print((f"INFO BACKEND: Estatus en db_doctor DESPUÉS de aplicar update_data y ANTES de limpieza específica: '{estatus_final_en_db_obj}'")
-
     if estatus_final_en_db_obj != "05 BAJA":
         if db_doctor.motivo_baja is not None: print(f"INFO BACKEND: Limpiando motivo_baja (era: '{db_doctor.motivo_baja}') porque estatus es '{estatus_final_en_db_obj}'")
         db_doctor.motivo_baja = None
@@ -650,18 +629,15 @@ async def actualizar_doctor_perfil_completo(
     
     elif estatus_final_en_db_obj in ["Baja", "Baja Definitiva", "Defunción"]: 
         campos_a_limpiar_si_baja = ["nivel_atencion", "turno", "nombre_unidad"]
-        #print((f"INFO BACKEND: Estatus es '{estatus_final_en_db_obj}'. Limpiando campos: {campos_a_limpiar_si_baja}")
         for campo in campos_a_limpiar_si_baja:
             if hasattr(db_doctor, campo) and getattr(db_doctor, campo) is not None:
                 #print((f"INFO BACKEND: Limpiando campo '{campo}' (era: {getattr(db_doctor, campo)})")
                 setattr(db_doctor, campo, None)
 
-    # 5. Validación de Unicidad para CURP
     if db_doctor.curp is not None: 
-        #print((f"INFO BACKEND: Verificando unicidad para CURP: '{db_doctor.curp}'")
         existing_doctor_curp = db.query(models.Doctor).filter(
             models.Doctor.curp == db_doctor.curp,
-            models.Doctor.id_imss != id_imss # Excluir el doctor actual de la búsqueda
+            models.Doctor.id_imss != id_imss 
         ).first()
         if existing_doctor_curp:
             #print((f"ERROR BACKEND: CURP '{db_doctor.curp}' duplicado encontrado para doctor ID {existing_doctor_curp.id}.")
@@ -669,19 +645,23 @@ async def actualizar_doctor_perfil_completo(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"El CURP '{db_doctor.curp}' ya está registrado para otro doctor."
             )
-    
-    # 6. Commit a la base de datos y registro de auditoría
     try:
-        db.add(db_doctor) # SQLAlchemy rastrea el objeto db_doctor y aplicará los cambios con setattr
+        if 'estatus' in update_data_dict and db_doctor.estatus != original_estatus_guardado:
+            print(f"Detectado cambio de estatus de '{original_estatus_guardado}' a '{db_doctor.estatus}'. Creando registro de historial.")
+            
+            nuevo_registro_historial = models.EstatusHistorico(
+                id_imss=id_imss,
+                estatus=db_doctor.estatus,
+                fecha_efectiva=db_doctor.fecha_estatus or date.today(),
+                comentarios="Estatus actualizado automáticamente desde el perfil."
+            )
+            db.add(nuevo_registro_historial)
 
         if changed_field_names:
-            # Crear un string como "Campos actualizados: Nombre Completo, Estatus, Telefono"
             details_for_log = f"Se actualizo Registro:  {db_doctor.nombre}: {', '.join(changed_field_names)}."
         else:
-            # Si no hubo cambios de valor, aunque se haya hecho un PUT
             details_for_log = "Actualización procesada, sin cambios de valor detectados en los campos enviados."
-        # --- FIN DE MODIFICACIÓN ---
-        
+     
         log_action(
             db=db, 
             user=current_user, 
@@ -690,22 +670,11 @@ async def actualizar_doctor_perfil_completo(
             target_id_str =id_imss,
             details=details_for_log # Usar el nuevo string descriptivo
         )
+
         db.commit()
-        #print(("INFO BACKEND: db.commit() EJECUTADO.")
-        
         db.refresh(db_doctor)
-        #print(("INFO BACKEND: db.refresh(db_doctor) EJECUTADO.")
-        
-        # Preparar la respuesta (DoctorDetail incluye attachments)
-        # attachments = db.query(models.DoctorAttachment).filter(models.DoctorAttachment.doctor_id == doctor_id).all()
-        # db_doctor.attachments = attachments # Asignar si la relación no se carga automáticamente
-        
-        doctor_detail_response = schemas.DoctorDetail.from_orm(db_doctor)
-        
-        #print((f"DEBUG BACKEND (#print( 4): Estatus en RESPONSE OBJECT: '{doctor_detail_response.estatus}'")
-        #print((f"--- FIN ACTUALIZAR DOCTOR ID: {doctor_id} ---")
-        
-        return doctor_detail_response
+   
+        return db_doctor
             
     except IntegrityError as e:
         db.rollback()
@@ -724,36 +693,52 @@ async def actualizar_doctor_perfil_completo(
         traceback.print_exc()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error inesperado al actualizar: {str(e)}")
 
+@app.post("/api/doctores/{id_imss}/historial", response_model=schemas.EstatusHistoricoItem, tags=["Doctores - Historial"])
+async def crear_registro_historial(
+    id_imss: str,
+    historial_data: schemas.EstatusHistoricoCreate,
+    db: Session = Depends(get_db_session),
+    current_user: models.User = Depends(security.get_current_user)
+):
+    db_doctor = db.query(models.Doctor).filter(models.Doctor.id_imss == id_imss).first()
+    if not db_doctor:
+        raise HTTPException(status_code=404, detail="Doctor no encontrado")
+
+    nuevo_registro = models.EstatusHistorico(
+        id_imss=id_imss, # <-- CAMBIO: Usamos 'id_imss' para consistencia
+        **historial_data.model_dump()
+        # creado_por_usuario_id=current_user.id # Auditoría
+    )
+    db.add(nuevo_registro)
+    db.commit()
+    db.refresh(nuevo_registro)
+    return nuevo_registro
+
+
 # --- Endpoint de Autenticación (Login) ---
 @app.post("/api/token", response_model=schemas.Token, tags=["Autenticación"])
 async def login_for_access_token(
-    form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db_session)
+    form_data: OAuth2PasswordRequestForm = Depends(), 
+    db: Session = Depends(get_db_session)
 ):
-    # ... (tu código sin cambios) ...
     user = db.query(models.User).filter(models.User.username == form_data.username).first()
     if not user or not security.verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Nombre de usuario o contraseña incorrectos",
         )
-    # Crea el token de acceso siempre
-    access_token_expires = timedelta(minutes=security.ACCESS_TOKEN_EXPIRE_MINUTES)
+    
+    # Creamos el único token de larga duración
     access_token = security.create_access_token(
         data={"sub": user.username, "role": user.role, "userId": user.id}
     )
     
-    # Prepara la respuesta base
-    response_data = {
+    return {
         "access_token": access_token, 
         "token_type": "bearer", 
-        "user": {"id": user.id, "username": user.username, "role": user.role}
+        "user": user
     }
 
-    # Si el usuario debe cambiar su contraseña, AÑADE el flag a la respuesta exitosa
-    if user.must_change_password:
-        response_data["action_required"] = "change_password"
-
-    return response_data
 @app.put("/api/users/me/change-password", status_code=status.HTTP_200_OK, tags=["Usuarios"])
 async def user_change_own_password(
     payload: schemas.UserChangePassword,
