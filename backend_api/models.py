@@ -4,7 +4,6 @@ from sqlalchemy.orm import relationship # Para definir relaciones entre tablas
 from sqlalchemy.sql import func # Para funciones SQL como now() para timestamps
 from database import Base # Importa la Base que definimos en database.py
 
-
 class Doctor(Base):
     __tablename__ = "doctores" # Nombre exacto de la tabla en PostgreSQL
 
@@ -71,7 +70,7 @@ class Doctor(Base):
     attachments = relationship("DoctorAttachment", back_populates="doctor", cascade="all, delete-orphan")
     coordinacion = Column(String(100), nullable=True)
     __table_args__ = {'extend_existing': True}
-
+    historial = relationship("EstatusHistorico", back_populates="doctor", cascade="all, delete-orphan")
 
 class User(Base):
     __tablename__ = "users"
@@ -91,8 +90,6 @@ class User(Base):
         back_populates="deleted_by_user_obj"
     )
 
-
-# --- NUEVO MODELO para los Expedientes Adjuntos del Doctor ---
 class DoctorAttachment(Base):
     __tablename__ = "doctor_attachments" # Nombre para la nueva tabla
 
@@ -103,12 +100,7 @@ class DoctorAttachment(Base):
     file_type = Column(String(100), nullable=True) # ej. 'application/pdf', 'image/jpeg'
     uploaded_at = Column(DateTime(timezone=True), server_default=func.now()) # Fecha y hora de subida con zona horaria
 
-    # --- NUEVA RELACIÓN INVERSA para acceder al doctor desde el attachment ---
-    # Esto crea un atributo `attachment.doctor`
     doctor = relationship("Doctor", back_populates="attachments")
-
-    # No necesitas __table_args__ = {'extend_existing': True} aquí porque es una tabla nueva
-    # y no debería existir antes de que `create_all` la cree por primera vez.
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"
@@ -127,8 +119,6 @@ class AuditLog(Base):
 
 class CatalogoClues(Base):
     __tablename__ = "clues_catalogo"
-
-    # Usamos la CLUES como clave primaria ya que es única
     clues = Column(String, primary_key=True, index=True) 
     
     nombre_unidad = Column(String, nullable=True)
@@ -140,4 +130,18 @@ class CatalogoClues(Base):
     municipio = Column(String, nullable=True)
     codigo_postal = Column(String, nullable=True)
     direccion_unidad = Column(String, nullable=True)
+
+class EstatusHistorico(Base):
+    __tablename__ = "estatus_historico"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    id_imss = Column(String, ForeignKey("doctores.id_imss"), nullable=False, index=True)
+    estatus = Column(String, nullable=False)
+    fecha_efectiva = Column(Date, nullable=False) # La fecha en que el estatus se hizo válido
+    comentarios = Column(Text, nullable=True)   # Para notas adicionales
+    creado_por_usuario_id = Column(Integer, ForeignKey("users.id"))
+    fecha_registro = Column(DateTime(timezone=True), server_default=func.now())
+
+    doctor = relationship("Doctor", back_populates="historial")
 
