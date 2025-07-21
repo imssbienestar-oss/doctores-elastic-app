@@ -57,7 +57,7 @@ const profileStyles = {
     padding: "8px 15px",
     fontSize: "0.9em",
     cursor: "pointer",
-    backgroundColor: "#28a745",
+    backgroundColor: "#006657",
     color: "white",
     border: "none",
     borderRadius: "4px",
@@ -68,7 +68,7 @@ const profileStyles = {
     padding: "8px 15px",
     fontSize: "0.9em",
     cursor: "pointer",
-    backgroundColor: "#dc3545",
+    backgroundColor: "#6c757d",
     color: "white",
     border: "none",
     borderRadius: "4px",
@@ -79,7 +79,7 @@ const profileStyles = {
     padding: "8px 15px",
     fontSize: "0.9em",
     cursor: "pointer",
-    backgroundColor: "#28a745",
+    backgroundColor: "#006657",
     color: "white",
     border: "none",
     borderRadius: "4px",
@@ -248,6 +248,77 @@ const profileStyles = {
     marginTop: "15px",
     marginBottom: "15px",
   },
+    historyHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '15px',
+  },
+  addHistoryButton: {
+    padding: '10px 18px',
+    fontSize: '0.95em',
+    cursor: 'pointer',
+    backgroundColor: '#006657', // Color verde oscuro
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    fontWeight: '500',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  modalBackdrop: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    padding: "25px",
+    borderRadius: "8px",
+    boxShadow: "0 5px 15px rgba(0, 0, 0, 0.3)",
+    width: "90%",
+    maxWidth: "500px",
+    position: "relative",
+  },
+  modalCloseButton: {
+    position: "absolute",
+    top: "10px",
+    right: "15px",
+    background: "transparent",
+    border: "none",
+    fontSize: "1.5rem",
+    cursor: "pointer",
+    color: "#333",
+  },
+  modalFormLabel: {
+    display: 'block',
+    fontWeight: 'bold',
+    marginBottom: '5px',
+    fontSize: '0.9em',
+  },
+  modalFormInput: {
+    width: '100%',
+    padding: '10px',
+    border: '1px solid #ccc',
+    borderRadius: '4px',
+    boxSizing: 'border-box',
+    fontSize: '1em',
+  },
+  modalFormGroup: {
+    marginBottom: '15px',
+  },
+  modalActions: {
+    marginTop: '20px',
+    textAlign: 'right',
+  },
 };
 
 const API_BASE_URL =
@@ -398,6 +469,56 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
   // El perfil general está bloqueado para edición si es Defunción Y el usuario actual NO es admin.
   const edicionGeneralBloqueada =
     doctorGuardadoEsDefuncion && !puedeEditarAdminRegistroDefuncion;
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [nuevoHistorial, setNuevoHistorial] = useState({
+    estatus: "",
+    fecha_efectiva: "",
+    comentarios: "",
+  });
+
+  const handleHistorialChange = (e) => {
+    const { name, value } = e.target;
+    setNuevoHistorial((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleAgregarHistorial = async (e) => {
+    e.preventDefault();
+    if (!nuevoHistorial.estatus || !nuevoHistorial.fecha_efectiva) {
+      alert("Por favor, completa el estatus y la fecha.");
+      return;
+    }
+    setIsLoading(true);
+    setError("");
+    const authToken = localStorage.getItem("authToken");
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/doctores/${doctor.id_imss}/historial`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify(nuevoHistorial),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Error al guardar el registro.");
+      }
+      // Si todo sale bien, cerramos el modal y refrescamos los datos del doctor
+      setIsHistoryModalOpen(false);
+      setNuevoHistorial({ estatus: "", fecha_efectiva: "", comentarios: "" }); // Limpiar formulario
+      onProfileUpdate(doctor.id_imss); // Llama a la función para recargar el perfil
+      setSuccessMessage("Registro de historial añadido exitosamente.");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     setDoctor(initialDoctor);
@@ -517,7 +638,8 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
           cluesData.subtipo_establecimiento || prevData.subtipo_establecimiento,
         entidad: cluesData.entidad || prevData.entidad,
         municipio: cluesData.municipio || prevData.municipio,
-        direccion_unidad: cluesData.direccion_unidad || prevData.direccion_unidad
+        direccion_unidad:
+          cluesData.direccion_unidad || prevData.direccion_unidad,
       }));
     } catch (err) {
       console.error("Error al obtener datos de CLUES:", err);
@@ -527,41 +649,57 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
     }
   };
 
-const handleInputChange = (e) => {
-  const { name, value } = e.target;
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
 
-  // Actualizamos el estado usando la forma funcional, que es más segura
-  setEditableDoctorData(prevData => {
-    let newData = { ...prevData, [name]: value };
+    // Actualizamos el estado usando la forma funcional, que es más segura
+    setEditableDoctorData((prevData) => {
+      let newData = { ...prevData, [name]: value };
 
-    // --- Lógica para autocompletado de CLUES ---
-    if (name === 'clues') {
-      // Llamamos a la función que busca los datos de la CLUES.
-      // No necesitamos 'await' aquí, la función se encargará de su propio estado de carga.
-      fetchAndApplyCluesData(value);
-    }
-
-    // --- Lógica existente para el campo ESTATUS ---
-    if (name === "estatus") {
-      const nuevoEstatus = value;
-      const camposActividad = ["direccion_unidad", "tipo_establecimiento", "subtipo_establecimiento", "municipio", "region", "turno", "nivel_atencion"];
-      const camposBaja = ["fecha_extraccion", "motivo_baja", "fecha_notificacion", "forma_notificacion"];
-      
-      if (nuevoEstatus === "05 BAJA") {
-        camposActividad.forEach((campo) => { newData[campo] = null; });
-      } else {
-        camposBaja.forEach((campo) => { newData[campo] = null; });
+      // --- Lógica para autocompletado de CLUES ---
+      if (name === "clues") {
+        // Llamamos a la función que busca los datos de la CLUES.
+        // No necesitamos 'await' aquí, la función se encargará de su propio estado de carga.
+        fetchAndApplyCluesData(value);
       }
 
-      if (nuevoEstatus !== "Defunción") {
-        newData.fecha_fallecimiento = null;
-      }
-    }
-    
-    return newData;
-  });
-};
+      // --- Lógica existente para el campo ESTATUS ---
+      if (name === "estatus") {
+        const nuevoEstatus = value;
+        const camposActividad = [
+          "direccion_unidad",
+          "tipo_establecimiento",
+          "subtipo_establecimiento",
+          "municipio",
+          "region",
+          "turno",
+          "nivel_atencion",
+        ];
+        const camposBaja = [
+          "fecha_extraccion",
+          "motivo_baja",
+          "fecha_notificacion",
+          "forma_notificacion",
+        ];
 
+        if (nuevoEstatus === "05 BAJA") {
+          camposActividad.forEach((campo) => {
+            newData[campo] = null;
+          });
+        } else {
+          camposBaja.forEach((campo) => {
+            newData[campo] = null;
+          });
+        }
+
+        if (nuevoEstatus !== "Defunción") {
+          newData.fecha_fallecimiento = null;
+        }
+      }
+
+      return newData;
+    });
+  };
 
   const handleSaveProfile = async () => {
     if (!editableDoctorData || !doctor?.id_imss) {
@@ -1606,31 +1744,82 @@ const handleInputChange = (e) => {
           </div>
         </div>
 
-        <div style={profileStyles.sectionTitle}>Historico de Movimientos:</div>
-        <div
-          style={{
-            ...profileStyles.gridContainer,
-            gridTemplateColumns: "1fr 1fr",
-          }}
-        >
-          <div>
-            <FieldRenderer
-              label="Estatus"
-              fieldName="estatus"
-              currentValue={editableDoctorData.estatus}
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
+            <div className="historial-section">
+      <div style={profileStyles.historyHeader}>
+        <div style={profileStyles.sectionTitle}>Historial de Movimientos</div>
+        <button onClick={() => setIsHistoryModalOpen(true)} style={profileStyles.addHistoryButton}>
+          <span role="img" aria-label="agregar">➕</span>
+          Añadir Registro
+        </button>
+      </div>
+      
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
+        <thead>
+          <tr>
+            <th style={{ border: '1px solid #ddd', padding: '8px' }}>Fecha Efectiva</th>
+            <th style={{ border: '1px solid #ddd', padding: '8px' }}>Estatus</th>
+            <th style={{ border: '1px solid #ddd', padding: '8px' }}>Comentarios</th>
+          </tr>
+        </thead>
+        <tbody>
+          {doctor.historial && doctor.historial.length > 0 ? (
+            doctor.historial
+              .sort((a, b) => new Date(b.fecha_efectiva) - new Date(a.fecha_efectiva))
+              .map(item => (
+                <tr key={item.id}>
+                  <td style={{ border: '1px solid #ddd', padding: '8px' }}>{formatDateForDisplay(item.fecha_efectiva)}</td>
+                  <td style={{ border: '1px solid #ddd', padding: '8px' }}>{item.estatus}</td>
+                  <td style={{ border: '1px solid #ddd', padding: '8px' }}>{item.comentarios}</td>
+                </tr>
+              ))
+          ) : (
+            <tr>
+              <td colSpan="3" style={{ textAlign: 'center', padding: '10px' }}>No hay registros en el historial.</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
 
-            <FieldRenderer
-              label="Fecha Estatus"
-              fieldName="fecha_estatus"
-              currentValue={editableDoctorData.fecha_estatus}
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
+      {/* --- LÓGICA DEL MODAL CORREGIDA --- */}
+      {isHistoryModalOpen && (
+        <div style={profileStyles.modalBackdrop}>
+          <div style={profileStyles.modalContent}>
+            <button onClick={() => setIsHistoryModalOpen(false)} style={profileStyles.modalCloseButton}>&times;</button>
+            <h2>Añadir Registro Retroactivo</h2>
+            <form onSubmit={handleAgregarHistorial}>
+              <div style={profileStyles.modalFormGroup}>
+                <label style={profileStyles.modalFormLabel}>Estatus:</label>
+                <select
+                  name="estatus"
+                  value={nuevoHistorial.estatus}
+                  onChange={handleHistorialChange}
+                  style={profileStyles.modalFormInput}
+                >
+                  <option value="">Seleccione un estatus...</option>
+                  <option value="01 ACTIVO">01 ACTIVO</option>
+                  <option value="02 RETIRO TEMPORAL">02 RETIRO TEMPORAL</option>
+                  <option value="03 SOLICITUD PERSONAL">03 SOLICITUD PERSONAL</option>
+                  <option value="04 INCAPACIDAD">04 INCAPACIDAD</option>
+                  <option value="05 BAJA">05 BAJA</option>
+                </select>
+              </div>
+              <div style={profileStyles.modalFormGroup}>
+                <label style={profileStyles.modalFormLabel}>Fecha Efectiva:</label>
+                <input name="fecha_efectiva" type="date" value={nuevoHistorial.fecha_efectiva} onChange={handleHistorialChange} style={profileStyles.modalFormInput} />
+              </div>
+              <div style={profileStyles.modalFormGroup}>
+                <label style={profileStyles.modalFormLabel}>Comentarios:</label>
+                <textarea name="comentarios" value={nuevoHistorial.comentarios} onChange={handleHistorialChange} placeholder="Añade una nota o comentario..." style={{...profileStyles.modalFormInput, minHeight: '80px' }}></textarea>
+              </div>
+              <div style={profileStyles.modalActions}>
+                <button type="button" onClick={() => setIsHistoryModalOpen(false)} style={profileStyles.cancelButton}>Cancelar</button>
+                <button type="submit" disabled={isLoading} style={profileStyles.saveButton}>{isLoading ? 'Guardando...' : 'Añadir al Historial'}</button>
+              </div>
+            </form>
           </div>
         </div>
+      )}
+    </div>
       </div>
 
       <div style={profileStyles.filesColumn}>
@@ -1679,7 +1868,7 @@ const handleInputChange = (e) => {
         </div>
 
         <div style={profileStyles.attachmentsSection}>
-          <h2>Expedientes Adjuntos</h2>
+          <h2>Expedientes Adjuntos Obligatorios</h2>
           {doctor.attachments && doctor.attachments.length > 0 ? (
             <ul style={profileStyles.attachmentList}>
               {doctor.attachments.map((file) => (
@@ -1742,4 +1931,5 @@ const handleInputChange = (e) => {
     </div>
   );
 }
+
 export default DoctorProfileView;
