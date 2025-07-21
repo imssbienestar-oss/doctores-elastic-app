@@ -371,13 +371,16 @@ async def obtener_detalles_doctores_filtrados(
 async def leer_doctor_por_id(
     id_imss: str, db: Session = Depends(get_db_session),
   ):
-    db_doctor = db.query(models.Doctor).options(selectinload(models.Doctor.attachments)).filter(func.upper(models.Doctor.id_imss) == func.upper(id_imss)).first()
+    db_doctor = db.query(models.Doctor).options(
+        selectinload(models.Doctor.attachments),
+        selectinload(models.Doctor.historial)
+        ).filter(func.upper(models.Doctor.id_imss) == func.upper(id_imss)).first()
     if db_doctor is None:
         raise HTTPException(status_code=404, detail="Doctor no encontrado")
     
     return db_doctor
 
-@app.post("/api/doctores", response_model=schemas.Doctor, status_code=status.HTTP_201_CREATED, tags=["Doctores"])
+@app.post("/api/doctores", response_model=schemas.DoctorDetail, status_code=status.HTTP_201_CREATED, tags=["Doctores"])
 async def crear_doctor(
     doctor_data: schemas.DoctorCreate, 
     db: Session = Depends(get_db_session),
@@ -386,20 +389,38 @@ async def crear_doctor(
     try:
         doctor_dict = doctor_data.model_dump()
         
-        db_doctor = models.Doctor(**doctor_dict)
+        if 'coordinacion' not in doctor_dict or doctor_dict['coordinacion'] is None:
+            doctor_dict['coordinacion'] = '0'
         
+        db_doctor = models.Doctor(**doctor_dict)
         db.add(db_doctor)
+        
+        print(f"Creando registro de historial inicial para el doctor {db_doctor.id_imss} con estatus '{db_doctor.estatus}'.")
+        
+        nuevo_registro_historial = models.EstatusHistorico(
+            id_imss=db_doctor.id_imss,
+            estatus=db_doctor.estatus,
+            fecha_efectiva=db_doctor.fecha_estatus or date.today(),
+            comentarios="Registro inicial del médico en el sistema."
+        )
+        db.add(nuevo_registro_historial)
+
+        # Log de auditoría
         db.flush()
         log_action(db, current_user, "Crear Registro", "Doctor", target_id_str=db_doctor.id_imss, details=f"Doctor creado: {db_doctor.nombre}")
         
+        # Guardamos el nuevo doctor y su primer registro de historial juntos
         db.commit()
         db.refresh(db_doctor)
-        return db_doctor
+        doctor_completo = db.query(models.Doctor).options(
+            selectinload(models.Doctor.historial)
+        ).filter(models.Doctor.id_imss == db_doctor.id_imss).first()
+
+        return doctor_completo
 
     except IntegrityError as e:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Error de integridad, posible ID o CURP duplicado.")
-
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error inesperado en el servidor: {str(e)}")
