@@ -1,8 +1,7 @@
 // src/components/DoctorTable.jsx
 import React from "react";
-import { useAuth } from "../src/contexts/AuthContext"; // Asegúrate que la ruta sea correcta
-import "../src/App.css"; // Estilos generales (puedes personalizarlos)
-
+import { useAuth } from "../src/contexts/AuthContext"; 
+import "../src/App.css"; 
 function DoctorTable({
   doctores,
   onDelete,
@@ -15,33 +14,32 @@ function DoctorTable({
   const esAdmin =
     isAuthenticated && currentUser && currentUser.role === "admin";
 
-  // Definimos un estilo base para las celdas para asegurar que no se parta el texto
   const cellStyle = {
     whiteSpace: "nowrap",
-    padding: "10px 15px", // Ejemplo de tu objeto styles en App.jsx
-    textAlign: "center", // Ejemplo
+    padding: "10px 15px",
+    textAlign: "center",
   };
 
   const headerCellStyle = {
-    ...cellStyle, // Hereda whiteSpace: "nowrap" y padding/textAlign si los defines arriba
-    backgroundColor: "#006657", // De tu objeto styles en App.jsx
+    ...cellStyle, 
+    backgroundColor: "#006657", 
     color: "white",
     borderBottom: "1px solid #ddd",
     fontSize: "0.9em",
     textTransform: "uppercase",
-    position: "relative", // Si necesitas esto para algo como tooltips en headers
+    position: "relative",
   };
 
   const dataCellStyle = {
-    ...cellStyle, // Hereda whiteSpace: "nowrap"
-    borderBottom: "1px solid #eee", // De tu objeto styles en App.jsx
+    ...cellStyle, 
+    borderBottom: "1px solid #eee",
     color: "#555",
     fontSize: "0.95em",
     verticalAlign: "middle",
   };
 
   const todasLasColumnas = [
-    { key: "id_imss", label: "id"},
+    { key: "id_imss", label: "id" },
     { key: "estatus", label: "Estatus" },
     { key: "acuerdo", label: "Acuerdo" },
     { key: "curp", label: "CURP" },
@@ -84,8 +82,8 @@ function DoctorTable({
 
           <select
             id_imss="status-filter-table"
-            value={selectedStatus || "Activo"} // Asegurar un valor, default a "Activo" si selectedStatus es undefined
-            onChange={onStatusChange} // Llama a la función del padre
+            value={selectedStatus || "Activo"} 
+            onChange={onStatusChange} 
             style={{
               padding: "8px",
               borderRadius: "4px",
@@ -99,16 +97,21 @@ function DoctorTable({
               </option>
             ))}
           </select>
-          {typeof onAgregarDoctorClick === "function" && (
-            <button
-              onClick={onAgregarDoctorClick}
-              style={stylesFromParent.button}
-            >
-              Agregar Doctor
-            </button>
-          )}
-          {typeof onDoctorRestored === "function" && (
-            <button onClick={onDoctorRestored}>Ver Eliminados</button>
+
+          {currentUser && currentUser.role !== "consulta" && (
+            <>
+              {typeof onAgregarDoctorClick === "function" && (
+                <button
+                  onClick={onAgregarDoctorClick}
+                  style={stylesFromParent.button}
+                >
+                  Agregar Doctor
+                </button>
+              )}
+              {typeof onDoctorRestored === "function" && (
+                <button onClick={onDoctorRestored}>Ver Eliminados</button>
+              )}
+            </>
           )}
         </div>
       )}
@@ -123,9 +126,6 @@ function DoctorTable({
                   <th className="sticky-col action-header">Acciones</th>
                 )}
                 {todasLasColumnas.map((col) => (
-                  // Si quisieras hacer el encabezado "Estatus" clickeable en el futuro,
-                  // aquí es donde modificarías este <th> en particular.
-                  // Por ahora, el <select> de arriba maneja el filtro.
                   <th key={col.key} style={headerCellStyle}>
                     {col.label}
                   </th>
@@ -143,10 +143,9 @@ function DoctorTable({
                       <div
                         style={{
                           display: "flex",
-                          flexDirection: "column", // <-- AQUÍ ESTÁ LA CLAVE
-                          gap: "5px", // Espacio entre botones
-                          alignItems: "center", // Centra los botones si son más angostos que la celda
-                          // O usa 'stretch' si quieres que ocupen el ancho
+                          flexDirection: "column", 
+                          gap: "5px",
+                          alignItems: "center", 
                         }}
                       >
                         {esAdmin && (
@@ -166,7 +165,7 @@ function DoctorTable({
                         )}
                         <button
                           onClick={() => onViewProfile(doctor)}
-                          className="table-action-button view" // Cambié a 'view' para diferenciar
+                          className="table-action-button view"
                           aria-label={`Ver perfil ${doctor.nombre}`}
                         >
                           Ver Perfil
