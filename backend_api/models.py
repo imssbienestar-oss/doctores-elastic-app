@@ -7,7 +7,7 @@ from database import Base # Importa la Base que definimos en database.py
 class Doctor(Base):
     __tablename__ = "doctores" # Nombre exacto de la tabla en PostgreSQL
 
-    # Columnas existentes
+  # Columnas existentes
     id_imss = Column(String, primary_key=True, index=True) 
     nombre = Column(String(255))
     apellido_paterno = Column(String(100), nullable=True)
@@ -34,18 +34,18 @@ class Doctor(Base):
     fecha_vuelo = Column(Date, nullable=True)
     estrato = Column(String(100), nullable=True)
     acuerdo = Column(String(255), nullable=True)
-    foto_url = Column(String(1024), nullable=True, index=True) # Las URLs pueden ser largas
+    foto_url = Column(String(1024), nullable=True, index=True) 
     correo = Column(String(100), nullable=True)
     telefono = Column(String(255), nullable=True)
     edad = Column(String(10), nullable=True)
     comentarios_estatus = Column(Text, nullable=True)
-    fecha_fallecimiento = Column(Date, nullable=True) # Ya lo tenías
-    fecha_nacimiento = Column(Date, nullable=True)   # Ya lo tenías
+    fecha_fallecimiento = Column(Date, nullable=True)
+    fecha_nacimiento = Column(Date, nullable=True)  
     pasaporte = Column(String(50), nullable=True)
-    fecha_emision = Column(Date, nullable=True) # Asumiendo que es la vigencia del pasaporte (fecha)
-    fecha_expiracion = Column(Date, nullable=True) # Asumiendo que es la vigencia del pasaporte (fecha)
+    fecha_emision = Column(Date, nullable=True)
+    fecha_expiracion = Column(Date, nullable=True)
     domicilio = Column(Text, nullable=True)
-    licenciatura = Column(String(255), nullable=True) # Nombre de la carrera
+    licenciatura = Column(String(255), nullable=True)
     institucion_lic = Column(String(255), nullable=True)
     institucion_esp = Column(String(255), nullable=True)
     fecha_egreso_lic = Column(Date, nullable=True)
@@ -72,6 +72,7 @@ class Doctor(Base):
     __table_args__ = {'extend_existing': True}
     historial = relationship("EstatusHistorico", back_populates="doctor", cascade="all, delete-orphan")
 
+# --- CLASE USUARIO ---
 class User(Base):
     __tablename__ = "users"
 
@@ -90,35 +91,39 @@ class User(Base):
         back_populates="deleted_by_user_obj"
     )
 
+# --- CLASE EXPEDIENTES ADJUNTOS ---
 class DoctorAttachment(Base):
-    __tablename__ = "doctor_attachments" # Nombre para la nueva tabla
+    __tablename__ = "doctor_attachments" # NOMBRE POSTGRES
 
     id = Column(Integer, primary_key=True, index=True)
     doctor_id = Column(String, ForeignKey("doctores.id_imss", ondelete="CASCADE"), nullable=False)                                
-    file_name = Column(String(255), index=True, nullable=False) # Nombre original del archivo
-    file_url = Column(String(1024), nullable=False, unique=True) # URL de Firebase Storage, debe ser única
-    file_type = Column(String(100), nullable=True) # ej. 'application/pdf', 'image/jpeg'
-    uploaded_at = Column(DateTime(timezone=True), server_default=func.now()) # Fecha y hora de subida con zona horaria
+    file_name = Column(String(255), index=True, nullable=False) 
+    file_url = Column(String(1024), nullable=False, unique=True) 
+    file_type = Column(String(100), nullable=True) 
+    uploaded_at = Column(DateTime(timezone=True), server_default=func.now()) 
 
     doctor = relationship("Doctor", back_populates="attachments")
 
+# --- CLASE AUDITORIA ---
 class AuditLog(Base):
     __tablename__ = "audit_logs"
 
     id = Column(Integer, primary_key=True, index=True)
     timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True) # Esta es la FK para el usuario
-    username = Column(String(100), nullable=True) # Nombre del usuario (para fácil visualización)
-    action_type = Column(String(100), nullable=False, index=True) # Ej: "CREATE_DOCTOR", "UPDATE_DOCTOR"
-    target_entity = Column(String(100), nullable=True, index=True) # Ej: "Doctor"
-    target_id = Column(Integer, nullable=True, index=True) # Ej: ID del doctor afectado
-    target_id_str = Column(String(100), nullable=True, index=True) # Para IDs como 'MC_123'
-    details = Column(Text, nullable=True) # JSON string con cambios o datos relevantes
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True) 
+    username = Column(String(100), nullable=True) 
+    action_type = Column(String(100), nullable=False, index=True) 
+    target_entity = Column(String(100), nullable=True, index=True) 
+    target_id = Column(Integer, nullable=True, index=True) 
+    target_id_str = Column(String(100), nullable=True, index=True) 
+    details = Column(Text, nullable=True) 
     user = relationship("User", foreign_keys=[user_id], back_populates="audit_log_entries")
-    __table_args__ = {'extend_existing': True} # Mantener por si acaso, aunque no debería ser necesario si la tabla se crea correctamente
+    __table_args__ = {'extend_existing': True} 
 
+# --- CLASE CATALOGO CLUES ---
 class CatalogoClues(Base):
     __tablename__ = "clues_catalogo"
+
     clues = Column(String, primary_key=True, index=True) 
     
     nombre_unidad = Column(String, nullable=True)
@@ -131,17 +136,23 @@ class CatalogoClues(Base):
     codigo_postal = Column(String, nullable=True)
     direccion_unidad = Column(String, nullable=True)
 
+# --- CLASE HISTORICO ESTATUS ---
 class EstatusHistorico(Base):
     __tablename__ = "estatus_historico"
 
     id = Column(Integer, primary_key=True, index=True)
 
     id_imss = Column(String, ForeignKey("doctores.id_imss"), nullable=False, index=True)
+    tipo_cambio = Column(String, nullable=False)
     estatus = Column(String, nullable=False)
-    fecha_efectiva = Column(Date, nullable=False) # La fecha en que el estatus se hizo válido
-    comentarios = Column(Text, nullable=True)   # Para notas adicionales
-    creado_por_usuario_id = Column(Integer, ForeignKey("users.id"))
+    fecha_inicio = Column(Date, nullable=False)
+    fecha_fin = Column(Date, nullable=True)
+    clues = Column(String, nullable=True)
+    entidad = Column(String, nullable=True)
+    nombre_unidad = Column(String, nullable=True)
+    turno = Column(String, nullable=True)
+    comentarios = Column(Text, nullable=True)   
     fecha_registro = Column(DateTime(timezone=True), server_default=func.now())
+    
 
     doctor = relationship("Doctor", back_populates="historial")
-
