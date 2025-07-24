@@ -1,28 +1,27 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useAuth } from "../src/contexts/AuthContext"; // Ajusta la ruta a tu AuthContext
+import { useAuth } from "../src/contexts/AuthContext"; 
 import { Tooltip as ReactTooltip } from "react-tooltip";
-import DatePicker from "react-datepicker"; // Importar DatePicker
-import "react-datepicker/dist/react-datepicker.css"; // Estilos para DatePicker
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css"; 
 
-// Estilos básicos (puedes moverlos a un archivo CSS o usar styled-components/Tailwind)
 const styles = {
   container: {
     padding: "20px",
     margin: "20px auto",
-    maxWidth: "1200px", // Aumentado para más espacio
+    maxWidth: "1200px", 
     fontFamily: "Arial, sans-serif",
-    backgroundColor: "#fff", // Fondo blanco para un look más limpio
+    backgroundColor: "#fff",
     borderRadius: "8px",
-    boxShadow: "0 4px 8px rgba(0,0,0,0.1)", // Sombra más suave
+    boxShadow: "0 4px 8px rgba(0,0,0,0.1)", 
   },
   title: {
     textAlign: "center",
-    color: "#333", // Color de título más oscuro
-    marginBottom: "30px", // Más espacio debajo del título
-    fontSize: "28px", // Tamaño de fuente más grande para el título
-    fontWeight: "600", // Título un poco más grueso
-    borderBottom: "1px solid #eee", // Añadido para consistencia
-    paddingBottom: "15px", // Añadido para consistencia
+    color: "#333", 
+    marginBottom: "30px",
+    fontSize: "28px", 
+    fontWeight: "600",
+    borderBottom: "1px solid #eee", 
+    paddingBottom: "15px", 
   },
   controlsContainer: {
     display: "flex",
@@ -31,8 +30,8 @@ const styles = {
     marginBottom: "25px",
     flexWrap: "wrap",
     gap: "15px",
-    padding: "15px", // Padding alrededor de los controles
-    backgroundColor: "#f8f9fa", // Fondo ligero para la sección de controles
+    padding: "15px", 
+    backgroundColor: "#f8f9fa", 
     borderRadius: "6px",
   },
   filterSection: {
@@ -43,16 +42,16 @@ const styles = {
   },
   datePickerLabel: {
     fontSize: "0.9em",
-    color: "#495057", // Color de label más oscuro
+    color: "#495057", 
     marginRight: "5px",
     fontWeight: "500",
   },
   datePickerInput: {
     padding: "8px 12px",
     fontSize: "0.9em",
-    border: "1px solid #ced4da", // Borde estándar
+    border: "1px solid #ced4da",
     borderRadius: "4px",
-    width: "130px", // Un poco más de ancho
+    width: "130px",
     boxSizing: "border-box",
   },
   actionsHeader: {
@@ -62,26 +61,26 @@ const styles = {
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    marginTop: "10px", // Reducido ya que los controles tienen su propio espacio
-    boxShadow: "0 1px 3px rgba(0,0,0,0.05)", // Sombra más sutil para la tabla
-    fontSize: "0.95em", // Tamaño de fuente base para la tabla
+    marginTop: "10px", 
+    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+    fontSize: "0.95em",
   },
   th: {
-    backgroundColor: "#006657", // Tu color verde IMSS
+    backgroundColor: "#006657", 
     color: "white",
     padding: "12px 15px",
-    textAlign: "center", // Alineación a la izquierda para consistencia
-    borderBottom: "2px solid #005c4e", // Borde inferior más grueso para el header
+    textAlign: "center", 
+    borderBottom: "2px solid #005c4e", 
     fontSize: "0.9em",
     textTransform: "uppercase",
-    letterSpacing: "0.5px", // Ligero espaciado de letras
+    letterSpacing: "0.5px", 
     position: "relative",
   },
   td: {
-    padding: "12px 15px", // Padding consistente
-    borderBottom: "1px solid #e9ecef", // Borde más claro entre filas
+    padding: "12px 15px", 
+    borderBottom: "1px solid #e9ecef",
     color: "#495057",
-    verticalAlign: "middle", // Mejor alineación vertical
+    verticalAlign: "middle", 
     textAlign: "center",
   },
   checkboxCell: {
@@ -89,7 +88,7 @@ const styles = {
     width: "40px",
   },
   detailsCell: {
-    maxWidth: "350px", // Ajustado el ancho máximo
+    maxWidth: "350px", 
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -97,9 +96,9 @@ const styles = {
     textAlign: "left",
   },
   tooltipContentContainer: {
-    // Estilo para el contenedor del tooltip
-    backgroundColor: "rgba(33,37,41,0.95)", // Más oscuro, Bootstrap-like .bg-dark
-    color: "#f8f9fa", // Texto más claro
+   
+    backgroundColor: "rgba(33,37,41,0.95)", 
+    color: "#f8f9fa", 
     borderRadius: "6px",
     padding: "10px 15px",
     fontSize: "1.2em",
@@ -108,7 +107,7 @@ const styles = {
     maxWidth: "480px",
     maxHeight: "350px",
     overflowY: "auto",
-    zIndex: 1050, // Asegurar que esté por encima de otros elementos del modal si los hay
+    zIndex: 1050,
     textAlign: "left",
   },
   tooltipList: { listStyleType: "none", paddingLeft: "0", margin: 0 },
@@ -122,7 +121,7 @@ const styles = {
     color: "#58a6ff",
     marginBottom: "8px",
     display: "block",
-  }, // Azul brillante para el encabezado
+  }, 
   preformattedText: {
     margin: 0,
     textAlign: "left",
@@ -131,22 +130,22 @@ const styles = {
     wordBreak: "break-all",
   },
   trEven: {
-    backgroundColor: "#f8f9fa", // Un gris muy claro para filas pares
+    backgroundColor: "#f8f9fa", 
   },
   message: {
     textAlign: "center",
     padding: "20px",
     fontSize: "1.1em",
     color: "#6c757d",
-  }, // Gris para mensajes
+  },
   error: {
     textAlign: "center",
     padding: "15px",
     fontSize: "1em",
-    color: "#721c24", // Rojo oscuro para texto de error
+    color: "#721c24",
     border: "1px solid #f5c6cb",
     backgroundColor: "#f8d7da",
-    borderRadius: "4px", // Fondo rojo claro
+    borderRadius: "4px", 
     marginTop: "15px",
     marginBottom: "15px",
   },
@@ -154,10 +153,10 @@ const styles = {
     textAlign: "center",
     padding: "15px",
     fontSize: "1em",
-    color: "#155724", // Verde oscuro para texto
+    color: "#155724", 
     border: "1px solid #c3e6cb",
     backgroundColor: "#d4edda",
-    borderRadius: "4px", // Fondo verde claro
+    borderRadius: "4px", 
     marginTop: "15px",
     marginBottom: "15px",
   },
@@ -170,11 +169,11 @@ const styles = {
     borderTop: "1px solid #e9ecef",
   },
   button: {
-    padding: "10px 18px", // Botones un poco más grandes
-    margin: "0px", // Quitar margen individual, usar gap en el contenedor
+    padding: "10px 18px",
+    margin: "0px", 
     fontSize: "0.95em",
     cursor: "pointer",
-    backgroundColor: "#BC955C", // Tu color dorado
+    backgroundColor: "#BC955C",
     color: "white",
     border: "none",
     borderRadius: "6px",
@@ -188,7 +187,7 @@ const styles = {
     color: "#6c757d",
     cursor: "not-allowed",
     opacity: 0.8,
-  }, // Estilo de deshabilitado más claro
+  }, 
   deleteButton: { backgroundColor: "#dc3545" },
   dropdownMenu: {
     position: "absolute",
@@ -202,64 +201,55 @@ const styles = {
     minWidth: "200px",
     maxHeight: "250px",
     overflowY: "auto",
-    textAlign: "left", // Asegura que el texto dentro del dropdown esté a la izquierda
+    textAlign: "left", 
   },
   dropdownItem: {
     padding: "10px 15px",
     cursor: "pointer",
-    color: "#333", // Color de texto para las opciones
+    color: "#333", 
     fontSize: "0.9em",
-    textTransform: "none", // Anula text-transform del th si es necesario
-    letterSpacing: "normal", // Anula letter-spacing del th si es necesario
+    textTransform: "none", 
+    letterSpacing: "normal", 
   },
   pinContainer: {
     display: "flex",
-    justifyContent: "center", // Centra los cuadritos
-    gap: "10px", // Espacio entre los cuadritos
-    marginBottom: "20px", // Espacio debajo del contenedor del PIN
+    justifyContent: "center",
+    gap: "10px", 
+    marginBottom: "20px",
   },
   pinBox: {
-    width: "50px", // Ancho de cada cuadrito
-    height: "60px", // Altura de cada cuadrito
+    width: "50px",
+    height: "60px", 
     textAlign: "center",
-    fontSize: "1.8em", // Tamaño del número/punto dentro del cuadrito
-    borderBottom: "2px solid #006657", // Línea inferior (tu color verde)
-    // O si prefieres un borde completo para cada caja:
+    fontSize: "1.8em", 
+    borderBottom: "2px solid #006657", 
+    
     border: "2px solid #006657",
     borderRadius: "20px",
-    outline: "none", // Quitar el outline azul por defecto al enfocar
-    caretColor: "transparent", // Opcional: Oculta el cursor de texto si se ve raro
-    // Para un efecto de foco en la línea inferior (necesitarías :focus en CSS o manejarlo con estado en JS)
-    // Si usas un archivo CSS separado, podrías añadir:
-    // .pin-box:focus {
-    //   border-bottom-color: '#BC955C'; /* Tu color dorado para el foco */
-    // }
+    outline: "none", 
+    caretColor: "transparent", 
   },
   confirmationTextarea: {
     width: "100%",
-    padding: "12px 15px", // Un poco más de padding
+    padding: "12px 15px", 
     marginBottom: "15px",
-    border: "1px solid #ced4da", // Un color de borde estándar y más suave
-    borderRadius: "6px", // Un poco más de radio para consistencia si otros inputs lo tienen
+    border: "1px solid #ced4da", 
+    borderRadius: "6px",     
     boxSizing: "border-box",
-    resize: "none", // Ya lo tenías, bueno para evitar que el usuario lo redimensione
-    fontFamily: "Arial, sans-serif", // Asegúrate que coincida con la fuente general de tu app
-    fontSize: "1em", // O el tamaño que prefieras
-    lineHeight: "1.5", // Mejor legibilidad para texto multilínea
-    color: "#495057", // Color de texto oscuro pero no negro puro
-    backgroundColor: "#fff", // Fondo blanco
-    // Para un efecto sutil al enfocar (esto es más fácil con CSS, pero podemos simularlo o prepararlo)
-    // Si quieres un cambio de borde en foco usando JS, necesitarías un estado para el foco.
-    // Con CSS puro (si mueves esto a un archivo .css y usas className):
-    // '&:focus': { // Sintaxis para JSS o librerías CSS-in-JS
-    borderColor: "#BC955C", // Tu color dorado
-    boxShadow: "0 0 0 0.2rem rgba(38, 32, 22, 0.25)", // Un "glow" sutil
+    resize: "none", 
+    fontFamily: "Arial, sans-serif",
+    fontSize: "1em", 
+    lineHeight: "1.5", 
+    color: "#495057", 
+    backgroundColor: "#fff", 
+    borderColor: "#BC955C",
+    boxShadow: "0 0 0 0.2rem rgba(38, 32, 22, 0.25)", 
     outline: "none",
-    // }
+    
   },
-  // (Si quieres un estilo específico para el foco manejado por JS)
+  
   confirmationTextareaFocus: {
-    borderColor: "#BC955C", // Tu color dorado
+    borderColor: "#BC955C", 
     boxShadow: "0 0 0 0.2rem rgba(188, 149, 92, 0.25)",
     outline: "none",
   },
@@ -283,8 +273,8 @@ function AuditLogView() {
   const [filterStartDate, setFilterStartDate] = useState(null);
   const [filterEndDate, setFilterEndDate] = useState(null);
 
-  const [filtroUsuario, setFiltroUsuario] = useState(null); // o '' para todos
-  const [filtroAccion, setFiltroAccion] = useState(null); // o '' para todos
+  const [filtroUsuario, setFiltroUsuario] = useState(null); 
+  const [filtroAccion, setFiltroAccion] = useState(null); 
 
   const [mostrarDropdownUsuario, setMostrarDropdownUsuario] = useState(false);
   const [mostrarDropdownAccion, setMostrarDropdownAccion] = useState(false);
@@ -722,15 +712,15 @@ function AuditLogView() {
           setError(displayErrorMessage);
           setIsConfirmDeleteModalOpen(false);
         }
-        // Eliminado: throw new Error(...)
-        return; // ¡Importante: salir aquí si hay un error de la API!
+       
+        return; 
       }
 
       setSuccessMessage(
         `${idsToDelete.length} registro(s) de auditoría eliminados exitosamente.`
       );
       setSelectedLogs(new Set());
-      setIsConfirmDeleteModalOpen(false); // Cerrar modal solo en caso de éxito
+      setIsConfirmDeleteModalOpen(false); 
       fetchAuditLogs(
         0,
         filterStartDate,
@@ -1010,7 +1000,7 @@ function AuditLogView() {
                     )}
                     data-tooltip-place="top-start"
                   >
-                    {log.action_type === "Actualizar Doctor" ||
+                    {log.action_type === "Actualizar Médico" ||
                     log.action_type === "Actualizar Usuario"
                       ? "Ver campos actualizados"
                       : log.details && log.details.length > 21
@@ -1184,7 +1174,7 @@ function AuditLogView() {
                   Cancelar
                 </button>
                 <button
-                  type="submit" // Correcto: Este botón enviará el formulario
+                  type="submit" 
                   style={{ ...styles.button, ...styles.deleteButton }}
                   disabled={isLoading}
                 >
