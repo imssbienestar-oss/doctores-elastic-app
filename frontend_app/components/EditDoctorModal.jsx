@@ -1,61 +1,83 @@
 // src/components/AddDoctorModal.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from "react";
 import Modal from "react-modal";
 import { useAuth } from "../src/contexts/AuthContext";
 
 const ESTATUS_OPTIONS = [
   { value: "", label: "Seleccione un estatus..." },
   { value: "01 ACTIVO", label: "01 ACTIVO" },
-  { value: "02 RETIRO TEMP.", label: "02 RETIRO TEMPORAL" },
-  { value: "03 SOL. PERSONAL", label: "03 SOLICITUD PERSONAL" },
-  { value: "04 INCAPACIDAD", label: "04 INCAPACIDAD" },
-  { value: "05 BAJA", label: "05 BAJA" },
+  { value: "02 RETIRO TEMP. (CUBA)", label: "02 RETIRO TEMPORAL (CUBA)" },
+  { value: "03 RETIRO TEMP. (MEXICO)", label: "03 RETIRO TEMPORAL (MEXICO)" },
+  { value: "04 SOL. PERSONAL", label: "04 SOLICITUD PERSONAL" },
+  { value: "05 INCAPACIDAD", label: "05 INCAPACIDAD" },
+  { value: "06 BAJA", label: "06 BAJA" },
 ];
 
 const ESPECIALIDAD_OPTIONS = [
-{ value: "", label: "Seleccione una especialidad..." },
-{ value: "01 ANATOMIA PATOLOGICA", label: "01 ANATOMIA PATOLOGICA"},
-{ value: "01 ANESTESIOLOGIA", label: "01 ANESTESIOLOGIA"},
-{ value: "01 CIRUGIA GENERAL", label: "01 CIRUGIA GENERAL"},
-{ value: "01 EPIDEMIOLOGIA", label: "01 EPIDEMIOLOGIA"},
-{ value: "01 GINECOLOGIA Y OBSTETRICIA", label: "01 GINECOLOGIA Y OBSTETRICIA"},
-{ value: "01 MEDICINA DE URGENCIAS", label: "01 MEDICINA DE URGENCIAS"},
-{ value: "01 MEDICINA FAMILIAR", label: "01 MEDICINA FAMILIAR"},
-{ value: "01 OFTALMOLOGIA", label: "01 OFTALMOLOGIA"},
-{ value: "01 OTORRINOLARINGOLOGIA Y CIRUGIA DE CABEZA Y CUELLO", label: "01 OTORRINOLARINGOLOGIA Y CIRUGIA DE CABEZA Y CUELLO"},
-{ value: "01 PSIQUIATRIA", label: "01 PSIQUIATRIA"},
-{ value: "01 RADIOLOGIA E IMAGEN", label: "01 RADIOLOGIA E IMAGEN"},
-{ value: "01 TRAUMATOLOGIA Y ORTOPEDIA", label: "01 TRAUMATOLOGIA Y ORTOPEDIA"},
-{ value: "01 MEDICINA DE REHABILITACION", label: "01 MEDICINA DE REHABILITACION"},
-{ value: "01 MEDICINA INTERNA", label: "01 MEDICINA INTERNA"},
-{ value: "01 PEDIATRIA MEDICA", label: "01 PEDIATRIA MEDICA"},
-{ value: "02 ANGIOLOGIA, CIRUGIA VASCULAR Y ENDOVASCULAR", label: "02 ANGIOLOGIA, CIRUGIA VASCULAR Y ENDOVASCULAR"},
-{ value: "02 CIRUGIA ONCOLOGICA", label: "02 CIRUGIA ONCOLOGICA"},
-{ value: "02 CIRUGIA PEDIATRICA", label: "02 CIRUGIA PEDIATRICA"},
-{ value: "02 COLOPROCTOLOGIA", label: "02 COLOPROCTOLOGIA"},
-{ value: "02 NEUROCIRUGIA", label: "02 NEUROCIRUGIA"},
-{ value: "02 UROLOGIA", label: "02 UROLOGIA"},
-{ value: "02 CARDIOLOGIA CLINICA", label: "02 CARDIOLOGIA CLINICA"},
-{ value: "02 DERMATOLOGIA", label: "02 DERMATOLOGIA"},
-{ value: "02 ENDOCRINOLOGIA", label: "02 ENDOCRINOLOGIA"},
-{ value: "02 GASTROENTEROLOGIA", label: "02 GASTROENTEROLOGIA"},
-{ value: "02 GERIATRIA", label: "02 GERIATRIA"},
-{ value: "02 HEMATOLOGIA", label: "02 HEMATOLOGIA"},
-{ value: "02 INMUNOLOGIA CLINICA Y ALERGIA", label: "02 INMUNOLOGIA CLINICA Y ALERGIA"},
-{ value: "02 MEDICINA CRITICA", label: "02 MEDICINA CRITICA"},
-{ value: "02 NEFROLOGIA", label: "02 NEFROLOGIA"},
-{ value: "02 NEUMOLOGIA", label: "02 NEUMOLOGIA"},
-{ value: "02 NEUROLOGIA ADULTOS", label: "02 NEUROLOGIA ADULTOS"},
-{ value: "02 ONCOLOGIA MEDICA", label: "02 ONCOLOGIA MEDICA"},
-{ value: "02 REUMATOLOGIA", label: "02 REUMATOLOGIA"},
-{ value: "02 MEDICINA DEL ENFERMO PEDIATRICO EN ESTADO CRITICO", label: "02 MEDICINA DEL ENFERMO PEDIATRICO EN ESTADO CRITICO"},
-{ value: "02 NEONATOLOGIA", label: "02 NEONATOLOGIA"},
-{ value: "02 ONCOLOGIA PEDIATRICA", label: "02 ONCOLOGIA PEDIATRICA"},
-{ value: "02 PSIQUIATRIA INFANTIL Y DE LA ADOLESCENCIA", label: "02 PSIQUIATRIA INFANTIL Y DE LA ADOLESCENCIA"},
-
-
+  { value: "", label: "Seleccione una especialidad..." },
+  { value: "01 ANATOMIA PATOLOGICA", label: "01 ANATOMIA PATOLOGICA" },
+  { value: "01 ANESTESIOLOGIA", label: "01 ANESTESIOLOGIA" },
+  { value: "01 CIRUGIA GENERAL", label: "01 CIRUGIA GENERAL" },
+  { value: "01 EPIDEMIOLOGIA", label: "01 EPIDEMIOLOGIA" },
+  {
+    value: "01 GINECOLOGIA Y OBSTETRICIA",
+    label: "01 GINECOLOGIA Y OBSTETRICIA",
+  },
+  { value: "01 MEDICINA DE URGENCIAS", label: "01 MEDICINA DE URGENCIAS" },
+  { value: "01 MEDICINA FAMILIAR", label: "01 MEDICINA FAMILIAR" },
+  { value: "01 OFTALMOLOGIA", label: "01 OFTALMOLOGIA" },
+  {
+    value: "01 OTORRINOLARINGOLOGIA Y CIRUGIA DE CABEZA Y CUELLO",
+    label: "01 OTORRINOLARINGOLOGIA Y CIRUGIA DE CABEZA Y CUELLO",
+  },
+  { value: "01 PSIQUIATRIA", label: "01 PSIQUIATRIA" },
+  { value: "01 RADIOLOGIA E IMAGEN", label: "01 RADIOLOGIA E IMAGEN" },
+  {
+    value: "01 TRAUMATOLOGIA Y ORTOPEDIA",
+    label: "01 TRAUMATOLOGIA Y ORTOPEDIA",
+  },
+  {
+    value: "01 MEDICINA DE REHABILITACION",
+    label: "01 MEDICINA DE REHABILITACION",
+  },
+  { value: "01 MEDICINA INTERNA", label: "01 MEDICINA INTERNA" },
+  { value: "01 PEDIATRIA MEDICA", label: "01 PEDIATRIA MEDICA" },
+  {
+    value: "02 ANGIOLOGIA, CIRUGIA VASCULAR Y ENDOVASCULAR",
+    label: "02 ANGIOLOGIA, CIRUGIA VASCULAR Y ENDOVASCULAR",
+  },
+  { value: "02 CIRUGIA ONCOLOGICA", label: "02 CIRUGIA ONCOLOGICA" },
+  { value: "02 CIRUGIA PEDIATRICA", label: "02 CIRUGIA PEDIATRICA" },
+  { value: "02 COLOPROCTOLOGIA", label: "02 COLOPROCTOLOGIA" },
+  { value: "02 NEUROCIRUGIA", label: "02 NEUROCIRUGIA" },
+  { value: "02 UROLOGIA", label: "02 UROLOGIA" },
+  { value: "02 CARDIOLOGIA CLINICA", label: "02 CARDIOLOGIA CLINICA" },
+  { value: "02 DERMATOLOGIA", label: "02 DERMATOLOGIA" },
+  { value: "02 ENDOCRINOLOGIA", label: "02 ENDOCRINOLOGIA" },
+  { value: "02 GASTROENTEROLOGIA", label: "02 GASTROENTEROLOGIA" },
+  { value: "02 GERIATRIA", label: "02 GERIATRIA" },
+  { value: "02 HEMATOLOGIA", label: "02 HEMATOLOGIA" },
+  {
+    value: "02 INMUNOLOGIA CLINICA Y ALERGIA",
+    label: "02 INMUNOLOGIA CLINICA Y ALERGIA",
+  },
+  { value: "02 MEDICINA CRITICA", label: "02 MEDICINA CRITICA" },
+  { value: "02 NEFROLOGIA", label: "02 NEFROLOGIA" },
+  { value: "02 NEUMOLOGIA", label: "02 NEUMOLOGIA" },
+  { value: "02 NEUROLOGIA ADULTOS", label: "02 NEUROLOGIA ADULTOS" },
+  { value: "02 ONCOLOGIA MEDICA", label: "02 ONCOLOGIA MEDICA" },
+  { value: "02 REUMATOLOGIA", label: "02 REUMATOLOGIA" },
+  {
+    value: "02 MEDICINA DEL ENFERMO PEDIATRICO EN ESTADO CRITICO",
+    label: "02 MEDICINA DEL ENFERMO PEDIATRICO EN ESTADO CRITICO",
+  },
+  { value: "02 NEONATOLOGIA", label: "02 NEONATOLOGIA" },
+  { value: "02 ONCOLOGIA PEDIATRICA", label: "02 ONCOLOGIA PEDIATRICA" },
+  {
+    value: "02 PSIQUIATRIA INFANTIL Y DE LA ADOLESCENCIA",
+    label: "02 PSIQUIATRIA INFANTIL Y DE LA ADOLESCENCIA",
+  },
 ];
-
 
 const ESTADOS_OPTIONS = [
   { value: "", label: "Seleccione una entidad..." },
@@ -109,15 +131,15 @@ const modalStyles = {
     padding: "30px",
     borderRadius: "8px",
     boxShadow: "0 5px 15px rgba(0,0,0,0.3)",
-    width: "90%", // Responsivo para pantallas pequeñas
-    maxWidth: "500px", // Ancho máximo
-    maxHeight: "calc(100vh - 60px)", // Margen vertical de 30px arriba y abajo
+    width: "90%",
+    maxWidth: "500px",
+    maxHeight: "calc(100vh - 60px)",
     overflowY: "auto",
     fontFamily: "Arial, sans-serif",
     color: "#333",
-    position: "relative", // Necesario para el centrado con flex en overlay
-    inset: "auto", // Resetea las propiedades de posicionamiento absoluto
-    border: "none", // El boxShadow ya define el borde visual
+    position: "relative",
+    inset: "auto",
+    border: "none",
   },
   modalHeader: {
     fontSize: "20px",
@@ -153,7 +175,6 @@ const modalStyles = {
     transition: "border-color .15s ease-in-out, box-shadow .15s ease-in-out",
   },
   select: {
-    // Hereda de input y añade apariencia para el dropdown
     display: "block",
     width: "100%",
     padding: "10px 12px",
@@ -198,7 +219,6 @@ const modalStyles = {
   secondaryButton: {
     color: "#fff",
     backgroundColor: "#6c757d",
-    // Nota: '&:hover': {backgroundColor: '#5a6268'} no funciona en estilos en línea JS
   },
   errorText: {
     color: "#dc3545",
@@ -214,6 +234,52 @@ const modalStyles = {
   },
 };
 
+function getInfoFromCURP(curp) {
+  if (!curp || typeof curp !== "string" || curp.length !== 18) {
+    return null;
+  }
+
+  const sexoChar = curp.charAt(10).toUpperCase();
+  const sexo =
+    sexoChar === "H"
+      ? "Masculino"
+      : sexoChar === "M"
+      ? "Femenino"
+      : "Otro";
+
+  const anioStr = curp.substring(4, 6);
+  const mesStr = curp.substring(6, 8);
+  const diaStr = curp.substring(8, 10);
+
+  let anio = parseInt(anioStr, 10);
+  const mes = parseInt(mesStr, 10);
+  const dia = parseInt(diaStr, 10);
+
+  const anioActualDosDigitos = new Date().getFullYear() % 100;
+  const siglo = anio > anioActualDosDigitos + 5 ? 1900 : 2000; // Lógica de siglo mejorada
+  anio += siglo;
+
+  const fechaNacimiento = new Date(anio, mes - 1, dia);
+  if (isNaN(fechaNacimiento.getTime()) || fechaNacimiento.getDate() !== dia) {
+    return null; // Fecha inválida (ej. 31 de Febrero)
+  }
+
+  const hoy = new Date();
+  let edad = hoy.getFullYear() - fechaNacimiento.getFullYear();
+  const m = hoy.getMonth() - fechaNacimiento.getMonth();
+  if (m < 0 || (m === 0 && hoy.getDate() < fechaNacimiento.getDate())) {
+    edad--;
+  }
+
+  return {
+    fechaNacimiento: `${anio}-${String(mes).padStart(2, "0")}-${String(
+      dia
+    ).padStart(2, "0")}`,
+    sexo,
+    edad,
+  };
+}
+
 function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
   const { token: authToken, logout: authLogout } = useAuth();
 
@@ -223,15 +289,23 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
     apellido_paterno: "",
     apellido_materno: "",
     estatus: "",
+    fecha_estatus: "",
+    clues: "",
+    entidad: "",
+    nombre_unidad: "",
     curp: "",
     especialidad: "",
     entidad: "",
     fecha_nacimiento: "",
+    sexo: "",
+    turno: "",
   };
 
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+  const API_BASE_URL =
+    import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 
-
+  const [isLoadingClues, setIsLoadingClues] = useState(false);
+  const [cluesError, setCluesError] = useState("");
   const [formData, setFormData] = useState(initialFormData);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
@@ -241,16 +315,15 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
   const [isCheckingCurp, setIsCheckingCurp] = useState(false);
   const [debouncedCurp, setDebouncedCurp] = useState("");
 
- // --- ÚNICO useEffect para manejar la apertura del modal ---
-   useEffect(() => {
-        if (isOpen) {
-            setFormData(initialFormData);
-            setError("");
-            setIsSaving(false);
-            setCurpError("");
-        }
-    }, [isOpen]);
-
+  // --- useEffect para manejar la apertura del modal ---
+  useEffect(() => {
+    if (isOpen) {
+      setFormData(initialFormData);
+      setError("");
+      setIsSaving(false);
+      setCurpError("");
+    }
+  }, [isOpen]);
 
   const calcularFechaNacimientoDesdeCURP = (curp) => {
     if (curp && curp.length >= 10) {
@@ -274,19 +347,16 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
       const dia = parseInt(diaStr, 10);
 
       const currentYear = new Date().getFullYear();
-      const currentCentury = Math.floor(currentYear / 100) * 100; // Ej: 2000
-      const currentYearLastTwoDigits = currentYear % 100; // Ej: 24 para 2024
+      const currentCentury = Math.floor(currentYear / 100) * 100;
+      const currentYearLastTwoDigits = currentYear % 100;
 
-      // Heurística para el siglo: si el año del CURP es mayor que los dos dígitos del año actual + un margen (ej. 10),
-      // se asume que es del siglo pasado. Si no, del actual o futuro cercano.
       if (anio > currentYearLastTwoDigits + 10 && anio <= 99) {
-        anio = currentCentury - 100 + anio; // Ej: 1900 + anio
+        anio = currentCentury - 100 + anio;
       } else {
-        anio = currentCentury + anio; // Ej: 2000 + anio
+        anio = currentCentury + anio;
       }
-      // Corrección para años futuros si el siglo se calculó mal (ej. CURP '00' y estamos en 2024 -> 2000, no 2100)
+
       if (anio > currentYear + 5) {
-        // Si el año calculado es mucho mayor que el actual
         anio -= 100;
       }
 
@@ -294,8 +364,8 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
         return { displayDate: "CURP: Fecha en CURP inválida.", isoDate: null };
       }
       try {
-        const fecha = new Date(anio, mes - 1, dia); // Mes es 0-indexed
-        // Validar que la fecha construida sea la misma que los componentes extraídos
+        const fecha = new Date(anio, mes - 1, dia);
+
         if (
           fecha.getFullYear() !== anio ||
           fecha.getMonth() !== mes - 1 ||
@@ -306,8 +376,14 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
             isoDate: null,
           };
         }
-        const displayDate = fecha.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
-        const isoDate = `${anio}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+        const displayDate = fecha.toLocaleDateString("es-MX", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        });
+        const isoDate = `${anio}-${String(mes).padStart(2, "0")}-${String(
+          dia
+        ).padStart(2, "0")}`;
         return { displayDate, isoDate };
       } catch (e) {
         return {
@@ -320,57 +396,68 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
   };
 
   // --- FUNCIÓN PARA VERIFICAR SI EL CURP EXISTE ---
-  const checkCurpExists = useCallback(async (curpValue) => {
-    if (!curpValue || curpValue.length !== 18 || !authToken) {
-      setCurpError('');
-      return false;
-    }
-    setIsCheckingCurp(true); setCurpError('');
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/doctores/check-curp/${curpValue}`, {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status}`);
+  const checkCurpExists = useCallback(
+    async (curpValue) => {
+      if (!curpValue || curpValue.length !== 18 || !authToken) {
+        setCurpError("");
+        return false;
       }
+      setIsCheckingCurp(true);
+      setCurpError("");
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/api/doctores/check-curp/${curpValue}`,
+          {
+            headers: { Authorization: `Bearer ${authToken}` },
+          }
+        );
 
-      const data = await response.json();
+        if (!response.ok) {
+          throw new Error(`Error HTTP: ${response.status}`);
+        }
 
-      if (data.exists) {
-        setCurpError(data.message || "⚠️ Esta CURP ya está registrada en el sistema");
-        return true; // Retorna true cuando la CURP existe
-      } else {
-        setCurpError('');
-        return false; // Retorna false cuando la CURP no existe
+        const data = await response.json();
+
+        if (data.exists) {
+          setCurpError(
+            data.message || "⚠️ Esta CURP ya está registrada en el sistema"
+          );
+          return true; // Retorna true cuando la CURP existe
+        } else {
+          setCurpError("");
+          return false; // Retorna false cuando la CURP no existe
+        }
+      } catch (err) {
+        console.error("Error verificando CURP:", err);
+        setCurpError("Error al verificar la CURP. Intente nuevamente.");
+        return false;
+      } finally {
+        setIsCheckingCurp(false);
       }
-
-    } catch (err) {
-      console.error("Error verificando CURP:", err);
-      setCurpError("⚠️ Error al verificar la CURP. Intente nuevamente.");
-      return false; // En caso de error, asumimos que no existe para permitir continuar
-    } finally {
-      setIsCheckingCurp(false);
-    }
-  }, [authToken]);
+    },
+    [authToken]
+  );
 
   useEffect(() => {
     const handler = setTimeout(() => {
       if (formData.curp.length === 18) {
         checkCurpExists(formData.curp);
       } else if (formData.curp.length > 0) {
-        setCurpError('La CURP debe tener exactamente 18 caracteres');
+        setCurpError("La CURP debe tener exactamente 18 caracteres");
       } else {
-        setCurpError('');
+        setCurpError("");
       }
     }, 700);
 
     return () => clearTimeout(handler);
   }, [formData.curp, checkCurpExists]);
 
-
   const handleChange = (event) => {
     const { name, value } = event.target;
+
+    if (name === "clues") {
+      fetchAndApplyCluesData(value);
+    }
 
     setFormData((prevFormData) => {
       const newFormData = { ...prevFormData, [name]: value };
@@ -378,73 +465,120 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
         const curpUpper = value.toUpperCase();
         newFormData.curp = curpUpper;
 
-        if (curpUpper.length === 18) {
-          const { displayDate, isoDate } = calcularFechaNacimientoDesdeCURP(curpUpper);
-          setFechaNacimientoCalculada(displayDate);
-          newFormData.fecha_nacimiento = isoDate || "";
+        const info = getInfoFromCURP(curpUpper);
+        if (info) {
+          newFormData.fecha_nacimiento = info.fechaNacimiento;
+          newFormData.sexo = info.sexo;
+          newFormData.edad = info.edad;
         } else {
-          setFechaNacimientoCalculada('');
           newFormData.fecha_nacimiento = "";
+          newFormData.sexo = "";
+          newFormData.edad = null; // Limpiamos la edad si la CURP es inválida
         }
       }
       return newFormData;
     });
+
+    if (name === "clues") {
+      fetchAndApplyCluesData(value);
+    }
+  };
+
+  const fetchAndApplyCluesData = async (cluesCode) => {
+    if (cluesCode.length !== 11) {
+      setCluesError("");
+      return;
+    }
+
+    setIsLoadingClues(true);
+    setCluesError("");
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/clues/${cluesCode}`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (!response.ok) {
+        if (response.status === 404) setCluesError("CLUES no encontrada.");
+        else setCluesError("Error al buscar CLUES.");
+        return;
+      }
+      const data = await response.json();
+
+      // Rellenamos el formulario con los datos encontrados
+      setFormData((prev) => ({
+        ...prev,
+        direccion_unidad: data.direccion_unidad || "",
+        nombre_unidad: data.nombre_unidad || "",
+        entidad: data.entidad || "",
+        municipio: data.municipio || "",
+        nivel_atencion: data.nivel_atencion || "",
+        tipo_establecimiento: data.tipo_establecimiento || "",
+        subtipo_establecimiento: data.subtipo_establecimiento || "",
+        estrato: data.estrato || "",
+      }));
+    } catch (error) {
+      console.error("Error al obtener datos de CLUES:", error);
+      setCluesError("Error de conexión al buscar CLUES.");
+    } finally {
+      setIsLoadingClues(false);
+    }
   };
 
   const handleSubmit = async (event) => {
-        event.preventDefault();
-        setError("");
+    event.preventDefault();
+    setError("");
 
-        // --- CORREGIDO: Añadir validación para id_imss ---
-        if (!formData.id_imss.trim() || !formData.nombre.trim() || !formData.apellido_paterno.trim() || !formData.estatus || !formData.especialidad || !formData.entidad) {
-            setError("Por favor, completa todos los campos requeridos (*).");
-            setIsSaving(false);
-            return;
-        }
+    // --- Añadir validación para id_imss ---
+    if (
+      !formData.id_imss.trim() ||
+      !formData.nombre.trim() ||
+      !formData.apellido_paterno.trim() ||
+      !formData.estatus ||
+      !formData.especialidad ||
+      !formData.entidad
+    ) {
+      setError("Por favor, completa todos los campos requeridos (*).");
+      setIsSaving(false);
+      return;
+    }
 
-        setIsSaving(true);
-        
-        // --- CORREGIDO: Enviar id_imss en el payload ---
-        const dataToSend = {
-            id_imss: formData.id_imss.trim(),
-            nombre: formData.nombre.trim(),
-            apellido_paterno: formData.apellido_paterno.trim(),
-            apellido_materno: formData.apellido_materno.trim(),
-            estatus: formData.estatus,
-            curp: formData.curp.trim() || null,
-            especialidad: formData.especialidad.trim(),
-            entidad: formData.entidad,
-            // ... (resto de campos)
-        };
+    setIsSaving(true);
 
-        try {
-            const url = `${API_BASE_URL}/api/doctores`;
-            const response = await fetch(url, {
-                method: "POST",
-                headers: {
-                    Authorization: `Bearer ${authToken}`,
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify(dataToSend),
-            });
+    const dataToSend = { ...formData };
+    Object.keys(dataToSend).forEach((key) => {
+      if (typeof dataToSend[key] === "string") {
+        dataToSend[key] = dataToSend[key].trim();
+      }
+      if (dataToSend[key] === "") {
+        dataToSend[key] = null;
+      }
+    });
 
-            if (response.ok) {
-                const responseData = await response.json();
-                onSave(responseData, false); // El segundo parámetro indica que no estaba editando
-            } else {
-                const errorData = await response.json();
-                setError(errorData.detail || "Hubo un error al crear el doctor.");
-            }
-        } catch (err) {
-            setError(err.message || "Error de conexión. Intenta de nuevo.");
-        } finally {
-            setIsSaving(false);
-        }
-    };
+    try {
+      const url = `${API_BASE_URL}/api/doctores`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(dataToSend),
+      });
 
+      if (response.ok) {
+        const savedDoctor = await response.json();
+        onSave(savedDoctor, false);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.detail || "Hubo un error al crear el doctor.");
+      }
+    } catch (err) {
+      setError(err.message || "Error de conexión. Intenta de nuevo.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const createFields = [
-    
     {
       name: "id_imss",
       label: "ID IMSS",
@@ -517,70 +651,185 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
     >
       <form onSubmit={handleSubmit}>
         <div style={modalStyles.modalHeader}>Agregar Nuevo Doctor</div>
-        {createFields.map((field) => {
-          const commonProps = {
-            id: field.name,
-            name: field.name,
-            value: formData[field.name] || "",
-            onChange: handleChange,
-            required: field.required,
-            style: {
-              ...modalStyles.input,
-              ...(field.type === "select" ? modalStyles.select : {}),
-            },
-            disabled: isSaving,
-          };
-          return (
-            <div key={field.name} style={modalStyles.formGroup}>
-              <label htmlFor={field.name} style={modalStyles.label}>
+        <div style={modalStyles.formGroup}>
+          <label style={modalStyles.label}>ID IMSS*:</label>
+          <input
+            type="text"
+            name="id_imss"
+            value={formData.id_imss}
+            onChange={handleChange}
+            required
+            style={modalStyles.input}
+          />
+        </div>
+        <div style={modalStyles.formGroup}>
+          <label style={modalStyles.label}>Nombres*:</label>
+          <input
+            type="text"
+            name="nombre"
+            value={formData.nombre}
+            onChange={handleChange}
+            required
+            style={modalStyles.input}
+          />
+        </div>
+        <div style={modalStyles.formGroup}>
+          <label style={modalStyles.label}>Apellido Paterno*:</label>
+          <input
+            type="text"
+            name="apellido_paterno"
+            value={formData.apellido_paterno}
+            onChange={handleChange}
+            required
+            style={modalStyles.input}
+          />
+        </div>
+        <div style={modalStyles.formGroup}>
+          <label style={modalStyles.label}>Apellido Materno:</label>
+          <input
+            type="text"
+            name="apellido_materno"
+            value={formData.apellido_materno}
+            onChange={handleChange}
+            style={modalStyles.input}
+          />
+        </div>
+        <div style={modalStyles.formGroup}>
+          <label style={modalStyles.label}>CURP:</label>
+          <input
+            type="text"
+            name="curp"
+            value={formData.curp}
+            onChange={handleChange}
+            maxLength={18}
+            style={modalStyles.input}
+          />{" "}
+          {curpError && <p style={modalStyles.errorText}>{curpError}</p>}{" "}
+          {fechaNacimientoCalculada && (
+            <p style={modalStyles.infoText}>
+              Fecha de Nacimiento (calculada): {fechaNacimientoCalculada}
+            </p>
+          )}
+        </div>
+        <div style={modalStyles.formGroup}>
+          <label style={modalStyles.label}>Estatus*:</label>
+          <select
+            name="estatus"
+            value={formData.estatus}
+            onChange={handleChange}
+            required
+            style={modalStyles.select}
+          >
+            {ESTATUS_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div style={modalStyles.formGroup}>
+          <label style={modalStyles.label}>Fecha de Inicio (Estatus)*:</label>
+          <input
+            type="date"
+            name="fecha_estatus"
+            value={formData.fecha_estatus}
+            onChange={handleChange}
+            required
+            style={modalStyles.input}
+          />
+        </div>
+        <div style={modalStyles.formGroup}>
+          <label style={modalStyles.label}>Especialidad*:</label>
+          <select
+            name="especialidad"
+            value={formData.especialidad}
+            onChange={handleChange}
+            required
+            style={modalStyles.select}
+          >
+            {ESPECIALIDAD_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div style={modalStyles.formGroup}>
+          <label style={modalStyles.label}>Turno:</label>
+          <select
+            name="turno"
+            value={formData.turno}
+            onChange={handleChange}
+            style={modalStyles.select}
+          >
+            <option value="">Seleccione un turno...</option>
+            <option value="Jornada Acumulada">Jornada Acumulada</option>
+            <option value="Matutino">Matutino</option>
+            <option value="No Aplica">No Aplica</option>
+            <option value="Nocturno A">Nocturno A</option>
+            <option value="Nocturno B">Nocturno B</option>
+            <option value="Vespertino">Vespertino</option>
+          </select>
+        </div>
+        <div style={modalStyles.formGroup}>
+          <label style={modalStyles.label}>CLUES*:</label>
+          <input
+            type="text"
+            name="clues"
+            value={formData.clues}
+            onChange={handleChange}
+            required
+            style={modalStyles.input}
+          />{" "}
+          {isLoadingClues && <p style={modalStyles.infoText}>Buscando...</p>}{" "}
+          {cluesError && <p style={modalStyles.errorText}>{cluesError}</p>}
+        </div>
+        <div style={modalStyles.formGroup}>
+          <label style={modalStyles.label}>Entidad*:</label>
+          <input
+            type="text"
+            name="entidad"
+            value={formData.entidad}
+            onChange={handleChange}
+            required
+            style={modalStyles.input}
+            readOnly
+          />
+        </div>
+        <div style={modalStyles.formGroup}>
+          <label style={modalStyles.label}>Unidad Médica:</label>
+          <input
+            type="text"
+            name="nombre_unidad"
+            value={formData.nombre_unidad}
+            onChange={handleChange}
+            style={modalStyles.input}
+            readOnly
+          />
+        </div>
+        <div style={modalStyles.formGroup}>
+          <label style={modalStyles.label}>Municipio:</label>
+          <input
+            type="text"
+            name="municipio"
+            value={formData.municipio}
+            onChange={handleChange}
+            style={modalStyles.input}
+            readOnly
+          />
+        </div>
+        <div style={modalStyles.formGroup}>
+          <label style={modalStyles.label}>Nivel de Atención:</label>
+          <input
+            type="text"
+            name="nivel_atencion"
+            value={formData.nivel_atencion}
+            onChange={handleChange}
+            style={modalStyles.input}
+            readOnly
+          />
+        </div>
 
-                {field.label}
-                {field.required && <span style={{ color: "red" }}>*</span>}:
-              </label>
-              {field.type === "select" ? (
-                <select {...commonProps}>
-                  {field.options.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  type={field.type}
-                  maxLength={field.maxLength}
-                  placeholder={field.placeholder}
-                  {...commonProps}
-                />
-              )}
-              {field.name === "curp" && (
-                <>
-                  {fechaNacimientoCalculada && (
-                    <p style={modalStyles.infoText}>
-                      Fecha de Nacimiento (calculada):{" "}
-                      {fechaNacimientoCalculada}
-                    </p>
-                  )}
-                  {isCheckingCurp && (
-                    <p style={modalStyles.infoText}>Verificando CURP...</p>
-                  )}
-                  {curpError && (
-                    <p
-                      style={{
-                        ...modalStyles.errorText,
-                        textAlign: "left",
-                        marginTop: "5px",
-                      }}
-                    >
-                      {curpError}
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
-          );
-        })}
         {error && <p style={modalStyles.errorText}>{error}</p>}
         <div style={modalStyles.buttonContainer}>
           <button
