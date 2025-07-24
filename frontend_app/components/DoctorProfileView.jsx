@@ -6,17 +6,17 @@ const profileStyles = {
   container: {
     padding: "20px",
     margin: "20px auto",
-    maxWidth: "800px",
+    maxWidth: "1200px",
     border: "1px solid #e0e0e0",
     borderRadius: "8px",
     backgroundColor: "#ffffff",
     boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
   },
   idStyle: {
-    fontSize: ".8em", // Más pequeño que el título
-    color: "#6c757d", // Un color secundario
+    fontSize: ".8em",
+    color: "#6c757d",
     fontWeight: "500",
-    marginLeft: "10px", // Espacio entre el título y el ID
+    marginLeft: "10px",
   },
   header: {
     display: "flex",
@@ -40,7 +40,6 @@ const profileStyles = {
     border: "none",
     borderRadius: "4px",
     transition: "background-color 0.2s ease",
-    // marginRight: '10px', // Estaba en el código anterior, revisa si lo necesitas para el layout
   },
   editButton: {
     padding: "8px 15px",
@@ -100,7 +99,7 @@ const profileStyles = {
     color: "#555",
     textAlign: "left",
     paddingRight: "10px",
-    minWidth: "180px", // Ajusta para alinear labels y inputs
+    minWidth: "180px",
   },
   fieldValue: {
     color: "#333",
@@ -109,12 +108,11 @@ const profileStyles = {
     textTransform: "uppercase",
   },
   fieldInput: {
-    // Estilo para los inputs en modo edición
     width: "100%",
     padding: "8px",
     border: "1px solid #ccc",
     borderRadius: "4px",
-    boxSizing: "border-box", // Importante para que el padding no aumente el ancho total
+    boxSizing: "border-box",
   },
   gridContainer: {
     display: "grid",
@@ -122,9 +120,9 @@ const profileStyles = {
   },
   fieldPair: {
     display: "grid",
-    gridTemplateColumns: "auto 1fr", // label auto, input 1fr
+    gridTemplateColumns: "auto 1fr",
     gap: "0 10px",
-    alignItems: "center", // Alinea verticalmente el label y el input
+    alignItems: "center",
     marginBottom: "10px",
   },
   mainLayout: {
@@ -237,7 +235,6 @@ const profileStyles = {
     alignItems: "center",
   },
   defuncionMessage: {
-    // Nuevo estilo para el mensaje de defunción
     color: "red",
     fontWeight: "bold",
     textAlign: "center",
@@ -248,24 +245,24 @@ const profileStyles = {
     marginTop: "15px",
     marginBottom: "15px",
   },
-    historyHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '15px',
+  historyHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "15px",
   },
   addHistoryButton: {
-    padding: '10px 18px',
-    fontSize: '0.95em',
-    cursor: 'pointer',
-    backgroundColor: '#006657', // Color verde oscuro
-    color: 'white',
-    border: 'none',
-    borderRadius: '6px',
-    fontWeight: '500',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
+    padding: "10px 18px",
+    fontSize: "0.95em",
+    cursor: "pointer",
+    backgroundColor: "#006657",
+    color: "white",
+    border: "none",
+    borderRadius: "6px",
+    fontWeight: "500",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
   },
   modalBackdrop: {
     position: "fixed",
@@ -299,58 +296,115 @@ const profileStyles = {
     color: "#333",
   },
   modalFormLabel: {
-    display: 'block',
-    fontWeight: 'bold',
-    marginBottom: '5px',
-    fontSize: '0.9em',
+    display: "block",
+    fontWeight: "bold",
+    marginBottom: "5px",
+    fontSize: "0.9em",
   },
   modalFormInput: {
-    width: '100%',
-    padding: '10px',
-    border: '1px solid #ccc',
-    borderRadius: '4px',
-    boxSizing: 'border-box',
-    fontSize: '1em',
+    width: "100%",
+    padding: "10px",
+    border: "1px solid #ccc",
+    borderRadius: "4px",
+    boxSizing: "border-box",
+    fontSize: "1em",
   },
   modalFormGroup: {
-    marginBottom: '15px',
+    marginBottom: "15px",
   },
   modalActions: {
-    marginTop: '20px',
-    textAlign: 'right',
+    marginTop: "20px",
+    textAlign: "right",
+  },
+  dataTable: {
+    width: "100%",
+    borderCollapse: "collapse",
+    fontSize: "0.9em",
+    marginTop: "20px", // Espacio arriba de la tabla
+  },
+  dataTableTh: {
+    backgroundColor: "#006657", // Fondo verde oscuro
+    color: "white",
+    padding: "10px 12px",
+    textAlign: "center",
+    border: "1px solid #005c4e",
+    fontWeight: "bold",
+  },
+  dataTableTd: {
+    padding: "10px 12px",
+    border: "1px solid #ddd",
+    color: "#333",
+    textAlign: "center",
+  },
+  dataTableTrEven: {
+    backgroundColor: "#f2f2f2",
+  },
+  modalFormInputDisabled: {
+    backgroundColor: "#6e6c6cff",
+    cursor: "not-allowed",
   },
 };
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 
-// --- FUNCIÓN PARA FORMATEAR FECHAS YYYY-MM-DD a DD/MM/YYYY ---
-const formatDateForDisplay = (isoDateString) => {
-  if (!isoDateString || typeof isoDateString !== "string") {
-    return "No especificado"; // O devuelve una cadena vacía: ""
-  }
-  // Asume que isoDateString es como "YYYY-MM-DD"
-  const parts = isoDateString.split("-");
-  if (parts.length === 3) {
-    const year = parts[0];
-    const month = parts[1];
-    const day = parts[2];
-    // Validar que sean números (básico)
-    if (
-      !isNaN(parseInt(year)) &&
-      !isNaN(parseInt(month)) &&
-      !isNaN(parseInt(day))
-    ) {
-      // Re-formatear a DD/MM/YYYY
-      return `${day}/${month}/${year}`;
-    }
-  }
-  // Si no es el formato esperado o es inválido, devuelve el original o un placeholder
-  return isoDateString; // O "Fecha inválida"
-};
-// --- FIN FUNCIÓN ---
+const renderCommentWithBoldPrefix = (comment) => {
+    if (!comment) return null;
 
-// Define FieldRenderer FUERA de DoctorProfileView y envuélvelo con React.memo
+    const prefix1 = "Registro de Expediente.";
+    const prefix2 = "Registro inicial en el sistema.";
+    const prefix3 = "Registro retroactivo.";
+
+    if (comment.startsWith(prefix1)) {
+        return (
+            <span>
+                <strong>{prefix1}</strong>
+                {comment.substring(prefix1.length)}
+            </span>
+        );
+    }
+    
+    if (comment.trim() === prefix2 || comment.trim() === prefix3) {
+        return <strong>{comment}</strong>;
+    }
+    return comment;
+};
+
+const formatDateForDisplay = (dateString) => {
+  if (!dateString) return "N/A";
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "Fecha inválida";
+    // Usamos UTC para evitar que la zona horaria del navegador cambie el día
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const year = date.getUTCFullYear();
+    return `${day}/${month}/${year}`;
+  } catch (error) {
+    return "Inválido";
+  }
+};
+
+const formatDateTimeForDisplay = (isoDateTimeString) => {
+  if (!isoDateTimeString) return "N/A";
+  try {
+    const date = new Date(isoDateTimeString);
+    if (isNaN(date.getTime())) return "Fecha inválida";
+    const datePart = date.toLocaleDateString("es-MX", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+    const timePart = date.toLocaleTimeString("es-MX", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    return `${datePart} ${timePart}`;
+  } catch (error) {
+    return "Inválido";
+  }
+};
+
 const FieldRenderer = React.memo(
   ({
     label,
@@ -358,7 +412,7 @@ const FieldRenderer = React.memo(
     type = "text",
     options = [],
     isEditing,
-    currentValue, // Usaremos una prop 'currentValue'
+    currentValue,
     onChange,
     isLoading,
     disabled = false,
@@ -367,14 +421,14 @@ const FieldRenderer = React.memo(
       currentValue === null || currentValue === undefined ? "" : currentValue;
 
     let valueForDisplay;
-    // Lista de campos que son fechas y deben formatearse para visualización
+
     const dateFieldsToFormat = [
       "fecha_nacimiento",
       "fecha_notificacion",
       "fecha_estatus",
       "fecha_vuelo",
       "fecha_fallecimiento",
-      "fecha_extraccion", // Si fecha_extraccion también es YYYY-MM-DD
+      "fecha_extraccion",
       "fecha_inicio",
       "fecha_fin",
       "fecha_egreso_esp",
@@ -451,7 +505,7 @@ FieldRenderer.displayName = "FieldRenderer";
 
 function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
   const { currentUser } = useAuth();
-  const userRole = currentUser?.role; // Obtener el rol del usuario
+  const userRole = currentUser?.role;
 
   const [doctor, setDoctor] = useState(initialDoctor);
   const [editableDoctorData, setEditableDoctorData] = useState(null);
@@ -466,30 +520,140 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
 
   const doctorGuardadoEsDefuncion = doctor?.estatus === "Defunción";
   const puedeEditarAdminRegistroDefuncion = userRole === "admin";
-  // El perfil general está bloqueado para edición si es Defunción Y el usuario actual NO es admin.
   const edicionGeneralBloqueada =
     doctorGuardadoEsDefuncion && !puedeEditarAdminRegistroDefuncion;
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
-  const [nuevoHistorial, setNuevoHistorial] = useState({
+  const initialHistoryState = {
+    tipo_cambio: "",
     estatus: "",
-    fecha_efectiva: "",
+    fecha_inicio: "",
+    fecha_fin: "",
+    clues: "",
+    entidad: "",
+    nombre_unidad: "",
+    turno: "",
     comentarios: "",
-  });
+  };
+  const [nuevoHistorial, setNuevoHistorial] = useState(initialHistoryState);
+
+  const r = async (cluesCode) => {
+    if (cluesCode.length !== 11) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/clues/${cluesCode}`);
+      if (!response.ok) throw new Error("CLUES no encontrada");
+      const data = await response.json();
+      // Actualiza el estado del formulario del modal
+      setNuevoHistorial((prev) => ({
+        ...prev,
+        entidad: data.entidad || "",
+        nombre_unidad: data.nombre_unidad || "",
+      }));
+    } catch (error) {
+      console.error("Error al buscar CLUES para el modal:", error);
+    }
+  };
+
+  const fetchCluesDataForModal = async (cluesCode) => {
+    if (cluesCode.length !== 11) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/clues/${cluesCode}`);
+      if (!response.ok) throw new Error("CLUES no encontrada");
+      const data = await response.json();
+      setNuevoHistorial((prev) => ({
+        ...prev,
+        entidad: data.entidad || "",
+        nombre_unidad: data.nombre_unidad || "",
+      }));
+    } catch (error) {
+      console.error("Error al buscar CLUES para el modal:", error);
+    }
+  };
 
   const handleHistorialChange = (e) => {
     const { name, value } = e.target;
-    setNuevoHistorial((prev) => ({ ...prev, [name]: value }));
+
+    setNuevoHistorial((prev) => {
+      const newState = { ...prev, [name]: value };
+
+      if (name === "tipo_cambio") {
+        if (value === "Estatus") {
+          return {
+            ...initialHistoryState,
+            tipo_cambio: "Estatus",
+            clues: doctor.clues,
+            entidad: doctor.entidad,
+            nombre_unidad: doctor.nombre_unidad,
+            turno: doctor.turno,
+          };
+        } else if (value === "Redistribución") {
+          return {
+            ...initialHistoryState,
+            tipo_cambio: "Redistribución",
+            estatus: doctor.estatus,
+            turno: doctor.turno,
+            fecha_fin: "",
+          };
+        } else if (value === "Turno") {
+          return {
+            ...initialHistoryState,
+            tipo_cambio: "Turno",
+            estatus: doctor.estatus,
+            clues: doctor.clues,
+            entidad: doctor.entidad,
+            nombre_unidad: doctor.nombre_unidad,
+            fecha_fin: "",
+          };
+        } else {
+          return initialHistoryState;
+        }
+      }
+
+      if (name === "clues" && newState.tipo_cambio === "Redistribución") {
+        fetchCluesDataForModal(value);
+      }
+
+      return newState;
+    });
   };
 
   const handleAgregarHistorial = async (e) => {
     e.preventDefault();
-    if (!nuevoHistorial.estatus || !nuevoHistorial.fecha_efectiva) {
-      alert("Por favor, completa el estatus y la fecha.");
+
+    const { tipo_cambio, estatus, fecha_inicio, fecha_fin, clues, turno } =
+      nuevoHistorial;
+    const esEstatusTemporal = !["01 ACTIVO", "06 BAJA"].includes(estatus);
+
+    if (!tipo_cambio || !estatus || !fecha_inicio) {
+      alert("Por favor, complete Tipo de Cambio, Estatus y Fecha de Inicio.");
       return;
     }
+    if (tipo_cambio === "Estatus" && esEstatusTemporal && !fecha_fin) {
+      alert("Para este tipo de estatus, la Fecha de Fin es obligatoria.");
+      return;
+    }
+
+    if (tipo_cambio === "Redistribución" && !clues) {
+      alert("Para una redistribución, el campo CLUES es obligatorio.");
+      return;
+    }
+    if (tipo_cambio === "Turno" && !turno) {
+      alert("Para un cambio de turno, el campo Turno es obligatorio.");
+      return;
+    }
+
     setIsLoading(true);
     setError("");
     const authToken = localStorage.getItem("authToken");
+
+    const payload = { ...nuevoHistorial };
+    if (
+      !payload.fecha_fin ||
+      ["01 ACTIVO", "06 BAJA"].includes(payload.estatus) ||
+      payload.tipo_cambio === "Redistribución"
+    ) {
+      payload.fecha_fin = null;
+    }
 
     try {
       const response = await fetch(
@@ -500,7 +664,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
             "Content-Type": "application/json",
             Authorization: `Bearer ${authToken}`,
           },
-          body: JSON.stringify(nuevoHistorial),
+          body: JSON.stringify(payload),
         }
       );
 
@@ -508,10 +672,18 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
         const errorData = await response.json();
         throw new Error(errorData.detail || "Error al guardar el registro.");
       }
-      // Si todo sale bien, cerramos el modal y refrescamos los datos del doctor
       setIsHistoryModalOpen(false);
-      setNuevoHistorial({ estatus: "", fecha_efectiva: "", comentarios: "" }); // Limpiar formulario
-      onProfileUpdate(doctor.id_imss); // Llama a la función para recargar el perfil
+      setNuevoHistorial({
+        tipo_cambio: "",
+        estatus: "",
+        fecha_inicio: "",
+        fecha_fin: "",
+        clues: "",
+        entidad: "",
+        nombre_unidad: "",
+        comentarios: "",
+      });
+      onProfileUpdate(doctor.id_imss);
       setSuccessMessage("Registro de historial añadido exitosamente.");
     } catch (err) {
       setError(err.message);
@@ -550,17 +722,14 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
         fecha_fin: "",
         motivo: "",
         tipo_incapacidad: "",
-        // No incluyas aquí los campos que SÍ o SÍ vienen de initialDoctor del paso 1,
-        // como nombre_completo, estatus, curp, especialidad, id.
       };
       setEditableDoctorData({
-        ...defaultFormValuesForAllFields, // Primero los defaults para todos los campos posibles
-        ...initialDoctor, // Luego sobrescribe con lo que realmente trae initialDoctor
+        ...defaultFormValuesForAllFields,
+        ...initialDoctor,
       });
     } else {
       setEditableDoctorData(null);
     }
-    // ... resto del useEffect ...
   }, [initialDoctor, userRole]);
 
   useEffect(() => {
@@ -602,9 +771,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
   };
 
   const fetchAndApplyCluesData = async (cluesCode) => {
-    // Evitar llamadas a la API si el código es muy corto
     if (!cluesCode || cluesCode.length < 11) {
-      // Un código CLUES típico tiene más de 10 caracteres
       return;
     }
 
@@ -652,18 +819,13 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
 
-    // Actualizamos el estado usando la forma funcional, que es más segura
     setEditableDoctorData((prevData) => {
       let newData = { ...prevData, [name]: value };
 
-      // --- Lógica para autocompletado de CLUES ---
       if (name === "clues") {
-        // Llamamos a la función que busca los datos de la CLUES.
-        // No necesitamos 'await' aquí, la función se encargará de su propio estado de carga.
         fetchAndApplyCluesData(value);
       }
 
-      // --- Lógica existente para el campo ESTATUS ---
       if (name === "estatus") {
         const nuevoEstatus = value;
         const camposActividad = [
@@ -682,7 +844,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
           "forma_notificacion",
         ];
 
-        if (nuevoEstatus === "05 BAJA") {
+        if (nuevoEstatus === "06 BAJA") {
           camposActividad.forEach((campo) => {
             newData[campo] = null;
           });
@@ -765,7 +927,6 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
     }
   };
 
-  // ... (resto de tus funciones: handleProfilePicSelect, uploadProfilePic, etc. sin cambios)
   const handleProfilePicSelect = (event) => {
     const file = event.target.files[0];
     if (file) {
@@ -805,18 +966,17 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
           .catch(() => ({ detail: "Error al subir la foto." }));
         throw new Error(errorData.detail || `Error ${response.status}`);
       }
-      const updatedDoctorData = await response.json(); // Aquí esperamos DoctorDetail
+      const updatedDoctorData = await response.json();
 
-      // Actualizar el estado 'doctor' completamente con la respuesta
       setDoctor(updatedDoctorData);
       if (isEditing) {
         setEditableDoctorData({ ...updatedDoctorData });
       }
 
       setSelectedProfilePicFile(null);
-      setProfilePicPreviewUrl(null); // La URL vendrá de updatedDoctorData.profile_pic_url
+      setProfilePicPreviewUrl(null);
       setSuccessMessage("Foto de perfil actualizada exitosamente.");
-      if (onProfileUpdate) onProfileUpdate(updatedDoctorData.id_imss); // Usa el ID de la respuesta
+      if (onProfileUpdate) onProfileUpdate(updatedDoctorData.id_imss);
     } catch (err) {
       console.error("Error al subir foto de perfil:", err);
       setError(err.message || "Ocurrió un error al subir la foto.");
@@ -863,9 +1023,8 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
           .catch(() => ({ detail: "Error al subir el adjunto." }));
         throw new Error(errorData.detail || `Error ${response.status}`);
       }
-      const newAttachment = await response.json(); // Esto es un DoctorAttachment, no el Doctor completo
+      const newAttachment = await response.json();
 
-      // Actualizar el array de attachments en el estado 'doctor' y 'editableDoctorData'
       const updatedAttachmentsList = [
         ...(doctor.attachments || []),
         newAttachment,
@@ -887,7 +1046,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
       setSuccessMessage(
         `Archivo "${newAttachment.file_name}" subido exitosamente.`
       );
-      if (onProfileUpdate) onProfileUpdate(doctor.id_imss); // Notificar que algo cambió
+      if (onProfileUpdate) onProfileUpdate(doctor.id_imss);
     } catch (err) {
       console.error("Error al subir adjunto:", err);
       setError(err.message || "Ocurrió un error al subir el adjunto.");
@@ -968,967 +1127,1343 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
   }
 
   const estatusActualParaUI = editableDoctorData.estatus;
-  const esEstatusDeBaja = estatusActualParaUI === "05 BAJA";
+  const esEstatusDeBaja = estatusActualParaUI === "06 BAJA";
   const esEstatusDeDefuncion = estatusActualParaUI === "Defunción";
-  const esEstatusDeRetiro = estatusActualParaUI === "02 RETIRO TEMP.";
-  const esEstatusDeSolicitud = estatusActualParaUI === "03 SOL. PERSONAL";
-  const esEstatusDeIncapacidad = estatusActualParaUI === "04 INCAPACIDAD";
+  const esEstatusDeRetiro = estatusActualParaUI === "02 RETIRO TEMP.(CUBA)" ||  estatusActualParaUI === "03 RETIRO TEMP.(MEXICO)";
+  const esEstatusDeSolicitud = estatusActualParaUI === "04 SOL. PERSONAL";
+  const esEstatusDeIncapacidad = estatusActualParaUI === "05 INCAPACIDAD";
   const currentProfilePicUrl = profilePicPreviewUrl || doctor.foto_url || null;
 
   return (
-    <div style={profileStyles.mainLayout}>
-      <div style={profileStyles.infoColumn}>
-        <div style={profileStyles.header}>
-          <h1 style={profileStyles.title}>
-            Expediente del Doctor
-            <span style={profileStyles.idStyle}>({doctor.id_imss})</span>
-          </h1>
-          <div style={profileStyles.buttonsContainer}>
-            <button
-              onClick={onBack}
-              style={profileStyles.backButton}
-              disabled={isLoading && isEditing}
-            >
-              &larr; Volver
-            </button>
+    <>
+      <div style={profileStyles.mainLayout}>
+        {/* APARTADO PRINCIPAL EXPEDIENTE */}
+        <div style={profileStyles.infoColumn}>
+          <div style={profileStyles.header}>
+            <h1 style={profileStyles.title}>
+              Expediente del Doctor
+              <span style={profileStyles.idStyle}>({doctor.id_imss})</span>
+            </h1>
+            <div style={profileStyles.buttonsContainer}>
+              <button
+                onClick={onBack}
+                style={profileStyles.backButton}
+                disabled={isLoading && isEditing}
+              >
+                &larr; Volver
+              </button>
 
-            {currentUser && currentUser.role !== "consulta" && (
-              <>
-                {!edicionGeneralBloqueada &&
-                  (isEditing ? (
-                    <>
-                      <button
-                        onClick={handleSaveProfile}
-                        style={profileStyles.saveButton}
-                        disabled={isLoading}
-                      >
-                        {isLoading ? "Guardando..." : "Guardar Cambios"}
-                      </button>
+              {currentUser && currentUser.role !== "consulta" && (
+                <>
+                  {!edicionGeneralBloqueada &&
+                    (isEditing ? (
+                      <>
+                        <button
+                          onClick={handleSaveProfile}
+                          style={profileStyles.saveButton}
+                          disabled={isLoading}
+                        >
+                          {isLoading ? "Guardando..." : "Guardar Cambios"}
+                        </button>
+                        <button
+                          onClick={handleEditToggle}
+                          style={profileStyles.cancelButton}
+                          disabled={isLoading}
+                        >
+                          Cancelar
+                        </button>
+                      </>
+                    ) : (
                       <button
                         onClick={handleEditToggle}
-                        style={profileStyles.cancelButton}
+                        style={profileStyles.editButton}
                         disabled={isLoading}
                       >
-                        Cancelar
+                        Editar Expediente
                       </button>
-                    </>
-                  ) : (
-                    <button
-                      onClick={handleEditToggle}
-                      style={profileStyles.editButton}
-                      disabled={isLoading}
-                    >
-                      Editar Expediente
-                    </button>
-                  ))}
-              </>
-            )}
-          </div>
-        </div>
-
-        {doctorGuardadoEsDefuncion && (
-          <div style={profileStyles.defuncionMessage}>
-            EXPEDIENTE CERRADO POR DEFUNCIÓN
-          </div>
-        )}
-
-        {isLoading && !selectedProfilePicFile && !selectedAttachmentFile && (
-          <p style={profileStyles.loadingMessage}>Procesando...</p>
-        )}
-        {error && <p style={profileStyles.errorMessage}>{error}</p>}
-        {successMessage && (
-          <p style={profileStyles.successMessage}>{successMessage}</p>
-        )}
-
-        <div style={profileStyles.sectionTitle}>Información Personal</div>
-        <div
-          style={{
-            ...profileStyles.gridContainer,
-            gridTemplateColumns: "1fr 1fr",
-          }}
-        >
-          <div>
-            <FieldRenderer
-              label="Nombres"
-              fieldName="nombre"
-              isEditing={isEditing}
-              currentValue={editableDoctorData.nombre}
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
-            <FieldRenderer
-              label="Apellido Paterno"
-              fieldName="apellido_paterno"
-              isEditing={isEditing}
-              currentValue={editableDoctorData.apellido_paterno}
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
-            <FieldRenderer
-              label="Apellido Materno"
-              fieldName="apellido_materno"
-              isEditing={isEditing}
-              currentValue={editableDoctorData.apellido_materno}
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
-            <FieldRenderer
-              label="CURP"
-              fieldName="curp"
-              isEditing={isEditing}
-              currentValue={editableDoctorData.curp}
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
-            <FieldRenderer
-              label="Pasaporte"
-              fieldName="pasaporte"
-              isEditing={isEditing}
-              currentValue={editableDoctorData.pasaporte}
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
-
-            <FieldRenderer
-              label="Fecha Emision"
-              fieldName="fecha_emision"
-              type="date"
-              isEditing={isEditing}
-              currentValue={editableDoctorData.fecha_emision}
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
-            <FieldRenderer
-              label="Fecha Expiración"
-              fieldName="fecha_expiracion"
-              type="date"
-              isEditing={isEditing}
-              currentValue={editableDoctorData.fecha_expiracion}
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
-          </div>
-          <div>
-            <FieldRenderer
-              label="Edad"
-              fieldName="edad"
-              isEditing={isEditing}
-              currentValue={editableDoctorData.edad}
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
-            <FieldRenderer
-              label="Sexo"
-              fieldName="sexo"
-              type="select"
-              options={[
-                { value: "M", label: "Masculino" },
-                { value: "F", label: "Femenino" },
-                { value: "Otro", label: "Otro" },
-              ]}
-              isEditing={isEditing}
-              currentValue={editableDoctorData.sexo}
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
-            <FieldRenderer
-              label="Fecha de Nacimiento"
-              fieldName="fecha_nacimiento"
-              type="date"
-              isEditing={isEditing}
-              currentValue={editableDoctorData.fecha_nacimiento}
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
-
-            <FieldRenderer
-              label="Lugar de Nacimiento"
-              fieldName="entidad_nacimiento"
-              isEditing={isEditing}
-              currentValue={editableDoctorData.entidad_nacimiento}
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
-            <FieldRenderer
-              label="Matrimonio ID"
-              fieldName="matrimonio_id"
-              isEditing={isEditing}
-              currentValue={editableDoctorData.matrimonio_id}
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
-            <FieldRenderer
-              label="Teléfono"
-              fieldName="telefono"
-              type="tel"
-              isEditing={isEditing}
-              currentValue={
-                isEditing ? editableDoctorData.telefono : doctor.telefono
-              }
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
-            <FieldRenderer
-              label="Correo Electrónico"
-              fieldName="correo"
-              type="email"
-              isEditing={isEditing}
-              currentValue={
-                isEditing ? editableDoctorData.correo : doctor.correo
-              }
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
-          </div>
-        </div>
-        <div style={profileStyles.sectionTitle}>Datos Académicos</div>
-        <div
-          style={{
-            ...profileStyles.gridContainer,
-            gridTemplateColumns: "1fr 1fr",
-          }}
-        >
-          <div>
-            <FieldRenderer
-              label="Licenciatura"
-              fieldName="licenciatura"
-              isEditing={isEditing}
-              currentValue={editableDoctorData.licenciatura}
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
-            <FieldRenderer
-              label="Institución"
-              fieldName="institucion_lic"
-              isEditing={isEditing}
-              currentValue={editableDoctorData.institucion_lic}
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
-            <FieldRenderer
-              label="Año de Egreso"
-              fieldName="fecha_egreso_lic"
-              type="date"
-              isEditing={isEditing}
-              currentValue={editableDoctorData.fecha_egreso_lic}
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
-
-            <FieldRenderer
-              label="Cédula Licenciatura"
-              fieldName="cedula_lic"
-              isEditing={isEditing}
-              currentValue={editableDoctorData.cedula_lic}
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
-          </div>
-          <div>
-            <FieldRenderer
-              label="Especialidad"
-              fieldName="especialidad"
-              isEditing={isEditing}
-              currentValue={editableDoctorData.especialidad}
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
-            <FieldRenderer
-              label="Institución"
-              fieldName="institucion_esp"
-              isEditing={isEditing}
-              currentValue={editableDoctorData.institucion_esp}
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
-
-            <FieldRenderer
-              label="Año de Egreso"
-              fieldName="fecha_egreso_esp"
-              type="date"
-              isEditing={isEditing}
-              currentValue={
-                isEditing
-                  ? editableDoctorData.fecha_egreso_esp
-                  : doctor.fecha_egreso_esp
-              }
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
-
-            <FieldRenderer
-              label="Cédula Especialidad"
-              fieldName="cedula_esp"
-              isEditing={isEditing}
-              currentValue={
-                isEditing ? editableDoctorData.cedula_esp : doctor.cedula_esp
-              }
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
-          </div>
-        </div>
-
-        <div style={profileStyles.sectionTitle}>Datos de Colaboración:</div>
-        <div
-          style={{
-            ...profileStyles.gridContainer,
-            gridTemplateColumns: "1fr 1fr",
-          }}
-        >
-          <div>
-            <FieldRenderer
-              label="Acuerdo"
-              fieldName="acuerdo"
-              type="select"
-              options={[
-                { value: "AAC231222ctivo", label: "AC231222" },
-                { value: "AC240511", label: "AC240511" },
-              ]}
-              isEditing={isEditing}
-              currentValue={
-                isEditing ? editableDoctorData.acuerdo : doctor.acuerdo
-              }
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
-            <FieldRenderer
-              label="Fecha (inicio | vuelo)"
-              fieldName="fecha_vuelo"
-              type="date"
-              isEditing={isEditing}
-              currentValue={editableDoctorData.fecha_vuelo}
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
-            <FieldRenderer
-              label="Estatus"
-              fieldName="estatus"
-              type="select"
-              options={[
-                { value: "01 ACTIVO", label: "01 ACTIVO" },
-                { value: "02 RETIRO TEMP.", label: "02 RETIRO TEMP." },
-                { value: "03 SOL. PERSONAL", label: "03 SOL. PERSONAL" },
-                {
-                  value: "04 INCAPACIDAD",
-                  label: "04 INCAPACIDAD",
-                },
-                { value: "05 BAJA", label: "05 BAJA" },
-              ]}
-              isEditing={isEditing}
-              currentValue={estatusActualParaUI}
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
-            <FieldRenderer
-              label="Fecha Estatus"
-              fieldName="fecha_estatus"
-              type="date"
-              isEditing={isEditing}
-              currentValue={editableDoctorData.fecha_estatus}
-              onChange={handleInputChange}
-              isLoading={isLoading}
-            />
-            {!esEstatusDeBaja &&
-              !esEstatusDeDefuncion &&
-              !esEstatusDeRetiro &&
-              !esEstatusDeSolicitud &&
-              !esEstatusDeIncapacidad && (
-                <>
-                  <FieldRenderer
-                    label="Turno"
-                    fieldName="turno"
-                    type="select"
-                    options={[
-                      {
-                        value: "Jornada Acumulada",
-                        label: "Jornada Acumulada",
-                      },
-                      { value: "Matutino", label: "Matutino" },
-                      { value: "Nocturno A", label: "Nocturno A" },
-                      { value: "Nocturno B", label: "Nocturno B" },
-                      { value: "Vespertino", label: "Vespertino" },
-                    ]}
-                    isEditing={isEditing}
-                    currentValue={editableDoctorData.turno}
-                    onChange={handleInputChange}
-                    isLoading={isLoading}
-                  />
-
-                  <FieldRenderer
-                    label="Despliegue"
-                    fieldName="despliegue" // Asegúrate que este es el nombre correcto en tus datos
-                    type="text" // o el tipo que corresponda
-                    isEditing={isEditing}
-                    currentValue={editableDoctorData.despliegue}
-                    onChange={handleInputChange}
-                    isLoading={isLoading}
-                  />
-
-                  <FieldRenderer
-                    label="Clues"
-                    fieldName="clues" // Asegúrate que este es el nombre correcto en tus datos
-                    type="text" // o el tipo que corresponda
-                    isEditing={isEditing}
-                    currentValue={editableDoctorData.clues}
-                    onChange={handleInputChange}
-                    isLoading={isLoading}
-                  />
-
-                  <FieldRenderer
-                    label="Unidad Médica"
-                    fieldName="nombre_unidad"
-                    isEditing={isEditing}
-                    currentValue={editableDoctorData.nombre_unidad}
-                    onChange={handleInputChange}
-                    isLoading={isLoading}
-                  />
+                    ))}
                 </>
               )}
+            </div>
           </div>
-          <div>
-            {!esEstatusDeBaja &&
-              !esEstatusDeDefuncion &&
-              !esEstatusDeRetiro &&
-              !esEstatusDeSolicitud &&
-              !esEstatusDeIncapacidad && (
-                <>
-                  <FieldRenderer
-                    label="Dirección Unidad"
-                    fieldName="direccion_unidad" // Asegúrate que este es el nombre correcto en tus datos
-                    type="text" // o el tipo que corresponda
-                    isEditing={isEditing}
-                    currentValue={editableDoctorData.direccion_unidad}
-                    onChange={handleInputChange}
-                    isLoading={isLoading}
-                  />
 
-                  <FieldRenderer
-                    label="Nivel de Atención"
-                    fieldName="nivel_atencion"
-                    type="select"
-                    options={[
-                      { value: "01 PNA", label: "01 PRIMER NIVEL" },
-                      { value: "02 SNA", label: "02 SEGUNDO NIVEL" },
-                      { value: "03 TNA", label: "03 TERCER NIVEL" },
-                      { value: "04 OTRO", label: "04 OTRO" },
-                      { value: "05 NO APLICA", label: "05 NO APLICA" },
-                    ]}
-                    isEditing={isEditing}
-                    currentValue={editableDoctorData.nivel_atencion}
-                    onChange={handleInputChange}
-                    isLoading={isLoading}
-                  />
+          {doctorGuardadoEsDefuncion && (
+            <div style={profileStyles.defuncionMessage}>
+              EXPEDIENTE CERRADO POR DEFUNCIÓN
+            </div>
+          )}
 
-                  <FieldRenderer
-                    label="Tipo Establecimiento"
-                    fieldName="tipo_establecimiento" // Asegúrate que este es el nombre correcto en tus datos
-                    type="text" // o el tipo que corresponda
-                    isEditing={isEditing}
-                    currentValue={editableDoctorData.tipo_establecimiento}
-                    onChange={handleInputChange}
-                    isLoading={isLoading}
-                  />
+          {isLoading && !selectedProfilePicFile && !selectedAttachmentFile && (
+            <p style={profileStyles.loadingMessage}>Procesando...</p>
+          )}
+          {error && <p style={profileStyles.errorMessage}>{error}</p>}
+          {successMessage && (
+            <p style={profileStyles.successMessage}>{successMessage}</p>
+          )}
 
-                  <FieldRenderer
-                    label="Subtipo Establecimiento"
-                    fieldName="subtipo_establecimiento" // Asegúrate que este es el nombre correcto en tus datos
-                    type="text" // o el tipo que corresponda
-                    isEditing={isEditing}
-                    currentValue={editableDoctorData.subtipo_establecimiento}
-                    onChange={handleInputChange}
-                    isLoading={isLoading}
-                  />
+          <div style={profileStyles.sectionTitle}>Información Personal</div>
+          <div
+            style={{
+              ...profileStyles.gridContainer,
+              gridTemplateColumns: "1fr 1fr",
+            }}
+          >
+            <div>
+              <FieldRenderer
+                label="Nombres"
+                fieldName="nombre"
+                isEditing={isEditing}
+                currentValue={editableDoctorData.nombre}
+                onChange={handleInputChange}
+                isLoading={isLoading}
+              />
+              <FieldRenderer
+                label="Apellido Paterno"
+                fieldName="apellido_paterno"
+                isEditing={isEditing}
+                currentValue={editableDoctorData.apellido_paterno}
+                onChange={handleInputChange}
+                isLoading={isLoading}
+              />
+              <FieldRenderer
+                label="Apellido Materno"
+                fieldName="apellido_materno"
+                isEditing={isEditing}
+                currentValue={editableDoctorData.apellido_materno}
+                onChange={handleInputChange}
+                isLoading={isLoading}
+              />
+              <FieldRenderer
+                label="CURP"
+                fieldName="curp"
+                isEditing={isEditing}
+                currentValue={editableDoctorData.curp}
+                onChange={handleInputChange}
+                isLoading={isLoading}
+              />
+              <FieldRenderer
+                label="Pasaporte"
+                fieldName="pasaporte"
+                isEditing={isEditing}
+                currentValue={editableDoctorData.pasaporte}
+                onChange={handleInputChange}
+                isLoading={isLoading}
+              />
 
-                  <FieldRenderer
-                    label="Estrato"
-                    fieldName="estrato"
-                    type="text"
-                    isEditing={isEditing}
-                    currentValue={
-                      isEditing ? editableDoctorData.estrato : doctor.estrato
-                    }
-                    onChange={handleInputChange}
-                    isLoading={isLoading}
-                  />
+              <FieldRenderer
+                label="Fecha Emision"
+                fieldName="fecha_emision"
+                type="date"
+                isEditing={isEditing}
+                currentValue={editableDoctorData.fecha_emision}
+                onChange={handleInputChange}
+                isLoading={isLoading}
+              />
+              <FieldRenderer
+                label="Fecha Expiración"
+                fieldName="fecha_expiracion"
+                type="date"
+                isEditing={isEditing}
+                currentValue={editableDoctorData.fecha_expiracion}
+                onChange={handleInputChange}
+                isLoading={isLoading}
+              />
+            </div>
+            <div>
+              <FieldRenderer
+                label="Edad"
+                fieldName="edad"
+                isEditing={isEditing}
+                currentValue={doctor.edad ? `${doctor.edad} años` : ''}
+                onChange={handleInputChange}
+                isLoading={isLoading}
+              />
+              <FieldRenderer
+                label="Sexo"
+                fieldName="sexo"
+                type="select"
+                options={[
+                  { value: "M", label: "Masculino" },
+                  { value: "F", label: "Femenino" },
+                  { value: "Otro", label: "Otro" },
+                ]}
+                isEditing={isEditing}
+                currentValue={editableDoctorData.sexo}
+                onChange={handleInputChange}
+                isLoading={isLoading}
+              />
+              <FieldRenderer
+                label="Fecha de Nacimiento"
+                fieldName="fecha_nacimiento"
+                type="date"
+                isEditing={isEditing}
+                currentValue={editableDoctorData.fecha_nacimiento}
+                onChange={handleInputChange}
+                isLoading={isLoading}
+              />
 
-                  <FieldRenderer
-                    label="Entidad"
-                    fieldName="entidad"
-                    type="select"
-                    options={[
-                      { value: "AGS", label: "Aguascalientes" },
-                      { value: "BC", label: "Baja California" },
-                      {
-                        value: "BCS",
-                        label: "Baja California Sur",
-                      },
-                      { value: "CAMP", label: "Campeche" },
-                      {
-                        value: "COAH",
-                        label: "Coahuila de Zaragoza",
-                      },
-                      { value: "COL", label: "Colima" },
-                      { value: "CHIS", label: "Chiapas" },
-                      { value: "CHIH", label: "Chihuahua" },
-                      { value: "CDMX", label: "Ciudad de México" },
-                      { value: "DGO", label: "Durango" },
-                      { value: "GTO", label: "Guanajuato" },
-                      { value: "GRO", label: "Guerrero" },
-                      { value: "HGO", label: "Hidalgo" },
-                      { value: "JAL", label: "Jalisco" },
-                      { value: "MEX", label: "México" },
-                      {
-                        value: "MICH",
-                        label: "Michoacán de Ocampo",
-                      },
-                      { value: "MOR", label: "Morelos" },
-                      { value: "NAY", label: "Nayarit" },
-                      { value: "NL", label: "Nuevo León" },
-                      { value: "OAX", label: "Oaxaca" },
-                      { value: "PUE", label: "Puebla" },
-                      { value: "QRO", label: "Querétaro" },
-                      { value: "QROO", label: "Quintana Roo" },
-                      { value: "SLP", label: "San Luis Potosí" },
-                      { value: "SIN", label: "Sinaloa" },
-                      { value: "SON", label: "Sonora" },
-                      { value: "TAB", label: "Tabasco" },
-                      { value: "TAMPS", label: "Tamaulipas" },
-                      { value: "TLAX", label: "Tlaxcala" },
-                      {
-                        value: "VER",
-                        label: "Veracruz de Ignacio de la Llave",
-                      },
-                      { value: "YUC", label: "Yucatán" },
-                      { value: "ZAC", label: "Zacatecas " },
-                    ]}
-                    isEditing={isEditing}
-                    currentValue={
-                      isEditing ? editableDoctorData.entidad : doctor.entidad
-                    }
-                    onChange={handleInputChange}
-                    isLoading={isLoading}
-                  />
+              <FieldRenderer
+                label="Lugar de Nacimiento"
+                fieldName="entidad_nacimiento"
+                isEditing={isEditing}
+                currentValue={editableDoctorData.entidad_nacimiento}
+                onChange={handleInputChange}
+                isLoading={isLoading}
+              />
+              <FieldRenderer
+                label="Matrimonio ID"
+                fieldName="matrimonio_id"
+                isEditing={isEditing}
+                currentValue={editableDoctorData.matrimonio_id}
+                onChange={handleInputChange}
+                isLoading={isLoading}
+              />
+              <FieldRenderer
+                label="Teléfono"
+                fieldName="telefono"
+                type="tel"
+                isEditing={isEditing}
+                currentValue={
+                  isEditing ? editableDoctorData.telefono : doctor.telefono
+                }
+                onChange={handleInputChange}
+                isLoading={isLoading}
+              />
+              <FieldRenderer
+                label="Correo Electrónico"
+                fieldName="correo"
+                type="email"
+                isEditing={isEditing}
+                currentValue={
+                  isEditing ? editableDoctorData.correo : doctor.correo
+                }
+                onChange={handleInputChange}
+                isLoading={isLoading}
+              />
+            </div>
+          </div>
 
-                  <FieldRenderer
-                    label="Municipio"
-                    fieldName="municipio"
-                    type="text"
-                    isEditing={isEditing}
-                    currentValue={
-                      isEditing
-                        ? editableDoctorData.municipio
-                        : doctor.municipio
-                    }
-                    onChange={handleInputChange}
-                    isLoading={isLoading}
-                  />
+          <div style={profileStyles.sectionTitle}>Datos Académicos</div>
+          <div
+            style={{
+              ...profileStyles.gridContainer,
+              gridTemplateColumns: "1fr 1fr",
+            }}
+          >
+            <div>
+              <FieldRenderer
+                label="Licenciatura"
+                fieldName="licenciatura"
+                isEditing={isEditing}
+                currentValue={editableDoctorData.licenciatura}
+                onChange={handleInputChange}
+                isLoading={isLoading}
+              />
+              <FieldRenderer
+                label="Institución"
+                fieldName="institucion_lic"
+                type="select"
+                options={[
+                  { value: "ISCM DE CAMAGÜEY", label: "ISCM DE CAMAGÜEY" },
+                  { value: "ISCM DE LA HABANA", label: "ISCM DE LA HABANA" },
+                  { value: "ISCM DE LAS TUNAS", label: "ISCM DE LAS TUNAS" },
+                  { value: "ISCM DE SANTIAGO DE CHILE", label: "ISCM DE SANTIAGO DE CHILE" },
+                  { value: "ISCM DE SANTIAGO DE CUBA", label: "ISCM DE SANTIAGO DE CUBA" },
+                  { value: "ISCM DE VILLA CLARA", label: "ISCM DE VILLA CLARA" },
+                  { value: "UCM DE CAMAGÜEY", label: "UCM DE CAMAGÜEY" },
+                  { value: "UCM DE CIEGO DE ÁVILA", label: "UCM DE CIEGO DE ÁVILA" },
+                  { value: "UCM DE CIENFUEGOS", label: "UCM DE CIENFUEGOS" },
+                  { value: "UCM DE GRANMA", label: "UCM DE GRANMA" },
+                  { value: "UCM DE GUANTÁNAMO", label: "UCM DE GUANTÁNAMO" },
+                  { value: "UCM DE HOLGUÍN", label: "UCM DE HOLGUÍN" },
+                  { value: "UCM DE LA HABANA", label: "UCM DE LA HABANA" },
+                  { value: "UCM DE LAS FAR", label: "UCM DE LAS FAR" },
+                  { value: "UCM DE LAS TUNAS", label: "UCM DE LAS TUNAS" },
+                  { value: "UCM DE MATANZAS", label: "UCM DE MATANZAS" },
+                  { value: "UCM DE PINAR DEL RÍO", label: "UCM DE PINAR DEL RÍO" },
+                  { value: "UCM DE SANCTI SPÍRITUS", label: "UCM DE SANCTI SPÍRITUS" },
+                  { value: "UCM DE SANTIAGO DE CUBA", label: "UCM DE SANTIAGO DE CUBA" },
+                  { value: "UCM DE VILLA CLARA", label: "UCM DE VILLA CLARA" },
+                  { value: "UCM DE GRANMA", label: "UCM DE GRANMA" },
+                ]}
+                isEditing={isEditing}
+                currentValue={editableDoctorData.institucion_lic}
+                onChange={handleInputChange}
+                isLoading={isLoading}
+              />
+              <FieldRenderer
+                label="Año de Egreso"
+                fieldName="fecha_egreso_lic"
+                type="date"
+                isEditing={isEditing}
+                currentValue={editableDoctorData.fecha_egreso_lic}
+                onChange={handleInputChange}
+                isLoading={isLoading}
+              />
 
-                  <FieldRenderer
-                    label="Región"
-                    fieldName="region"
-                    type="text"
-                    isEditing={isEditing}
-                    currentValue={
-                      isEditing ? editableDoctorData.region : doctor.region
-                    }
-                    onChange={handleInputChange}
-                    isLoading={isLoading}
-                  />
-                </>
-              )}
+              <FieldRenderer
+                label="Cédula Licenciatura"
+                fieldName="cedula_lic"
+                isEditing={isEditing}
+                currentValue={editableDoctorData.cedula_lic}
+                onChange={handleInputChange}
+                isLoading={isLoading}
+              />
+            </div>
+            <div>
+              <FieldRenderer
+                label="Especialidad"
+                fieldName="especialidad"
+                isEditing={isEditing}
+                currentValue={editableDoctorData.especialidad}
+                onChange={handleInputChange}
+                isLoading={isLoading}
+              />
+              <FieldRenderer
+                label="Institución"
+                fieldName="institucion_esp"
+                type="select"
+                options={[
+                  { value: "ISCM DE CAMAGÜEY", label: "ISCM DE CAMAGÜEY" },
+                  { value: "ISCM DE LA HABANA", label: "ISCM DE LA HABANA" },
+                  { value: "ISCM DE LAS TUNAS", label: "ISCM DE LAS TUNAS" },
+                  { value: "ISCM DE SANTIAGO DE CHILE", label: "ISCM DE SANTIAGO DE CHILE" },
+                  { value: "ISCM DE SANTIAGO DE CUBA", label: "ISCM DE SANTIAGO DE CUBA" },
+                  { value: "ISCM DE VILLA CLARA", label: "ISCM DE VILLA CLARA" },
+                  { value: "UCM DE CAMAGÜEY", label: "UCM DE CAMAGÜEY" },
+                  { value: "UCM DE CIEGO DE ÁVILA", label: "UCM DE CIEGO DE ÁVILA" },
+                  { value: "UCM DE CIENFUEGOS", label: "UCM DE CIENFUEGOS" },
+                  { value: "UCM DE GRANMA", label: "UCM DE GRANMA" },
+                  { value: "UCM DE GUANTÁNAMO", label: "UCM DE GUANTÁNAMO" },
+                  { value: "UCM DE HOLGUÍN", label: "UCM DE HOLGUÍN" },
+                  { value: "UCM DE LA HABANA", label: "UCM DE LA HABANA" },
+                  { value: "UCM DE LAS FAR", label: "UCM DE LAS FAR" },
+                  { value: "UCM DE LAS TUNAS", label: "UCM DE LAS TUNAS" },
+                  { value: "UCM DE MATANZAS", label: "UCM DE MATANZAS" },
+                  { value: "UCM DE PINAR DEL RÍO", label: "UCM DE PINAR DEL RÍO" },
+                  { value: "UCM DE SANCTI SPÍRITUS", label: "UCM DE SANCTI SPÍRITUS" },
+                  { value: "UCM DE SANTIAGO DE CUBA", label: "UCM DE SANTIAGO DE CUBA" },
+                  { value: "UCM DE VILLA CLARA", label: "UCM DE VILLA CLARA" },
+                  { value: "UCM DE GRANMA", label: "UCM DE GRANMA" },
+                ]}
+                isEditing={isEditing}
+                currentValue={editableDoctorData.institucion_esp}
+                onChange={handleInputChange}
+                isLoading={isLoading}
+              />
 
-            {esEstatusDeRetiro && (
-              <>
-                <FieldRenderer
-                  label="Motivo del Retiro"
-                  fieldName="motivo"
-                  isEditing={isEditing}
-                  currentValue={editableDoctorData.motivo}
-                  onChange={handleInputChange}
-                  isLoading={isLoading}
-                />
-
-                <FieldRenderer
-                  label="Fecha de Inicio"
-                  fieldName="fecha_inicio"
-                  type="date"
-                  isEditing={isEditing}
-                  currentValue={editableDoctorData.fecha_inicio}
-                  onChange={handleInputChange}
-                  isLoading={isLoading}
-                />
-
-                <FieldRenderer
-                  label="Fecha de Fin"
-                  fieldName="fecha_fin"
-                  type="date"
-                  isEditing={isEditing}
-                  currentValue={editableDoctorData.fecha_fin}
-                  onChange={handleInputChange}
-                  isLoading={isLoading}
-                />
-              </>
-            )}
-
-            {esEstatusDeSolicitud && (
-              <>
-                <FieldRenderer
-                  label="Motivo Solicitud"
-                  fieldName="motivo"
-                  isEditing={isEditing}
-                  currentValue={editableDoctorData.motivo}
-                  onChange={handleInputChange}
-                  isLoading={isLoading}
-                />
-
-                <FieldRenderer
-                  label="Fecha de Inicio"
-                  fieldName="fecha_inicio"
-                  type="date"
-                  isEditing={isEditing}
-                  currentValue={editableDoctorData.fecha_inicio}
-                  onChange={handleInputChange}
-                  isLoading={isLoading}
-                />
-
-                <FieldRenderer
-                  label="Fecha de Fin"
-                  fieldName="fecha_fin"
-                  type="date"
-                  isEditing={isEditing}
-                  currentValue={editableDoctorData.fecha_fin}
-                  onChange={handleInputChange}
-                  isLoading={isLoading}
-                />
-              </>
-            )}
-
-            {esEstatusDeIncapacidad && (
-              <>
-                <FieldRenderer
-                  label="Tipo de Incapacidad"
-                  fieldName="tipo_incapacidad"
-                  isEditing={isEditing}
-                  currentValue={editableDoctorData.tipo_incapacidad}
-                  onChange={handleInputChange}
-                  isLoading={isLoading}
-                />
-
-                <FieldRenderer
-                  label="Fecha de Inicio"
-                  fieldName="fecha_inicio"
-                  type="date"
-                  isEditing={isEditing}
-                  currentValue={editableDoctorData.fecha_inicio}
-                  onChange={handleInputChange}
-                  isLoading={isLoading}
-                />
-
-                <FieldRenderer
-                  label="Fecha de Fin"
-                  fieldName="fecha_fin"
-                  type="date"
-                  isEditing={isEditing}
-                  currentValue={editableDoctorData.fecha_fin}
-                  onChange={handleInputChange}
-                  isLoading={isLoading}
-                />
-              </>
-            )}
-
-            {esEstatusDeBaja && (
-              // No mostrar si es defunción, ya que tiene su propia fecha
-              <>
-                <FieldRenderer
-                  label="Motivo de Baja"
-                  fieldName="motivo_baja"
-                  type="select"
-                  options={[
-                    {
-                      value: "Renuncia Voluntaria",
-                      label: "Renuncia Voluntaria",
-                    },
-                    {
-                      value: "Término de Contrato",
-                      label: "Término de Contrato",
-                    },
-                    { value: "Jubilación", label: "Jubilación" },
-                    {
-                      value: "Abandono de Empleo",
-                      label: "Abandono de Empleo",
-                    },
-                    { value: "Reubicación", label: "Reubicación" },
-                    { value: "Otro", label: "Otro" },
-                  ]}
-                  isEditing={isEditing}
-                  currentValue={editableDoctorData.motivo_baja}
-                  onChange={handleInputChange}
-                  isLoading={isLoading}
-                />
-
-                <FieldRenderer
-                  label="Fecha de Notificación"
-                  fieldName="fecha_notificacion"
-                  type="date"
-                  isEditing={isEditing}
-                  currentValue={editableDoctorData.fecha_notificacion}
-                  onChange={handleInputChange}
-                  isLoading={isLoading}
-                />
-
-                <FieldRenderer
-                  label="Forma de Notificación"
-                  fieldName="forma_notificacion"
-                  type="select"
-                  options={[
-                    {
-                      value: "Brigada Cubana (concentrado)",
-                      label: "Brigada Cubana (concentrado)",
-                    },
-                    {
-                      value: "Correo electrónico",
-                      label: "Correo electrónico",
-                    },
-                    {
-                      value: "Notificada a la entrega",
-                      label: "Notificada a la entrega",
-                    },
-                    { value: "Oficio", label: "Oficio" },
-                  ]}
-                  isEditing={isEditing}
-                  currentValue={editableDoctorData.forma_notificacion}
-                  onChange={handleInputChange}
-                  isLoading={isLoading}
-                />
-
-                <FieldRenderer
-                  label="Fecha Extracción" // O un label más apropiado
-                  fieldName="fecha_extraccion"
-                  type="text" // o "textarea" si puede ser largo
-                  isEditing={isEditing}
-                  currentValue={editableDoctorData.fecha_extraccion}
-                  onChange={handleInputChange}
-                  isLoading={isLoading}
-                />
-              </>
-            )}
-
-            {/*  <FieldRenderer
-                label="Fecha de Fallecimiento"
-                fieldName="fecha_fallecimiento"
+              <FieldRenderer
+                label="Año de Egreso"
+                fieldName="fecha_egreso_esp"
                 type="date"
                 isEditing={isEditing}
                 currentValue={
                   isEditing
-                    ? editableDoctorData.fecha_fallecimiento
-                    : doctor.fecha_fallecimiento
+                    ? editableDoctorData.fecha_egreso_esp
+                    : doctor.fecha_egreso_esp
                 }
                 onChange={handleInputChange}
                 isLoading={isLoading}
-              /> */}
+              />
 
-            {(isEditing ||
-              (doctor.comentarios_estatus &&
-                doctor.comentarios_estatus.trim() !== "")) && (
               <FieldRenderer
-                label="Comentarios Adicionales"
-                fieldName="comentarios_estatus"
-                type="textarea"
+                label="Cédula Especialidad"
+                fieldName="cedula_esp"
                 isEditing={isEditing}
-                currentValue={editableDoctorData.comentarios_estatus}
+                currentValue={
+                  isEditing ? editableDoctorData.cedula_esp : doctor.cedula_esp
+                }
                 onChange={handleInputChange}
                 isLoading={isLoading}
               />
-            )}
-          </div>
-        </div>
-
-            <div className="historial-section">
-      <div style={profileStyles.historyHeader}>
-        <div style={profileStyles.sectionTitle}>Historial de Movimientos</div>
-        <button onClick={() => setIsHistoryModalOpen(true)} style={profileStyles.addHistoryButton}>
-          <span role="img" aria-label="agregar">➕</span>
-          Añadir Registro
-        </button>
-      </div>
-      
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
-        <thead>
-          <tr>
-            <th style={{ border: '1px solid #ddd', padding: '8px' }}>Fecha Efectiva</th>
-            <th style={{ border: '1px solid #ddd', padding: '8px' }}>Estatus</th>
-            <th style={{ border: '1px solid #ddd', padding: '8px' }}>Comentarios</th>
-          </tr>
-        </thead>
-        <tbody>
-          {doctor.historial && doctor.historial.length > 0 ? (
-            doctor.historial
-              .sort((a, b) => new Date(b.fecha_efectiva) - new Date(a.fecha_efectiva))
-              .map(item => (
-                <tr key={item.id}>
-                  <td style={{ border: '1px solid #ddd', padding: '8px' }}>{formatDateForDisplay(item.fecha_efectiva)}</td>
-                  <td style={{ border: '1px solid #ddd', padding: '8px' }}>{item.estatus}</td>
-                  <td style={{ border: '1px solid #ddd', padding: '8px' }}>{item.comentarios}</td>
-                </tr>
-              ))
-          ) : (
-            <tr>
-              <td colSpan="3" style={{ textAlign: 'center', padding: '10px' }}>No hay registros en el historial.</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-
-      {/* --- LÓGICA DEL MODAL CORREGIDA --- */}
-      {isHistoryModalOpen && (
-        <div style={profileStyles.modalBackdrop}>
-          <div style={profileStyles.modalContent}>
-            <button onClick={() => setIsHistoryModalOpen(false)} style={profileStyles.modalCloseButton}>&times;</button>
-            <h2>Añadir Registro Retroactivo</h2>
-            <form onSubmit={handleAgregarHistorial}>
-              <div style={profileStyles.modalFormGroup}>
-                <label style={profileStyles.modalFormLabel}>Estatus:</label>
-                <select
-                  name="estatus"
-                  value={nuevoHistorial.estatus}
-                  onChange={handleHistorialChange}
-                  style={profileStyles.modalFormInput}
-                >
-                  <option value="">Seleccione un estatus...</option>
-                  <option value="01 ACTIVO">01 ACTIVO</option>
-                  <option value="02 RETIRO TEMPORAL">02 RETIRO TEMPORAL</option>
-                  <option value="03 SOLICITUD PERSONAL">03 SOLICITUD PERSONAL</option>
-                  <option value="04 INCAPACIDAD">04 INCAPACIDAD</option>
-                  <option value="05 BAJA">05 BAJA</option>
-                </select>
-              </div>
-              <div style={profileStyles.modalFormGroup}>
-                <label style={profileStyles.modalFormLabel}>Fecha Efectiva:</label>
-                <input name="fecha_efectiva" type="date" value={nuevoHistorial.fecha_efectiva} onChange={handleHistorialChange} style={profileStyles.modalFormInput} />
-              </div>
-              <div style={profileStyles.modalFormGroup}>
-                <label style={profileStyles.modalFormLabel}>Comentarios:</label>
-                <textarea name="comentarios" value={nuevoHistorial.comentarios} onChange={handleHistorialChange} placeholder="Añade una nota o comentario..." style={{...profileStyles.modalFormInput, minHeight: '80px' }}></textarea>
-              </div>
-              <div style={profileStyles.modalActions}>
-                <button type="button" onClick={() => setIsHistoryModalOpen(false)} style={profileStyles.cancelButton}>Cancelar</button>
-                <button type="submit" disabled={isLoading} style={profileStyles.saveButton}>{isLoading ? 'Guardando...' : 'Añadir al Historial'}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-      </div>
-
-      <div style={profileStyles.filesColumn}>
-        <div style={profileStyles.profilePicSection}>
-          <h2>Foto de Perfil</h2>
-          {currentProfilePicUrl ? (
-            <img
-              src={currentProfilePicUrl}
-              alt="Foto de perfil"
-              style={profileStyles.profileImage}
-            />
-          ) : (
-            <div style={profileStyles.profileImagePlaceholder}>
-              <span>Sin Foto</span>
             </div>
-          )}
+          </div>
 
-          {currentUser && currentUser.role !== "consulta" && (
-            <>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleProfilePicSelect}
-                style={profileStyles.fileInput}
-                disabled={
-                  isLoading ||
-                  edicionGeneralBloqueada ||
-                  (isEditing && edicionGeneralBloqueada)
+          <div style={profileStyles.sectionTitle}>Datos de Colaboración:</div>
+          <div
+            style={{
+              ...profileStyles.gridContainer,
+              gridTemplateColumns: "1fr 1fr",
+            }}
+          >
+            <div>
+              <FieldRenderer
+                label="Acuerdo"
+                fieldName="acuerdo"
+                type="select"
+                options={[
+                  { value: "AAC231222ctivo", label: "AC231222" },
+                  { value: "AC240511", label: "AC240511" },
+                ]}
+                isEditing={isEditing}
+                currentValue={
+                  isEditing ? editableDoctorData.acuerdo : doctor.acuerdo
                 }
+                onChange={handleInputChange}
+                isLoading={isLoading}
               />
-              {selectedProfilePicFile && (
-                <button
-                  onClick={uploadProfilePic}
+              <FieldRenderer
+                label="Fecha (inicio | vuelo)"
+                fieldName="fecha_vuelo"
+                type="date"
+                isEditing={isEditing}
+                currentValue={editableDoctorData.fecha_vuelo}
+                onChange={handleInputChange}
+                isLoading={isLoading}
+              />
+              <FieldRenderer
+                label="Estatus"
+                fieldName="estatus"
+                type="select"
+                options={[
+                  { value: "01 ACTIVO", label: "01 ACTIVO" },
+                  { value: "02 RETIRO TEMP.(CUBA)", label: "02 RETIRO TEMP.(CUBA)" },
+                  { value: "03 RETIRO TEMP.(MEXICO)", label: "03 RETIRO TEMP.(MEXICO)" },
+                  { value: "04 SOL. PERSONAL", label: "04 SOL. PERSONAL" },
+                  {
+                    value: "05 INCAPACIDAD",
+                    label: "05 INCAPACIDAD",
+                  },
+                  { value: "06 BAJA", label: "06 BAJA" },
+                ]}
+                isEditing={isEditing}
+                currentValue={estatusActualParaUI}
+                onChange={handleInputChange}
+                isLoading={isLoading}
+              />
+              <FieldRenderer
+                label="Fecha Estatus"
+                fieldName="fecha_estatus"
+                type="date"
+                isEditing={isEditing}
+                currentValue={editableDoctorData.fecha_estatus}
+                onChange={handleInputChange}
+                isLoading={isLoading}
+              />
+              {!esEstatusDeBaja &&
+                !esEstatusDeDefuncion &&
+                !esEstatusDeRetiro &&
+                !esEstatusDeSolicitud &&
+                !esEstatusDeIncapacidad && (
+                  <>
+                    <FieldRenderer
+                      label="Turno"
+                      fieldName="turno"
+                      type="select"
+                      options={[
+                        {
+                          value: "Jornada Acumulada",
+                          label: "Jornada Acumulada",
+                        },
+                        { value: "Matutino", label: "Matutino" },
+                        { value: "Nocturno A", label: "Nocturno A" },
+                        { value: "Nocturno B", label: "Nocturno B" },
+                        { value: "Vespertino", label: "Vespertino" },
+                      ]}
+                      isEditing={isEditing}
+                      currentValue={editableDoctorData.turno}
+                      onChange={handleInputChange}
+                      isLoading={isLoading}
+                    />
+
+                    <FieldRenderer
+                      label="Despliegue"
+                      fieldName="despliegue"
+                      type="text"
+                      isEditing={isEditing}
+                      currentValue={editableDoctorData.despliegue}
+                      onChange={handleInputChange}
+                      isLoading={isLoading}
+                    />
+
+                    <FieldRenderer
+                      label="Clues"
+                      fieldName="clues"
+                      type="text"
+                      isEditing={isEditing}
+                      currentValue={editableDoctorData.clues}
+                      onChange={handleInputChange}
+                      isLoading={isLoading}
+                    />
+
+                    <FieldRenderer
+                      label="Unidad Médica"
+                      fieldName="nombre_unidad"
+                      isEditing={isEditing}
+                      currentValue={editableDoctorData.nombre_unidad}
+                      onChange={handleInputChange}
+                      isLoading={isLoading}
+                    />
+                  </>
+                )}
+            </div>
+            <div>
+              {!esEstatusDeBaja &&
+                !esEstatusDeDefuncion &&
+                !esEstatusDeRetiro &&      
+                !esEstatusDeSolicitud &&
+                !esEstatusDeIncapacidad && (
+                  <>
+                    <FieldRenderer
+                      label="Dirección Unidad"
+                      fieldName="direccion_unidad"
+                      type="text"
+                      isEditing={isEditing}
+                      currentValue={editableDoctorData.direccion_unidad}
+                      onChange={handleInputChange}
+                      isLoading={isLoading}
+                    />
+
+                    <FieldRenderer
+                      label="Nivel de Atención"
+                      fieldName="nivel_atencion"
+                      type="select"
+                      options={[
+                        { value: "01 PNA", label: "01 PRIMER NIVEL" },
+                        { value: "02 SNA", label: "02 SEGUNDO NIVEL" },
+                        { value: "03 TNA", label: "03 TERCER NIVEL" },
+                        { value: "04 OTRO", label: "04 OTRO" },
+                        { value: "05 NO APLICA", label: "05 NO APLICA" },
+                      ]}
+                      isEditing={isEditing}
+                      currentValue={editableDoctorData.nivel_atencion}
+                      onChange={handleInputChange}
+                      isLoading={isLoading}
+                    />
+
+                    <FieldRenderer
+                      label="Tipo Establecimiento"
+                      fieldName="tipo_establecimiento"
+                      type="text"
+                      isEditing={isEditing}
+                      currentValue={editableDoctorData.tipo_establecimiento}
+                      onChange={handleInputChange}
+                      isLoading={isLoading}
+                    />
+
+                    <FieldRenderer
+                      label="Subtipo Establecimiento"
+                      fieldName="subtipo_establecimiento"
+                      type="text"
+                      isEditing={isEditing}
+                      currentValue={editableDoctorData.subtipo_establecimiento}
+                      onChange={handleInputChange}
+                      isLoading={isLoading}
+                    />
+
+                    <FieldRenderer
+                      label="Estrato"
+                      fieldName="estrato"
+                      type="text"
+                      isEditing={isEditing}
+                      currentValue={
+                        isEditing ? editableDoctorData.estrato : doctor.estrato
+                      }
+                      onChange={handleInputChange}
+                      isLoading={isLoading}
+                    />
+
+                    <FieldRenderer
+                      label="Entidad"
+                      fieldName="entidad"
+                      type="select"
+                      options={[
+                        { value: "AGS", label: "Aguascalientes" },
+                        { value: "BC", label: "Baja California" },
+                        {
+                          value: "BCS",
+                          label: "Baja California Sur",
+                        },
+                        { value: "CAMP", label: "Campeche" },
+                        {
+                          value: "COAH",
+                          label: "Coahuila de Zaragoza",
+                        },
+                        { value: "COL", label: "Colima" },
+                        { value: "CHIS", label: "Chiapas" },
+                        { value: "CHIH", label: "Chihuahua" },
+                        { value: "CDMX", label: "Ciudad de México" },
+                        { value: "DGO", label: "Durango" },
+                        { value: "GTO", label: "Guanajuato" },
+                        { value: "GRO", label: "Guerrero" },
+                        { value: "HGO", label: "Hidalgo" },
+                        { value: "JAL", label: "Jalisco" },
+                        { value: "MEX", label: "México" },
+                        {
+                          value: "MICH",
+                          label: "Michoacán de Ocampo",
+                        },
+                        { value: "MOR", label: "Morelos" },
+                        { value: "NAY", label: "Nayarit" },
+                        { value: "NL", label: "Nuevo León" },
+                        { value: "OAX", label: "Oaxaca" },
+                        { value: "PUE", label: "Puebla" },
+                        { value: "QRO", label: "Querétaro" },
+                        { value: "QROO", label: "Quintana Roo" },
+                        { value: "SLP", label: "San Luis Potosí" },
+                        { value: "SIN", label: "Sinaloa" },
+                        { value: "SON", label: "Sonora" },
+                        { value: "TAB", label: "Tabasco" },
+                        { value: "TAMPS", label: "Tamaulipas" },
+                        { value: "TLAX", label: "Tlaxcala" },
+                        {
+                          value: "VER",
+                          label: "Veracruz de Ignacio de la Llave",
+                        },
+                        { value: "YUC", label: "Yucatán" },
+                        { value: "ZAC", label: "Zacatecas " },
+                      ]}
+                      isEditing={isEditing}
+                      currentValue={
+                        isEditing ? editableDoctorData.entidad : doctor.entidad
+                      }
+                      onChange={handleInputChange}
+                      isLoading={isLoading}
+                    />
+
+                    <FieldRenderer
+                      label="Municipio"
+                      fieldName="municipio"
+                      type="text"
+                      isEditing={isEditing}
+                      currentValue={
+                        isEditing
+                          ? editableDoctorData.municipio
+                          : doctor.municipio
+                      }
+                      onChange={handleInputChange}
+                      isLoading={isLoading}
+                    />
+
+                    <FieldRenderer
+                      label="Región"
+                      fieldName="region"
+                      type="text"
+                      isEditing={isEditing}
+                      currentValue={
+                        isEditing ? editableDoctorData.region : doctor.region
+                      }
+                      onChange={handleInputChange}
+                      isLoading={isLoading}
+                    />
+                  </>
+                )}
+
+              {esEstatusDeRetiro && (
+                <>
+                  <FieldRenderer
+                    label="Motivo del Retiro"
+                    fieldName="motivo"
+                    isEditing={isEditing}
+                    currentValue={editableDoctorData.motivo}
+                    onChange={handleInputChange}
+                    isLoading={isLoading}
+                  />
+
+                  <FieldRenderer
+                    label="Fecha de Fin"
+                    fieldName="fecha_fin"
+                    type="date"
+                    isEditing={isEditing}
+                    currentValue={editableDoctorData.fecha_fin}
+                    onChange={handleInputChange}
+                    isLoading={isLoading}
+                  />
+                </>
+              )}
+
+              {esEstatusDeSolicitud && (
+                <>
+                  <FieldRenderer
+                    label="Motivo Solicitud"
+                    fieldName="motivo"
+                    isEditing={isEditing}
+                    currentValue={editableDoctorData.motivo}
+                    onChange={handleInputChange}
+                    isLoading={isLoading}
+                  />
+
+                  <FieldRenderer
+                    label="Fecha de Fin"
+                    fieldName="fecha_fin"
+                    type="date"
+                    isEditing={isEditing}
+                    currentValue={editableDoctorData.fecha_fin}
+                    onChange={handleInputChange}
+                    isLoading={isLoading}
+                  />
+                </>
+              )}
+
+              {esEstatusDeIncapacidad && (
+                <>
+                  <FieldRenderer
+                    label="Tipo de Incapacidad"
+                    fieldName="tipo_incapacidad"
+                    isEditing={isEditing}
+                    currentValue={editableDoctorData.tipo_incapacidad}
+                    onChange={handleInputChange}
+                    isLoading={isLoading}
+                  />
+
+                  <FieldRenderer
+                    label="Fecha de Fin"
+                    fieldName="fecha_fin"
+                    type="date"
+                    isEditing={isEditing}
+                    currentValue={editableDoctorData.fecha_fin}
+                    onChange={handleInputChange}
+                    isLoading={isLoading}
+                  />
+                </>
+              )}
+
+              {esEstatusDeBaja && (
+                <>
+                  <FieldRenderer
+                    label="Motivo de Baja"
+                    fieldName="motivo_baja"
+                    type="select"
+                    options={[
+                      {
+                        value: "01 INCUMPLIMIENTO DE ACUERDO",
+                        label: "01 INCUMPLIMIENTO DE ACUERDO",
+                      },
+                      {
+                        value: "02 DESERCION",
+                        label: "02 DESERCION",
+                      },
+                      { value: "03 ENFERMEDAD", label: "03 ENFERMEDAD" },
+                    ]}
+                    isEditing={isEditing}
+                    currentValue={editableDoctorData.motivo_baja}
+                    onChange={handleInputChange}
+                    isLoading={isLoading}
+                  />
+
+                  <FieldRenderer
+                    label="Fecha de Notificación"
+                    fieldName="fecha_notificacion"
+                    type="date"
+                    isEditing={isEditing}
+                    currentValue={editableDoctorData.fecha_notificacion}
+                    onChange={handleInputChange}
+                    isLoading={isLoading}
+                  />
+
+                  <FieldRenderer
+                    label="Forma de Notificación"
+                    fieldName="forma_notificacion"
+                    type="select"
+                    options={[
+                      {
+                        value: "Brigada Cubana (concentrado)",
+                        label: "Brigada Cubana (concentrado)",
+                      },
+                      {
+                        value: "Correo electrónico",
+                        label: "Correo electrónico",
+                      },
+                      {
+                        value: "Notificada a la entrega",
+                        label: "Notificada a la entrega",
+                      },
+                      { value: "Oficio", label: "Oficio" },
+                    ]}
+                    isEditing={isEditing}
+                    currentValue={editableDoctorData.forma_notificacion}
+                    onChange={handleInputChange}
+                    isLoading={isLoading}
+                  />
+
+                  <FieldRenderer
+                    label="Fecha Extracción"
+                    fieldName="fecha_extraccion"
+                    type="text"
+                    isEditing={isEditing}
+                    currentValue={editableDoctorData.fecha_extraccion}
+                    onChange={handleInputChange}
+                    isLoading={isLoading}
+                  />
+                </>
+              )}
+
+              {(isEditing ||
+                (doctor.comentarios_estatus &&
+                  doctor.comentarios_estatus.trim() !== "")) && (
+                <FieldRenderer
+                  label="Comentarios Adicionales"
+                  fieldName="comentarios_estatus"
+                  type="textarea"
+                  isEditing={isEditing}
+                  currentValue={editableDoctorData.comentarios_estatus}
+                  onChange={handleInputChange}
+                  isLoading={isLoading}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/*Apartado Foto y Archivos Adjuntos */}
+        <div style={profileStyles.filesColumn}>
+          <div style={profileStyles.profilePicSection}>
+            <h2>Foto de Perfil</h2>
+            {currentProfilePicUrl ? (
+              <img
+                src={currentProfilePicUrl}
+                alt="Foto de perfil"
+                style={profileStyles.profileImage}
+              />
+            ) : (
+              <div style={profileStyles.profileImagePlaceholder}>
+                <span>Sin Foto</span>
+              </div>
+            )}
+
+            {currentUser && currentUser.role !== "consulta" && (
+              <>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleProfilePicSelect}
+                  style={profileStyles.fileInput}
                   disabled={
                     isLoading ||
                     edicionGeneralBloqueada ||
                     (isEditing && edicionGeneralBloqueada)
                   }
-                  style={profileStyles.uploadButton}
-                >
-                  {isLoading ? "Subiendo Foto..." : "Subir Foto"}
-                </button>
-              )}
-            </>
+                />
+                {selectedProfilePicFile && (
+                  <button
+                    onClick={uploadProfilePic}
+                    disabled={
+                      isLoading ||
+                      edicionGeneralBloqueada ||
+                      (isEditing && edicionGeneralBloqueada)
+                    }
+                    style={profileStyles.uploadButton}
+                  >
+                    {isLoading ? "Subiendo Foto..." : "Subir Foto"}
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+
+          <div style={profileStyles.attachmentsSection}>
+            <h2>Expedientes Adjuntos Obligatorios</h2>
+            {doctor.attachments && doctor.attachments.length > 0 ? (
+              <ul style={profileStyles.attachmentList}>
+                {doctor.attachments.map((file) => (
+                  <li key={file.id} style={profileStyles.attachmentItem}>
+                    <a
+                      href={file.file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={profileStyles.attachmentLink}
+                      title={file.file_name}
+                    >
+                      {file.file_name && file.file_name.length > 35
+                        ? `${file.file_name.substring(0, 32)}...`
+                        : file.file_name}
+                    </a>
+                    <button
+                      onClick={() =>
+                        handleDeleteAttachment(file.id, file.file_name)
+                      }
+                      disabled={isLoading || isEditing}
+                      style={profileStyles.deleteAttachmentButton}
+                      title={`Eliminar ${file.file_name}`}
+                    >
+                      &times;
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p style={profileStyles.noAttachments}>
+                No hay expedientes adjuntos.
+              </p>
+            )}
+            {currentUser && currentUser.role !== "consulta" && (
+              <>
+                <input
+                  id="attachment-file-input"
+                  type="file"
+                  accept=".pdf,.doc,.docx,image/*"
+                  onChange={handleAttachmentSelect}
+                  style={profileStyles.fileInput}
+                  disabled={isLoading || isEditing}
+                />
+                {selectedAttachmentFile && (
+                  <button
+                    onClick={uploadAttachment}
+                    disabled={isLoading || isEditing}
+                    style={profileStyles.uploadButton}
+                  >
+                    {isLoading ? "Subiendo Adjunto..." : "Subir Adjunto"}
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+          {isLoading && (selectedProfilePicFile || selectedAttachmentFile) && (
+            <p style={profileStyles.loadingMessage}>Procesando archivo...</p>
           )}
         </div>
 
-        <div style={profileStyles.attachmentsSection}>
-          <h2>Expedientes Adjuntos Obligatorios</h2>
-          {doctor.attachments && doctor.attachments.length > 0 ? (
-            <ul style={profileStyles.attachmentList}>
-              {doctor.attachments.map((file) => (
-                <li key={file.id} style={profileStyles.attachmentItem}>
-                  <a
-                    href={file.file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={profileStyles.attachmentLink}
-                    title={file.file_name}
+        {/* Modal Rediseñado */}
+        {isHistoryModalOpen && (
+          <div style={profileStyles.modalBackdrop}>
+            <div style={profileStyles.modalContent}>
+              <button
+                onClick={() => setIsHistoryModalOpen(false)}
+                style={profileStyles.modalCloseButton}
+              >
+                &times;
+              </button>
+              <h2>Añadir Registro Retroactivo</h2>
+              <form onSubmit={handleAgregarHistorial}>
+                {/* Tipo de Cambio */}
+                <div style={profileStyles.modalFormGroup}>
+                  <label style={profileStyles.modalFormLabel}>
+                    Tipo de Cambio:
+                  </label>
+                  <select
+                    name="tipo_cambio"
+                    value={nuevoHistorial.tipo_cambio}
+                    onChange={handleHistorialChange}
+                    style={profileStyles.modalFormInput}
                   >
-                    {file.file_name && file.file_name.length > 35
-                      ? `${file.file_name.substring(0, 32)}...`
-                      : file.file_name}
-                  </a>
-                  <button
-                    onClick={() =>
-                      handleDeleteAttachment(file.id, file.file_name)
+                    <option value="">Seleccione...</option>
+                    <option value="Estatus">Estatus</option>
+                    <option value="Redistribución">Redistribución</option>
+                    <option value="Turno">Turno</option>
+                  </select>
+                </div>
+                {/* Estatus */}
+                <div style={profileStyles.modalFormGroup}>
+                  <label style={profileStyles.modalFormLabel}>Estatus:</label>
+                  <select
+                    name="estatus"
+                    value={nuevoHistorial.estatus}
+                    onChange={handleHistorialChange}
+                    style={{
+                      ...profileStyles.modalFormInput,
+                      ...(nuevoHistorial.tipo_cambio === "Estatus"
+                        ? profileStyles.modalFormInputDisabled
+                        : {}),
+                    }}
+                    disabled={
+                      nuevoHistorial.tipo_cambio === "Redistribución" ||
+                      nuevoHistorial.tipo_cambio === "Turno"
                     }
-                    disabled={isLoading || isEditing}
-                    style={profileStyles.deleteAttachmentButton}
-                    title={`Eliminar ${file.file_name}`}
                   >
-                    &times;
+                    <option value="">Seleccione...</option>
+                    <option value="01 ACTIVO">01 ACTIVO</option>
+                    <option value="02 RETIRO TEMP.(CUBA)">02 RETIRO TEMP.CUBA</option>                    
+                    <option value="03 RETIRO TEMP.(MEXICO)">03 RETIRO TEMP.MEXICO</option>
+                    <option value="04 SOL. PERSONAL">04 SOL. PERSONAL</option>
+                    <option value="05 INCAPACIDAD">05 INCAPACIDAD</option>
+                    <option value="06 BAJA">06 BAJA</option>
+                  </select>
+                </div>
+                {/* Fechas */}
+                <div style={{ display: "flex", gap: "15px" }}>
+                  <div style={{ ...profileStyles.modalFormGroup, flex: 1 }}>
+                    <label style={profileStyles.modalFormLabel}>
+                      Fecha Inicio:
+                    </label>
+                    <input
+                      name="fecha_inicio"
+                      type="date"
+                      value={nuevoHistorial.fecha_inicio}
+                      onChange={handleHistorialChange}
+                      style={profileStyles.modalFormInput}
+                    />
+                  </div>
+                  <div style={{ ...profileStyles.modalFormGroup, flex: 1 }}>
+                    <label style={profileStyles.modalFormLabel}>
+                      Fecha Fin:
+                    </label>
+                    <input
+                      name="fecha_fin"
+                      type="date"
+                      value={nuevoHistorial.fecha_fin}
+                      onChange={handleHistorialChange}
+                      style={{
+                        ...profileStyles.modalFormInput,
+                        ...(["01 ACTIVO", "06 BAJA"].includes(
+                          nuevoHistorial.estatus
+                        ) ||
+                        nuevoHistorial.tipo_cambio === "Redistribución" ||
+                        nuevoHistorial.tipo_cambio === "Turno"
+                          ? profileStyles.modalFormInputDisabled
+                          : {}),
+                      }}
+                      disabled={["01 ACTIVO", "06 BAJA"].includes(
+                        nuevoHistorial.estatus ||
+                          nuevoHistorial.tipo_cambio === "Turno"
+                      )}
+                    />
+                  </div>
+                </div>
+                {/* Turno */}
+                <div style={profileStyles.modalFormGroup}>
+                  <label style={profileStyles.modalFormLabel}>Turno:</label>
+                  <select
+                    name="turno"
+                    value={nuevoHistorial.turno}
+                    onChange={handleHistorialChange}
+                    style={{
+                      ...profileStyles.modalFormInput,
+                      ...(nuevoHistorial.tipo_cambio === "Estatus"
+                        ? profileStyles.modalFormInputDisabled
+                        : {}),
+                    }}
+                    disabled={nuevoHistorial.tipo_cambio === "Estatus"}
+                  >
+                    <option value="">Seleccione un turno...</option>
+                    <option value="Jornada Acumulada">Jornada Acumulada</option>
+                    <option value="Matutino">Matutino</option>
+                    <option value="No Aplica">No Aplica</option>
+                    <option value="Nocturno A">Nocturno A</option>
+                    <option value="Nocturno B">Nocturno B</option>
+                    <option value="Vespertino">Vespertino</option>
+                  </select>
+                </div>
+                {/* CLUES (con autocompletado) */}
+                <div style={profileStyles.modalFormGroup}>
+                  <label style={profileStyles.modalFormLabel}>CLUES:</label>
+                  <input
+                    name="clues"
+                    value={nuevoHistorial.clues}
+                    onChange={handleHistorialChange}
+                    style={{
+                      ...profileStyles.modalFormInput,
+                      ...(nuevoHistorial.tipo_cambio === "Estatus" ||
+                      nuevoHistorial.tipo_cambio === "Turno"
+                        ? profileStyles.modalFormInputDisabled
+                        : {}),
+                    }}
+                    disabled={nuevoHistorial.tipo_cambio === "Estatus"}
+                  />
+                </div>
+                {/* ... (campos para Entidad y Unidad, que se autocompletarían con la CLUES) ... */}
+                <div style={profileStyles.modalActions}>
+                  <button
+                    type="button"
+                    onClick={() => setIsHistoryModalOpen(false)}
+                    style={profileStyles.cancelButton}
+                  >
+                    Cancelar
                   </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p style={profileStyles.noAttachments}>
-              No hay expedientes adjuntos.
-            </p>
-          )}
-          {currentUser && currentUser.role !== "consulta" && (
-            <>
-              <input
-                id="attachment-file-input"
-                type="file"
-                accept=".pdf,.doc,.docx,image/*"
-                onChange={handleAttachmentSelect}
-                style={profileStyles.fileInput}
-                disabled={isLoading || isEditing}
-              />
-              {selectedAttachmentFile && (
-                <button
-                  onClick={uploadAttachment}
-                  disabled={isLoading || isEditing}
-                  style={profileStyles.uploadButton}
-                >
-                  {isLoading ? "Subiendo Adjunto..." : "Subir Adjunto"}
-                </button>
-              )}
-            </>
-          )}
-        </div>
-        {isLoading && (selectedProfilePicFile || selectedAttachmentFile) && (
-          <p style={profileStyles.loadingMessage}>Procesando archivo...</p>
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    style={profileStyles.saveButton}
+                  >
+                    Añadir al Historial
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         )}
       </div>
-    </div>
+
+      <div style={profileStyles.container}>
+        {/* Nueva Tabla de Historial */}
+        <div style={profileStyles.historyHeader}>
+          <div style={profileStyles.sectionTitle}>Historial de Movimientos</div>
+          <button
+            onClick={() => setIsHistoryModalOpen(true)}
+            style={profileStyles.addHistoryButton}
+          >
+            <span role="img" aria-label="agregar">
+              ➕
+            </span>
+            Añadir Registro
+          </button>
+        </div>
+
+        {/* Nueva Tabla de Historial */}
+        <table style={profileStyles.dataTable}>
+          <thead>
+            <tr>
+              <th style={profileStyles.dataTableTh}>Tipo de Cambio</th>
+              <th style={profileStyles.dataTableTh}>Estatus</th>
+              <th style={profileStyles.dataTableTh}>Hora de Registro</th>
+              <th style={profileStyles.dataTableTh}>Fecha Inicio</th>
+              <th style={profileStyles.dataTableTh}>Fecha Conclusión</th>
+              <th style={profileStyles.dataTableTh}>CLUES</th>
+              <th style={profileStyles.dataTableTh}>Unidad</th>
+              <th style={profileStyles.dataTableTh}>Turno</th>
+              <th style={profileStyles.dataTableTh}>Entidad</th>
+              <th style={profileStyles.dataTableTh}>Registro</th>
+            </tr>
+          </thead>
+          <tbody>
+            {doctor.historial && doctor.historial.length > 0 ? (
+              doctor.historial
+                .sort((a, b) => {
+                  const dateComparison =
+                    new Date(b.fecha_inicio) - new Date(a.fecha_inicio);
+                  if (dateComparison !== 0) return dateComparison;
+                  return (
+                    new Date(b.fecha_registro) - new Date(a.fecha_registro)
+                  );
+                })
+                .map((item) => (
+                  <tr key={item.id}>
+                    <td style={profileStyles.dataTableTd}>
+                      {item.tipo_cambio}
+                    </td>
+                    <td style={profileStyles.dataTableTd}>{item.estatus}</td>
+                    <td style={profileStyles.dataTableTd}>
+                      {formatDateTimeForDisplay(item.fecha_registro)}
+                    </td>
+                    <td style={profileStyles.dataTableTd}>
+                      {formatDateForDisplay(item.fecha_inicio)}
+                    </td>
+
+                    <td style={profileStyles.dataTableTd}>
+                      {["01 ACTIVO", "06 BAJA"].includes(item.estatus)
+                        ? "N/A"
+                        : formatDateForDisplay(item.fecha_fin)}
+                    </td>
+                    <td style={profileStyles.dataTableTd}>{item.clues}</td>
+                    <td style={profileStyles.dataTableTd}>
+                      {item.nombre_unidad}
+                    </td>
+                    <td style={profileStyles.dataTableTd}>{item.turno}</td>
+                    <td style={profileStyles.dataTableTd}>{item.entidad}</td>
+                    <td style={profileStyles.dataTableTd}>
+                      {renderCommentWithBoldPrefix(item.comentarios)}
+                    </td>
+                  </tr>
+                ))
+            ) : (
+              <tr>
+                <td
+                  colSpan="7"
+                  style={{ textAlign: "center", padding: "10px" }}
+                >
+                  No hay registros.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+
+        {/* Modal Rediseñado */}
+        {isHistoryModalOpen && (
+          <div style={profileStyles.modalBackdrop}>
+            <div style={profileStyles.modalContent}>
+              <button
+                onClick={() => setIsHistoryModalOpen(false)}
+                style={profileStyles.modalCloseButton}
+              >
+                &times;
+              </button>
+              <h2>Añadir Registro Retroactivo</h2>
+              <form onSubmit={handleAgregarHistorial}>
+                {/* Tipo de Cambio */}
+                <div style={profileStyles.modalFormGroup}>
+                  <label style={profileStyles.modalFormLabel}>
+                    Tipo de Cambio:
+                  </label>
+                  <select
+                    name="tipo_cambio"
+                    value={nuevoHistorial.tipo_cambio}
+                    onChange={handleHistorialChange}
+                    style={profileStyles.modalFormInput}
+                  >
+                    <option value="">Seleccione...</option>
+                    <option value="Estatus">Estatus</option>
+                    <option value="Redistribución">Redistribución</option>
+                    <option value="Turno">Turno</option>
+                  </select>
+                </div>
+                {/* Estatus */}
+                <div style={profileStyles.modalFormGroup}>
+                  <label style={profileStyles.modalFormLabel}>Estatus:</label>
+                  <select
+                    name="estatus"
+                    value={nuevoHistorial.estatus}
+                    onChange={handleHistorialChange}
+                    style={{
+                      ...profileStyles.modalFormInput, // 1. Estilo base
+                      ...(nuevoHistorial.tipo_cambio === "Redistribución" ||
+                      nuevoHistorial.tipo_cambio === "Turno" // 2. La misma condición que 'disabled'
+                        ? profileStyles.modalFormInputDisabled // 3. Si es verdad, aplica el estilo gris
+                        : {}), // 4. Si no, no hagas nada
+                    }}
+                    disabled={
+                      nuevoHistorial.tipo_cambio === "Redistribución" ||
+                      nuevoHistorial.tipo_cambio === "Turno"
+                    }
+                  >
+                    <option value="">Seleccione...</option>
+                    <option value="01 ACTIVO">01 ACTIVO</option>
+                    <option value="02 RETIRO TEMP.(CUBA)">02 RETIRO TEMP.(CUBA)</option>                    
+                    <option value="03 RETIRO TEMP.(MEXICO)">03 RETIRO TEMP.(MEXICO)</option>
+                    <option value="04 SOL. PERSONAL">04 SOL. PERSONAL</option>
+                    <option value="05 INCAPACIDAD">05 INCAPACIDAD</option>
+                    <option value="06 BAJA">06 BAJA</option>
+                  </select>
+                </div>
+                {/* Fechas */}
+                <div style={{ display: "flex", gap: "15px" }}>
+                  <div style={{ ...profileStyles.modalFormGroup, flex: 1 }}>
+                    <label style={profileStyles.modalFormLabel}>
+                      Fecha Inicio:
+                    </label>
+                    <input
+                      name="fecha_inicio"
+                      type="date"
+                      value={nuevoHistorial.fecha_inicio}
+                      onChange={handleHistorialChange}
+                      style={profileStyles.modalFormInput}
+                    />
+                  </div>
+                  <div style={{ ...profileStyles.modalFormGroup, flex: 1 }}>
+                    <label style={profileStyles.modalFormLabel}>
+                      Fecha Fin
+                      {!["", "01 ACTIVO", "06 BAJA"].includes(
+                        nuevoHistorial.estatus
+                      ) && "*"}
+                      :
+                    </label>
+                    <input
+                      name="fecha_fin"
+                      type="date"
+                      value={nuevoHistorial.fecha_fin}
+                      onChange={handleHistorialChange}
+                      style={{
+                        ...profileStyles.modalFormInput,
+                        ...(["01 ACTIVO", "06 BAJA"].includes(
+                          nuevoHistorial.estatus
+                        ) ||
+                        nuevoHistorial.tipo_cambio === "Redistribución" ||
+                        nuevoHistorial.tipo_cambio === "Turno"
+                          ? profileStyles.modalFormInputDisabled
+                          : {}),
+                      }}
+                      disabled={
+                        ["01 ACTIVO", "06 BAJA"].includes(
+                          nuevoHistorial.estatus
+                        ) ||
+                        nuevoHistorial.tipo_cambio === "Redistribución" ||
+                        nuevoHistorial.tipo_cambio === "Turno"
+                      }
+                    />
+                  </div>
+                </div>
+                {/* TURNO */}
+                <div style={profileStyles.modalFormGroup}>
+                  <label style={profileStyles.modalFormLabel}>TURNO:</label>
+                  <select
+                    name="turno"
+                    value={nuevoHistorial.turno}
+                    onChange={handleHistorialChange}
+                    style={{
+                      ...profileStyles.modalFormInput,
+                      ...(nuevoHistorial.tipo_cambio === "Estatus" ||
+                      nuevoHistorial.tipo_cambio === "Redistribución"
+                        ? profileStyles.modalFormInputDisabled
+                        : {}),
+                    }}
+                    disabled={
+                      nuevoHistorial.tipo_cambio === "Estatus" ||
+                      nuevoHistorial.tipo_cambio === "Redistribución"
+                    }
+                  >
+                    <option value="">Seleccione un turno...</option>
+                    <option value="Jornada Acumulada">Jornada Acumulada</option>
+                    <option value="Matutino">Matutino</option>
+                    <option value="No Aplica">No Aplica</option>
+                    <option value="Nocturno A">Nocturno A</option>
+                    <option value="Nocturno B">Nocturno B</option>
+                    <option value="Vespertino">Vespertino</option>
+                  </select>
+                </div>
+                {/* CLUES (con autocompletado) */}
+                <div style={profileStyles.modalFormGroup}>
+                  <label style={profileStyles.modalFormLabel}>CLUES:</label>
+                  <input
+                    name="clues"
+                    value={nuevoHistorial.clues}
+                    onChange={handleHistorialChange}
+                    style={{
+                      ...profileStyles.modalFormInput,
+                      ...(nuevoHistorial.tipo_cambio === "Estatus" ||
+                      nuevoHistorial.tipo_cambio === "Turno"
+                        ? profileStyles.modalFormInputDisabled
+                        : {}),
+                    }}
+                    disabled={
+                      nuevoHistorial.tipo_cambio === "Estatus" ||
+                      nuevoHistorial.tipo_cambio === "Turno"
+                    }
+                  />
+                </div>
+                <div style={profileStyles.modalFormGroup}>
+                  <label style={profileStyles.modalFormLabel}>Entidad:</label>
+                  <input
+                    type="text"
+                    name="entidad"
+                    value={nuevoHistorial.entidad || ""}
+                    style={{
+                      ...profileStyles.modalFormInput,
+                      ...(nuevoHistorial.tipo_cambio === "Estatus" ||
+                      nuevoHistorial.tipo_cambio === "Turno"
+                        ? profileStyles.modalFormInputDisabled
+                        : {}),
+                    }}
+                    readOnly
+                  />
+                </div>
+                <div style={profileStyles.modalFormGroup}>
+                  <label style={profileStyles.modalFormLabel}>Unidad:</label>
+                  <input
+                    type="text"
+                    name="nombre_unidad"
+                    value={nuevoHistorial.nombre_unidad || ""}
+                    style={{
+                      ...profileStyles.modalFormInput,
+                      ...(nuevoHistorial.tipo_cambio === "Estatus" ||
+                      nuevoHistorial.tipo_cambio === "Turno"
+                        ? profileStyles.modalFormInputDisabled
+                        : {}),
+                    }}
+                    readOnly
+                  />
+                </div>
+                {/* ... (campos para Entidad y Unidad, que se autocompletarían con la CLUES) ... */}
+                <div style={profileStyles.modalActions}>
+                  <button
+                    type="button"
+                    onClick={() => setIsHistoryModalOpen(false)}
+                    style={profileStyles.cancelButton}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    style={profileStyles.saveButton}
+                  >
+                    Añadir al Historial
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 
