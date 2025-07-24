@@ -11,15 +11,13 @@ import {
 } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ModalProvider, useModal } from "./contexts/ModalContext";
-
-// Importa tus componentes existentes desde su ubicación correcta
 import LoginPage from "../components/LoginPage";
 import DoctorTable from "../components/DoctorTable";
 import EditDoctorModal from "../components/EditDoctorModal";
 import Navbar from "../components/Navbar";
 import GraficasPage from "../components/GraficasPage";
 import AdminUsersPage from "../components/AdminUsersPage";
-import "./App.css"; // Tu CSS global o específico de App
+import "./App.css"; 
 import Modal from "react-modal";
 import DoctorProfileView from "../components/DoctorProfileView";
 import AuditLogView from "../components/AuditLogView";
@@ -28,7 +26,6 @@ import ChangePasswordPage from "../components/ChangePasswordPage";
 import ProfilePage from "../components/ProfilePage";
 import { useSearchParams } from "react-router-dom";
 
-// Configuración de React Modal (generalmente se hace una vez)
 Modal.setAppElement("#root");
 
 const styles = {
@@ -136,11 +133,8 @@ const styles = {
     padding: "20px",
   },
 };
-// --- FIN DE ESTILOS GLOBALES ---
 
-// 1. COMPONENTE LAYOUT (para páginas con Navbar)
 function Layout({ navbarProps }) {
-  // Recibe las props para el Navbar
   const { isAuthenticated, isGuestMode } = useAuth();
   const showNavbar = isAuthenticated || isGuestMode;
 
@@ -151,14 +145,13 @@ function Layout({ navbarProps }) {
         className="container"
         style={{ paddingTop: showNavbar ? "100px" : "20px" }}
       >
-        {/* Outlet renderiza el componente hijo de la ruta actual (HomePageContent o AdminUsersPage) */}
         <Outlet />
       </div>
     </>
   );
 }
 
-// 2. COMPONENTE PARA LA PÁGINA PRINCIPAL (Tabla de Doctores / Gráficas)
+// COMPONENTE PARA LA PÁGINA PRINCIPAL
 function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTableView }) {
   const {
     isAuthenticated,
@@ -170,16 +163,16 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
   const { isModalOpen, editingDoctor, openModal, closeModal } = useModal();
   const navigate = useNavigate(); // <--- ASEGÚRATE DE QUE ESTA LÍNEA ESTÉ PRESENTE
 
-  // Estados específicos de esta página (doctores, carga, paginación, modal, etc.)
+  // Estados específicos de esta página
   const [doctores, setDoctores] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [fetchError, setFetchError] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(20); // Puedes ajustar esto
+  const [itemsPerPage, setItemsPerPage] = useState(20);
   const [totalDoctores, setTotalDoctores] = useState(0);
-  const [searchTermInput, setSearchTermInput] = useState(""); // El valor inmediato del input
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(""); // El valor para la API después del debounce
-  const [selectedStatus, setSelectedStatus] = useState("01 ACTIVO"); // Default a "Activo"
+  const [searchTermInput, setSearchTermInput] = useState(""); 
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(""); 
+  const [selectedStatus, setSelectedStatus] = useState("01 ACTIVO"); 
   const estatusDisponibles = [
     "01 ACTIVO",
     "02 RETIRO TEMP.",
@@ -189,7 +182,7 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
     "todos",
   ];
 
-  const [viewMode, setViewMode] = useState("table"); // 'table' o 'profile'
+  const [viewMode, setViewMode] = useState("table"); 
   const [selectedDoctorProfile, setSelectedDoctorProfile] = useState(null);
   const [searchParams] = useSearchParams(); 
   const totalPages = Math.ceil(totalDoctores / itemsPerPage);
@@ -198,27 +191,20 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
   useEffect(() => {
     const timerId = setTimeout(() => {
       setDebouncedSearchTerm(searchTermInput);
-    }, 700); // Espera 700ms después de que el usuario deja de escribir
+    }, 700);
     return () => {
-      clearTimeout(timerId); // Limpia el temporizador si el usuario sigue escribiendo
+      clearTimeout(timerId); 
     };
-  }, [searchTermInput]); // Se ejecuta cada vez que searchTermInput cambia
-
+  }, [searchTermInput]); 
   useEffect(() => {
   const profileId = searchParams.get('profile');
 
   if (profileId) {
-    // Si la URL tiene un ID de perfil, forzamos el cambio de vista.
-    
-    // 1. Avisa al componente "jefe" (AppContent) que debe mostrar la vista de tabla.
     onSwitchToTableView(); 
-    
-    // 2. Llama a la función que ya tienes para cargar los datos y mostrar el perfil.
     handleViewProfileClick({ id_imss: profileId });
   }
 }, [searchParams]);
 
-  // Función para obtener doctores (sin cambios respecto a tu versión original)
   const fetchDoctores = useCallback(async () => {
     const canProceedBasedOnAuth =
       (isAuthenticated && authToken && currentUser) ||
@@ -228,22 +214,17 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
       setDoctores([]);
       setTotalDoctores(0);
       if (!isGuestMode && !isAuthenticated) {
-        // Opcional: setFetchError("Por favor, inicie sesión para ver los datos.");
+        ("Por favor, inicie sesión para ver los datos.");
       }
-      setIsLoading(false); // ¡Importante! Poner isLoading en false si no se va a hacer fetch
+      setIsLoading(false);
       return;
     }
 
-    // Guarda #2: Si está autenticado, el token es absolutamente esencial.
-    // (canProceedBasedOnAuth ya cubre el caso de authToken y currentUser si isAuthenticated es true)
-    // Esta guarda es una doble verificación y podría ser redundante si canProceedBasedOnAuth es suficiente.
     if (isAuthenticated && !authToken) {
-      setIsLoading(false); // Detener loading si no podemos proceder
-      // Opcional: setFetchError("Token no disponible, no se puede cargar la información.");
+      setIsLoading(false); // Detener loading
       return;
     }
 
-    // Solo un setIsLoading(true) y setFetchError("") al inicio del intento real de fetch
     setIsLoading(true);
     setFetchError("");
 
@@ -258,15 +239,13 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
     if (selectedStatus) {
       url += `&estatus=${encodeURIComponent(selectedStatus)}`;
     }
-    // Solo el admin autenticado puede ver 'incluir_eliminados=true' en esta tabla.
-    // Los invitados no tendrán currentUser ni rol de admin.
+
     if (isAuthenticated && currentUser && currentUser.role === "admin") {
       url += "&incluir_eliminados=true";
     }
 
     try {
       const headers = { "Content-Type": "application/json" };
-      // Añadir token solo si está autenticado (isGuestMode será false en este caso si isAuthenticated es true)
       if (isAuthenticated && authToken) {
         headers["Authorization"] = `Bearer ${authToken}`;
       }
@@ -278,17 +257,15 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
         setDoctores(data.doctores || []);
         setTotalDoctores(data.total_count || 0);
       } else {
-        const errorText = await response.text(); // Usar .text() para obtener cualquier tipo de error
+        const errorText = await response.text(); 
 
         let detailErrorMessage = `Error del servidor: ${response.status}.`;
         try {
-          // Intentar parsear como JSON para un mensaje de error más específico si está disponible
           const errorData = JSON.parse(errorText);
           if (errorData && errorData.detail) {
             detailErrorMessage = errorData.detail;
           }
         } catch (parseError) {
-          // No hacer nada, usar el errorText o el status como fallback
           if (errorText.length < 100 && errorText.length > 0)
             detailErrorMessage = errorText;
         }
@@ -325,30 +302,28 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
     authToken,
     authLogout,
     API_BASE_URL,
-    currentUser, // Depender del objeto currentUser completo
+    currentUser, 
   ]);
 
   useEffect(() => {
     let shouldFetch = false;
     if (isGuestMode && !isAuthenticated) {
-      // Modo invitado explícito
+      // Modo invitado
       shouldFetch = true;
     } else if (isAuthenticated && authToken && currentUser) {
-      // Autenticado y con toda la info necesaria
       shouldFetch = true;
     }
 
     if (shouldFetch && viewMode === "table") {
       fetchDoctores();
     } else if (viewMode !== "profile") {
-      // Limpiar datos si no se debe hacer fetch Y no estamos en modo perfil (para evitar limpiar si solo cambiamos de vista)
       if (!shouldFetch) {
         setDoctores([]);
         setTotalDoctores(0);
       }
     }
   }, [
-    fetchDoctores, // Esta es una dependencia clave. Se regenera si sus propias dependencias cambian.
+    fetchDoctores, 
     isAuthenticated,
     isGuestMode,
     authToken,
@@ -358,25 +333,19 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
   ]);
 
   useEffect(() => {
-    // Resetear a la página 1 cuando los filtros de búsqueda o estado cambian.
-    // No hacerlo si currentPage ya es 1 para evitar un re-render/re-fetch innecesario
-    // si el useEffect principal ya se va a disparar por el cambio en `fetchDoctores` (debido a filtros).
     if (currentPage !== 1) {
       setCurrentPage(1);
     }
-  }, [debouncedSearchTerm, selectedStatus]); // Quitar currentPage de aquí
+  }, [debouncedSearchTerm, selectedStatus]);
 
-  // --- NUEVA FUNCIÓN PARA CARGAR EL PERFIL COMPLETO DEL DOCTOR ---
   const fetchFullDoctorProfile = async (doctorId) => {
     if (!doctorId) return;
-    // Podrías tener un estado de carga específico para el perfil si lo deseas
-    // setIsLoading(true); // O un nuevo estado como setIsLoadingProfile(true)
-    setFetchError(""); // Limpiar errores anteriores
+    
+    setFetchError(""); 
 
     try {
       const headers = { "Content-Type": "application/json" };
       if (isAuthenticated && authToken) {
-        // Usa el authToken del hook useAuth
         headers["Authorization"] = `Bearer ${authToken}`;
       }
       const response = await fetch(`${API_BASE_URL}/api/doctores/${doctorId}`, {
@@ -390,16 +359,13 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
         }));
         throw new Error(errorData.detail || `Error ${response.status}`);
       }
-      const data = await response.json(); // data debe ser del tipo schemas.DoctorDetail
-      setSelectedDoctorProfile(data); // Actualiza el estado con los datos frescos y completos
+      const data = await response.json(); 
+      setSelectedDoctorProfile(data); 
     } catch (err) {
       console.error("Error al cargar perfil completo del doctor:", err);
       setFetchError(err.message || "Ocurrió un error al cargar el perfil.");
-      // Opcional: si falla, podrías volver a la tabla o limpiar el perfil seleccionado
-      // setViewMode('table');
-      // setSelectedDoctorProfile(null);
     } finally {
-      // setIsLoading(false); // O setIsLoadingProfile(false)
+     setIsLoading(false);
     }
   };
 
@@ -421,9 +387,8 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
     fetchDoctores();
   };
 
-  // --- NUEVA FUNCIÓN: CALLBACK PARA CUANDO EL PERFIL SE ACTUALIZA ---
   const handleDoctorProfileWasUpdated = (doctorId) => {
-    fetchFullDoctorProfile(doctorId); // Vuelve a cargar los datos completos del doctor
+    fetchFullDoctorProfile(doctorId);
   };
 
   const handleOpenCreateDoctorModal = () => {
@@ -438,65 +403,48 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
     openModal(null);
   };
 
-  // Funciones para manejar el modal de edición/creación
   const handleOpenEditModal = (doctor) => {
     if (!isAuthenticated) return;
     openModal(doctor);
   };
 
   const handleDoctorSave = async (savedDoctorData, wasEditing) => {
-    closeModal(); // <--- Usa closeModal del contexto
+    closeModal(); 
     if (!wasEditing && savedDoctorData && savedDoctorData.id_imss) {
-      // Es un NUEVO doctor que se guardó exitosamente (Paso 1 completado)
-      // El backend devolvió el doctor con su nuevo ID.
-      setFetchError(""); // Limpiar errores anteriores
-      setIsLoading(true); // Podrías poner un loading mientras navegas/cargas perfil
+      setFetchError(""); 
+      setIsLoading(true); 
       try {
-        // Opcional pero recomendado: volver a pedir el perfil completo para asegurar datos frescos.
-        // Si confías que savedDoctorData es completo, puedes saltar esto.
-        // const freshProfile = await fetchFullDoctorProfile(savedDoctorData.id);
-        // setSelectedDoctorProfile(freshProfile || savedDoctorData);
-
-        setSelectedDoctorProfile(savedDoctorData); // Asumimos que el backend devuelve el perfil completo
-        setViewMode("profile"); // Cambia a la vista de perfil
-        // Opcional: podrías querer que el DoctorProfileView entre en modo edición automáticamente
-        // Esto requeriría pasar una prop a DoctorProfileView o que DoctorProfileView lo detecte
+        setSelectedDoctorProfile(savedDoctorData); 
+        setViewMode("profile"); 
       } catch (error) {
         console.error("Error al cargar el perfil del nuevo doctor:", error);
         setFetchError(
           "Se creó el doctor, pero hubo un error al cargar su perfil completo."
         );
-        // Quédate en la tabla y recarga para que al menos aparezca en la lista
         fetchDoctores();
       } finally {
         setIsLoading(false);
       }
     } else if (wasEditing && savedDoctorData && savedDoctorData.id_imss) {
-      // Se estaba EDITANDO un doctor existente (no el flujo de dos pasos)
-      // y se guardó. Simplemente recarga la tabla o actualiza el perfil si ya estabas en él.
       if (viewMode === "table") {
-        fetchDoctores(); // Recarga la tabla
+        fetchDoctores(); 
       } else if (
         viewMode === "profile" &&
         selectedDoctorProfile?.id_imss === savedDoctorData.id_imss
       ) {
-        // Si estabas viendo el perfil que se editó, recárgalo
         await fetchFullDoctorProfile(savedDoctorData.id_imss);
       } else {
-        fetchDoctores(); // Fallback: recargar tabla
+        fetchDoctores();
       }
     } else {
-      // Caso genérico de guardado o si algo salió mal y no hay savedDoctorData
       fetchDoctores();
     }
   };
-
-  // Funciones para eliminar doctor
   const handleDeleteClick = (doctorId, doctorNombre) => {
     if (!isAuthenticated) return;
     if (
       window.confirm(
-        `¿Estás seguro de que quieres eliminar el registro "${doctorNombre}" (ID: ${doctorId})?`
+        `¿Estás seguro de que quieres eliminar al doctor "${doctorNombre}" (ID: ${doctorId})?`
       )
     ) {
       deleteDoctor(doctorId);
@@ -513,13 +461,13 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
         headers: { Authorization: `Bearer ${authToken}` },
       });
       if (response.ok) {
-        fetchDoctores(); // Recarga después de borrar
+        fetchDoctores();
       } else if (response.status === 401) {
         setFetchError("Tu sesión ha expirado.");
         authLogout();
       } else if (response.status === 404) {
-        setFetchError(`Error: No se encontró el registro con ID ${doctorId}.`);
-        fetchDoctores(currentPage, searchTerm); // Refresca lista
+        setFetchError(`Error: No se encontró el doctor con ID ${doctorId}.`);
+        fetchDoctores(currentPage, searchTerm); 
       } else {
         const errorData = await response.json().catch(() => null);
         setFetchError(
@@ -539,13 +487,12 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearchTerm, selectedStatus]); // También cuando cambia el estatus
+  }, [debouncedSearchTerm, selectedStatus]); 
 
   const handleNavigateToDeletedDoctors = () => {
-    navigate("/admin/deleted-doctors"); // Ahora 'navigate' está definida
+    navigate("/admin/deleted-doctors"); 
   };
 
-  // Renderiza Tabla o Gráficas basado en la prop vistaActualProp recibida de App
   if (vistaActualProp === "graficas") {
     return <GraficasPage />;
   }
@@ -600,7 +547,7 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
                 }}
                 style={styles.searchInput}
               />
-              {/* El filtro de estatus se maneja dentro de DoctorTable, pero podría ir aquí */}
+              
             </div>
             {isAuthenticated && currentUser?.role !== "consulta" && (
               <button
@@ -623,7 +570,7 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
                 style={{
                   ...styles.button,
                   backgroundColor: "#BC955C",
-                  color: "white" /* Un color diferente para distinguirlo */,
+                  color: "white" 
                 }}
               >
                 Registros Eliminados
@@ -631,7 +578,7 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
             )}
           </div>
 
-          {isLoading && <p>Cargando registros...</p>}
+          {isLoading && <p>Cargando doctores...</p>}
           {fetchError && <p style={{ color: "red" }}>{fetchError}</p>}
 
           {/* --- Controles de Paginación --- */}
@@ -675,8 +622,8 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
           {!isLoading && !fetchError && (
             <DoctorTable
               doctores={doctores}
-              onEdit={isAuthenticated ? handleOpenEditModal : undefined} // Pasa la función para abrir modal
-              onDelete={isAuthenticated ? handleDeleteClick : undefined} // Pasa la función para borrar
+              onEdit={isAuthenticated ? handleOpenEditModal : undefined} 
+              onDelete={isAuthenticated ? handleDeleteClick : undefined} 
               onViewProfile={handleViewProfileClick}
               selectedStatus={selectedStatus}
               onStatusChange={handleStatusChange}
@@ -698,7 +645,6 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
   return <div>Vista no reconocida o estado inesperado.</div>;
 }
 
-// 4. COMPONENTE PARA PROTEGER RUTAS
 function ProtectedRoute({ adminOnly = false, children }) {
   const { isAuthenticated, currentUser, isLoading } = useAuth();
 
@@ -710,17 +656,16 @@ function ProtectedRoute({ adminOnly = false, children }) {
     // Si requiere admin pero no lo es, redirige a la página principal
     return <Navigate to="/" replace />;
   }
-  // Si cumple las condiciones, renderiza el componente hijo (la página protegida)
+  // Si cumple las condiciones, renderiza el componente hijo
   return children;
 }
 
-// Renombrado de App a AppContent
 function AppContent() {
   const { isAuthenticated, isGuestMode, currentUser } = useAuth();
   const navigate = useNavigate();
   const initialVista = new URLSearchParams(window.location.search).has('profile') ? 'tabla' : 'graficas';
   const [vistaActual, setVistaActual] = useState(initialVista);
-  // --- NUEVO ESTADO PARA DISPARAR REFETCH EN HomePageContent ---
+
   const [doctorListRefreshKey, setDoctorListRefreshKey] = useState(0);
 
   const handleVerGraficas = () => { 
@@ -732,21 +677,16 @@ function AppContent() {
     navigate("/");
   };
 
-  // --- DEFINIR handleDoctorHasBeenRestored AQUÍ ---
   const handleDoctorHasBeenRestored = () => {
-    setDoctorListRefreshKey((prevKey) => prevKey + 1); // Cambia la clave para disparar useEffect en HomePageContent
-    // Opcional: Navegar de vuelta a la tabla principal si no se hace automáticamente
-    // navigate("/");
-    // setVistaActual("tabla");
+    setDoctorListRefreshKey((prevKey) => prevKey + 1); 
+    
   };
-  // --- FIN DEFINICIÓN ---
 
   const navbarProps = {
     title: "Sistema de Gestión de Información de Médicos Extranjeros",
     vistaActual: vistaActual,
     onVerGraficasClick: handleVerGraficas,
     onVerTablaClick: handleVerTabla,
-    // onAgregarDoctorClick ya no se pasa al Navbar
   };
 
   return (
@@ -767,7 +707,6 @@ function AppContent() {
           path="/"
           element={
             isAuthenticated || isGuestMode ? (
-              // Pasar doctorListRefreshKey a HomePageContent
               <HomePageContent
                 vistaActualProp={vistaActual}
                 onSwitchToTableView={handleVerTabla} 
@@ -800,7 +739,6 @@ function AppContent() {
           path="/admin/deleted-doctors"
           element={
             <ProtectedRoute adminOnly={true}>
-              {/* Pasar la función definida en AppContent */}
               <DeletedDoctorsView
                 onDoctorRestored={handleDoctorHasBeenRestored}
               />
