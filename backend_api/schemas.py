@@ -2,6 +2,7 @@ from pydantic import BaseModel, EmailStr, Field
 from typing import List, Optional, Union
 from datetime import date, datetime
 
+# --- SCHEMA DATOS DOCTOR
 class DoctorBase(BaseModel):
     id_imss: str = Field(..., max_length=100)
     nombre: Optional[str] = Field(None, max_length=255)
@@ -13,11 +14,11 @@ class DoctorBase(BaseModel):
     cedula_esp: Optional[str] = Field(None, max_length=100)
     cedula_lic: Optional[str] = Field(None, max_length=100)
     especialidad: Optional[str] = Field(None, max_length=255)
-    entidad: Optional[str] = Field(None, max_length=100) # Entidad de adscripción
+    entidad: Optional[str] = Field(None, max_length=100) 
     clues: Optional[str] = Field(None, max_length=100)
-    forma_notificacion: Optional[str] = None # Podría ser TEXT
+    forma_notificacion: Optional[str] = None 
     motivo_baja: Optional[str] = Field(None, max_length=100)
-    fecha_extraccion: Optional[str] = Field(None, max_length=100) # Mantener como str si así se usa
+    fecha_extraccion: Optional[str] = Field(None, max_length=100) 
     fecha_notificacion: Optional[date] = None
     sexo: Optional[str] = Field(None, max_length=20)
     turno: Optional[str] = Field(None, max_length=50)
@@ -29,7 +30,7 @@ class DoctorBase(BaseModel):
     fecha_vuelo: Optional[date] = None
     estrato: Optional[str] = Field(None, max_length=100)
     acuerdo: Optional[str] = Field(None, max_length=255)
-    foto_url: Optional[str] = Field(None, max_length=1024) # URLs pueden ser largas
+    foto_url: Optional[str] = Field(None, max_length=1024) 
     correo: Optional[str] = Field(None, max_length=255)
     telefono: Optional[str] = Field(None, max_length=50)
     comentarios_estatus:  Optional[str] = Field(None, max_length=255)
@@ -49,7 +50,6 @@ class DoctorBase(BaseModel):
     subtipo_establecimiento: Optional[str] = Field(None, max_length=255)
     direccion_unidad: Optional[str] = Field(None, max_length=255)
     region: Optional[str] = Field(None, max_length=255)
-    # Campos para soft delete (opcionales en la base, pero útiles en el schema)
     is_deleted: Optional[bool] = Field(default=False)
     deleted_at: Optional[datetime] = None
     deleted_by_user_id: Optional[int] = None
@@ -60,52 +60,65 @@ class DoctorBase(BaseModel):
     entidad_nacimiento: Optional[str] = Field(None, max_length=255)
     coordinacion: Optional[str] = Field(None, max_length=100)
 
-class UserSimple(BaseModel): # Un schema simple para el usuario
+# --- SCHEMA DATOS USUARIO
+class UserSimple(BaseModel): 
     id: int
     username: str
     class Config:
         from_attributes = True
 
-# Schema para leer un Doctor
+# --- SCHEMA LEER DOCTOR
 class Doctor(DoctorBase):
-    is_deleted: Optional[bool] = None # Es bueno tenerlo para esta vista
+    is_deleted: Optional[bool] = None 
     deleted_at: Optional[datetime] = None
-    deleted_by_user_id: Optional[int] = None # Puedes mantener el ID si quieres
-    deleted_by_username: Optional[str] = None # <--- NUEVO CAMPO PARA EL NOMBRE
-
+    deleted_by_user_id: Optional[int] = None 
+    deleted_by_username: Optional[str] = None 
     class Config:
         from_attributes = True
 
-# Schema para recibir datos al CREAR un nuevo doctor
-class DoctorCreate(BaseModel): # No hereda de DoctorBase para ser explícito con los campos requeridos
-    id_imss: str = Field(..., min_length=1, max_length=100) # ID es requerido al crear
+# --- SCHEMA CREAR DOCTOR
+class DoctorCreate(BaseModel): 
+    id_imss: str = Field(..., min_length=1, max_length=100)
     nombre: str = Field(..., min_length=1, max_length=255)
     apellido_paterno: str = Field(..., min_length=1, max_length=255)
     apellido_materno: str = Field(..., min_length=1, max_length=255)
     estatus: str = Field(..., min_length=1, max_length=50)
     curp: Optional[str] = Field(None, pattern=r'^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$|^$', max_length=25)
     especialidad: str = Field(..., min_length=1, max_length=255)
-    entidad: str = Field(..., min_length=1, max_length=100) # Entidad de adscripción inicial
-    fecha_nacimiento: Optional[date] = None # Se calcula desde CURP, se envía opcionalmente
+    turno: Optional[str] = None 
+    fecha_estatus: Optional[date] = None
+    clues: Optional[str] = None
+    nombre_unidad: Optional[str] = None
+    nivel_atencion: Optional[str] = None
+    estrato: Optional[str] = None
+    tipo_establecimiento: Optional[str] = None
+    subtipo_establecimiento: Optional[str] = None
+    entidad: Optional[str] = None
+    municipio: Optional[str] = None
+    direccion_unidad: Optional[str] = None
+    fecha_nacimiento: Optional[date] = None
+    sexo: Optional[str] = None
+    edad: Optional[int] = None
 
-
-# Schema para actualizar el perfil completo del doctor
-class DoctorProfileUpdateSchema(DoctorBase): # Hereda de DoctorBase, todos los campos son opcionales
-    pass
+# --- SCHEMA ACTUALIZA EXPEDIENTE
+class DoctorProfileUpdateSchema(DoctorBase): 
+    pass 
 
     class Config:
         from_attributes = True
 
-# --- Schemas para Doctor Attachments ---
+# --- SCHEMA DOCUMENTOS ADJUNTOS
 class DoctorAttachmentBase(BaseModel):
     file_name: str
-    file_url: str # Debería ser HttpUrl si quieres validación de Pydantic
+    file_url: str 
     file_type: Optional[str] = None
 
+# --- SCHEMA SUBIR DOCUMENTO
 class DoctorAttachmentCreate(DoctorAttachmentBase):
     doctor_id: str
     pass
 
+# --- SCHEMA REGISTRAR DOCUMENTO
 class DoctorAttachment(DoctorAttachmentBase):
     id: int
     doctor_id: str 
@@ -114,70 +127,88 @@ class DoctorAttachment(DoctorAttachmentBase):
     class Config:
         from_attributes = True
 
+# --- SCHEMA ESTATUS HISTORICO
 class EstatusHistoricoBase(BaseModel):
+    tipo_cambio: str
     estatus: str
-    fecha_efectiva: date
+    fecha_inicio: date
+    fecha_fin: Optional[date] = None
+    clues: Optional[str] = None
+    entidad: Optional[str] = None
+    nombre_unidad: Optional[str] = None
+    turno: Optional[str] = None
     comentarios: Optional[str] = None
 
+# --- SCHEMA ESTATUS HISTORICO MANUAL
 class EstatusHistoricoCreate(EstatusHistoricoBase):
     pass
 
+# --- SCHEMA ESTATUS HISTORICO AUTOMATICO
 class EstatusHistoricoItem(EstatusHistoricoBase):
     id: int
-    
+    nombre_unidad: Optional[str] = None
+    clues: Optional[str] = None
+    fecha_registro: datetime
     class Config:
         from_attributes = True
         
-# Schema para DoctorDetail
+# --- SCHEMA DETALLES REGISTRO
 class DoctorDetail(Doctor): 
     attachments: List[DoctorAttachment] = []
     historial: List[EstatusHistoricoItem] = []
     class Config:
         from_attributes = True
 
-# --- Schemas para Usuarios y Autenticación ---
-class UserBase(BaseModel): # Definición única y consolidada
+# --- SCHEMA AUTENTICACION
+class UserBase(BaseModel): 
     username: str = Field(..., min_length=3)
-    role: str = Field(default="user", pattern=r'^(admin|user|consulta)$') # Rol con default y patrón
+    role: str = Field(default="user", pattern=r'^(admin|user|consulta)$') 
 
-class User(UserBase): # Schema para leer User desde la DB
+# --- SCHEMA USUARIOS BD
+class User(UserBase): 
     id: int
     class Config:
         from_attributes = True
 
-class UserCreateAdmin(BaseModel): # Schema para crear usuario desde panel admin
+# --- SCHEMA CREAR USUARIOS
+class UserCreateAdmin(BaseModel): 
     username: str = Field(..., min_length=3)
     role: str = Field(default="user", pattern=r'^(admin|user|consulta)$')
 
+# --- SCHEMA VISUALIZAR 
 class UserAdminView(UserBase): 
     id: int
     username: str
     role: str
-    must_change_password: bool # <-- NUEVO
+    must_change_password: bool 
 
     class Config:
         orm_mode = True
 
+# --- SCHEMA TOKEN AUTENTICACION
 class Token(BaseModel):
     access_token: str
     token_type: str
 
+# --- SCHEMA TOKEN
 class TokenData(BaseModel):
     username: Optional[str] = None
 
+# --- SCHEMA ACTUALIZAR CONTRASEÑA
 class UserResetPasswordPayload(BaseModel):
     new_password: str = Field(..., min_length=8)
 
-# --- Schemas para Paginación y Gráficas ---
+# --- SCHEMA PAGINACION
 class DoctoresPaginados(BaseModel):
     total_count: int
     doctores: List[Doctor]
 
+# --- SCHEMA GRAFICAS
 class DataGraficaItem(BaseModel):
     label: str
     value: Union[int, float]
 
-# --- Schemas para AuditLog ---
+# --- SCHEMA PARA AUDITLOG ---
 class AuditLogBase(BaseModel):
     timestamp: datetime
     username: Optional[str] = None
@@ -186,6 +217,7 @@ class AuditLogBase(BaseModel):
     target_id_str: Optional[str] = None
     details: Optional[str] = None
 
+# --- SCHEMA PARA AUDITLOG VER
 class AuditLogView(AuditLogBase):
     id: int
     class Config:
@@ -195,32 +227,36 @@ class AuditLogsPaginados(BaseModel):
     total_count: int
     audit_logs: List[AuditLogView]
 
-class AuditLogBulkDeleteRequest(BaseModel): # CORREGIDO: Hereda de BaseModel
+class AuditLogBulkDeleteRequest(BaseModel): 
     ids: List[int]
-    pin: str # El PIN de confirmación
+    pin: str 
 
-class CurpCheckResponse(BaseModel): # Para la verificación de CURP
+class CurpCheckResponse(BaseModel): 
     exists: bool
     message: Optional[str] = None
 
-# --- NUEVO SCHEMA PARA LA TABLA DE ESTADÍSTICA AGRUPADA ---
+# --- SCHEMA ESTADISTICA
 class EstadisticaAgrupadaItem(BaseModel):
-    entidad: Optional[str] = "N/A" # Permitir que sea None y darle un default para Pydantic
+    entidad: Optional[str] = "N/A"
+    nombre_unidad: str
+    clues: str 
     especialidad: Optional[str] = "N/A"
     nivel_atencion: Optional[str] = "N/A"
     cantidad: int
 
     class Config:
-        from_attributes = True # Para que funcione con los resultados de SQLAlchemy si son tuplas nombradas o similares
-# --- FIN NUEVO SCHEMA ---
-class EstadisticaPaginada(BaseModel): # <--- ASEGÚRATE DE QUE ESTA CLASE ESTÉ DEFINIDA
+        from_attributes = True 
+
+
+class EstadisticaPaginada(BaseModel):
     total_groups: int # Para la paginación de la tabla de grupos
     total_doctors_in_groups: int # Suma de 'cantidad' de todos los grupos filtrado
     items: List[EstadisticaAgrupadaItem]
     
     class Config: # Añadir Config si no la tiene, aunque para este schema simple puede no ser estrictamente necesaria
         from_attributes = True
-# --- FIN SCHEMAS DE ESTADÍSTICA ---
+
+# --- SCHEMA ESPECIALIDAD
 class EspecialidadItem(BaseModel):
     nombre: str
     total_doctores: int
@@ -261,10 +297,12 @@ class UserChangePassword(BaseModel):
     new_password: str
 
 class DoctorDetalleItem(BaseModel):
-    id_imss: str  # O el ID que uses para ir al perfil
+    id_imss: str 
     nombre_completo: str
+    nombre_unidad: str
     especialidad: Optional[str] = "N/A"
     nivel_atencion: Optional[str] = "N/A"
+    clues: str
     entidad: str
 
     class Config:
@@ -284,3 +322,18 @@ class CluesData(BaseModel):
 
     class Config:
         from_attributes = True
+
+#ACTUALIZAR EN GITHUB
+class ReporteDinamicoRequest(BaseModel):
+    entidad: Optional[str] = None
+    especialidad: Optional[str] = None
+    nivel_atencion: Optional[str] = None
+    nombre_unidad: Optional[str] = None
+    
+    columnas: List[str]
+
+class OpcionesFiltro(BaseModel):
+    entidades: List[str] 
+    unidades: List[str]
+    especialidades: List[str]
+    niveles_atencion: List[str]
