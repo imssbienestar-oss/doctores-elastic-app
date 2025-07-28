@@ -19,7 +19,7 @@ class DoctorBase(BaseModel):
     forma_notificacion: Optional[str] = None 
     motivo_baja: Optional[str] = Field(None, max_length=100)
     fecha_extraccion: Optional[str] = Field(None, max_length=100) 
-    fecha_notificacion: Optional[date] = None
+    fecha_notificacion: Optional[str] = None
     sexo: Optional[str] = Field(None, max_length=20)
     turno: Optional[str] = Field(None, max_length=50)
     nombre_unidad: Optional[str] = Field(None, max_length=255)
@@ -38,14 +38,10 @@ class DoctorBase(BaseModel):
     fecha_nacimiento: Optional[date] = None
     edad: Optional[str] = Field(None, max_length=10)
     pasaporte: Optional[str] = Field(None, max_length=255)
-    fecha_emision: Optional[date] = None
-    fecha_expiracion: Optional[date] = None
+    fecha_emision: Optional[str] = None
+    fecha_expiracion: Optional[str] = None
     domicilio: Optional[str] = Field(None, max_length=255)
     licenciatura: Optional[str] = Field(None, max_length=255)
-    institucion_lic: Optional[str] = Field(None, max_length=255)
-    institucion_esp: Optional[str] = Field(None, max_length=255)
-    fecha_egreso_lic:  Optional[date] = None
-    fecha_egreso_esp: Optional[date] = None
     tipo_establecimiento: Optional[str] = Field(None, max_length=255)
     subtipo_establecimiento: Optional[str] = Field(None, max_length=255)
     direccion_unidad: Optional[str] = Field(None, max_length=255)
