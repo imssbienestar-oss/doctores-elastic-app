@@ -24,7 +24,7 @@ class Doctor(Base):
     motivo_baja = Column(String(100), nullable=True)
     fecha_extraccion = Column(String(100), nullable=True)
     fecha_notificacion = Column(String, nullable=True)
-    sexo = Column(String(10), nullable=True)
+    sexo = Column(String(15), nullable=True)
     turno = Column(String(50), nullable=True)
     nombre_unidad = Column(String(255), nullable=True)
     municipio = Column(String(100), nullable=True)
