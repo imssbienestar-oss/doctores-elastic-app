@@ -20,7 +20,7 @@ class DoctorBase(BaseModel):
     motivo_baja: Optional[str] = Field(None, max_length=100)
     fecha_extraccion: Optional[str] = Field(None, max_length=100) 
     fecha_notificacion: Optional[str] = None
-    sexo: Optional[str] = Field(None, max_length=20)
+    sexo: Optional[str] = Field(None, max_length=15)
     turno: Optional[str] = Field(None, max_length=50)
     nombre_unidad: Optional[str] = Field(None, max_length=255)
     municipio: Optional[str] = Field(None, max_length=100)
