@@ -1274,7 +1274,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                 label="Edad"
                 fieldName="edad"
                 isEditing={isEditing}
-                currentValue={doctor.edad ? `${doctor.edad} años` : ''}
+                currentValue={doctor.edad ? `${parseInt(doctor.edad)} años` : ''}
                 onChange={handleInputChange}
                 isLoading={isLoading}
               />
