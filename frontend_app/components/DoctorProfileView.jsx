@@ -503,6 +503,7 @@ const FieldRenderer = React.memo(
 );
 FieldRenderer.displayName = "FieldRenderer";
 
+
 function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
   const { currentUser } = useAuth();
   const userRole = currentUser?.role;
@@ -534,6 +535,76 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
     turno: "",
     comentarios: "",
   };
+
+  const DOCUMENTOS_REQUERIDOS = [
+    { key: "IDENTIFICACION", label: "Identificación Oficial" },
+    { key: "TITULO", label: "Título Profesional" },
+    { key: "CEDULA", label: "Cédula Profesional" },
+    { key: "CURP", label: "CURP (Documento)" },
+  ];
+
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedDocType, setSelectedDocType] = useState("");
+
+  const tiposDeDocumentoFaltantes = DOCUMENTOS_REQUERIDOS.filter(
+    (doc) => !doctor.attachments.some((att) => att.documento_tipo === doc.key)
+  );
+
+  useEffect(() => {
+    // Resetea el tipo de documento seleccionado si la lista de faltantes cambia
+    if (tiposDeDocumentoFaltantes.length > 0) {
+      setSelectedDocType(tiposDeDocumentoFaltantes[0].key);
+    } else {
+      setSelectedDocType("");
+    }
+  }, [doctor.attachments]);
+
+  const handleFileUpload = async () => {
+    if (!selectedFile || !selectedDocType) {
+      alert("Por favor, seleccione un tipo de documento y un archivo.");
+      return;
+    }
+
+    setIsLoading(true);
+    setError("");
+    setSuccessMessage("");
+
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+    formData.append("documento_tipo", selectedDocType);
+
+    const authToken = localStorage.getItem("authToken");
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/doctores/${doctor.id_imss}/attachments`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${authToken}` }, // Para FormData, no se pone 'Content-Type'
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response
+          .json()
+          .catch(() => ({ detail: "Error al subir el archivo." }));
+        throw new Error(errorData.detail || `Error ${response.status}`);
+      }
+
+      // Si todo sale bien, notificamos al componente padre para que recargue el perfil completo
+      if (onProfileUpdate) {
+        onProfileUpdate(doctor.id_imss);
+      }
+      setSuccessMessage(`Documento "${selectedDocType}" subido exitosamente.`);
+      setSelectedFile(null); // Limpiamos el archivo seleccionado
+    } catch (err) {
+      console.error("Error al subir adjunto:", err);
+      setError(err.message || "Ocurrió un error al subir el archivo.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const [nuevoHistorial, setNuevoHistorial] = useState(initialHistoryState);
 
   const r = async (cluesCode) => {
@@ -1129,7 +1200,9 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
   const estatusActualParaUI = editableDoctorData.estatus;
   const esEstatusDeBaja = estatusActualParaUI === "06 BAJA";
   const esEstatusDeDefuncion = estatusActualParaUI === "Defunción";
-  const esEstatusDeRetiro = estatusActualParaUI === "02 RETIRO TEMP.(CUBA)" ||  estatusActualParaUI === "03 RETIRO TEMP.(MEXICO)";
+  const esEstatusDeRetiro =
+    estatusActualParaUI === "02 RETIRO TEMP.(CUBA)" ||
+    estatusActualParaUI === "03 RETIRO TEMP.(MEXICO)";
   const esEstatusDeSolicitud = estatusActualParaUI === "04 SOL. PERSONAL";
   const esEstatusDeIncapacidad = estatusActualParaUI === "05 INCAPACIDAD";
   const currentProfilePicUrl = profilePicPreviewUrl || doctor.foto_url || null;
@@ -1274,7 +1347,9 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                 label="Edad"
                 fieldName="edad"
                 isEditing={isEditing}
-                currentValue={doctor.edad ? `${parseInt(doctor.edad)} años` : ''}
+                currentValue={
+                  doctor.edad ? `${parseInt(doctor.edad)} años` : ""
+                }
                 onChange={handleInputChange}
                 isLoading={isLoading}
               />
@@ -1283,9 +1358,9 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                 fieldName="sexo"
                 type="select"
                 options={[
-                  { value: "M", label: "Masculino" },
-                  { value: "F", label: "Femenino" },
-                  { value: "Otro", label: "Otro" },
+                  { value: "MASCULINO", label: "Masculino" },
+                  { value: "FEMENINO", label: "Femenino" },
+                  { value: "OTRO", label: "Otro" },
                 ]}
                 isEditing={isEditing}
                 currentValue={editableDoctorData.sexo}
@@ -1302,6 +1377,14 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                 isLoading={isLoading}
               />
 
+              <FieldRenderer
+                label="Lugar de Nacimiento"
+                fieldName="entidad_nacimiento"
+                isEditing={isEditing}
+                currentValue={editableDoctorData.entidad_nacimiento}
+                onChange={handleInputChange}
+                isLoading={isLoading}
+              />
               <FieldRenderer
                 label="Matrimonio ID"
                 fieldName="matrimonio_id"
@@ -1351,8 +1434,6 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                 onChange={handleInputChange}
                 isLoading={isLoading}
               />
-        
-             
 
               <FieldRenderer
                 label="Cédula Licenciatura"
@@ -1410,10 +1491,9 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                 isLoading={isLoading}
               />
               <FieldRenderer
-                label="Fecha (inicio | vuelo)"
+                label="Fecha de llegada"
                 fieldName="fecha_vuelo"
                 type="date"
-                isEditing={isEditing}
                 currentValue={editableDoctorData.fecha_vuelo}
                 onChange={handleInputChange}
                 isLoading={isLoading}
@@ -1424,8 +1504,14 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                 type="select"
                 options={[
                   { value: "01 ACTIVO", label: "01 ACTIVO" },
-                  { value: "02 RETIRO TEMP.(CUBA)", label: "02 RETIRO TEMP.(CUBA)" },
-                  { value: "03 RETIRO TEMP.(MEXICO)", label: "03 RETIRO TEMP.(MEXICO)" },
+                  {
+                    value: "02 RETIRO TEMP.(CUBA)",
+                    label: "02 RETIRO TEMP.(CUBA)",
+                  },
+                  {
+                    value: "03 RETIRO TEMP.(MEXICO)",
+                    label: "03 RETIRO TEMP.(MEXICO)",
+                  },
                   { value: "04 SOL. PERSONAL", label: "04 SOL. PERSONAL" },
                   {
                     value: "05 INCAPACIDAD",
@@ -1507,7 +1593,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
             <div>
               {!esEstatusDeBaja &&
                 !esEstatusDeDefuncion &&
-                !esEstatusDeRetiro &&      
+                !esEstatusDeRetiro &&
                 !esEstatusDeSolicitud &&
                 !esEstatusDeIncapacidad && (
                   <>
@@ -1860,59 +1946,82 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
 
           <div style={profileStyles.attachmentsSection}>
             <h2>Expedientes Adjuntos Obligatorios</h2>
-            {doctor.attachments && doctor.attachments.length > 0 ? (
-              <ul style={profileStyles.attachmentList}>
-                {doctor.attachments.map((file) => (
-                  <li key={file.id} style={profileStyles.attachmentItem}>
-                    <a
-                      href={file.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={profileStyles.attachmentLink}
-                      title={file.file_name}
-                    >
-                      {file.file_name && file.file_name.length > 35
-                        ? `${file.file_name.substring(0, 32)}...`
-                        : file.file_name}
-                    </a>
-                    <button
-                      onClick={() =>
-                        handleDeleteAttachment(file.id, file.file_name)
-                      }
-                      disabled={isLoading || isEditing}
-                      style={profileStyles.deleteAttachmentButton}
-                      title={`Eliminar ${file.file_name}`}
-                    >
-                      &times;
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p style={profileStyles.noAttachments}>
-                No hay expedientes adjuntos.
-              </p>
-            )}
-            {currentUser && currentUser.role !== "consulta" && (
-              <>
+            <div
+              style={{ listStyle: "none", padding: 0, marginBottom: "20px" }}
+            >
+              {DOCUMENTOS_REQUERIDOS.map((doc) => {
+                const archivoExistente = doctor.attachments.find(
+                  (att) => att.documento_tipo === doc.key
+                );
+                return (
+                  <div key={doc.key} style={profileStyles.attachmentItem}>
+                    <span>{doc.label}:</span>
+                    {archivoExistente ? (
+                      <div>
+                        <a
+                          href={archivoExistente.file_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          Ver Archivo
+                        </a>
+                        <button
+                          onClick={() =>
+                            handleDeleteAttachment(
+                              archivoExistente.id,
+                              archivoExistente.file_name
+                            )
+                          }
+                        >
+                          &times;
+                        </button>
+                      </div>
+                    ) : (
+                      <span style={{ color: "red", fontStyle: "italic" }}>
+                        Pendiente
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Formulario de Subida Unificado */}
+            {tiposDeDocumentoFaltantes.length > 0 && (
+              <div style={{ borderTop: "1px solid #eee", paddingTop: "20px" }}>
+                <h4>Subir Documento Faltante</h4>
+                {/* Menú para seleccionar el tipo de documento */}
+                <select
+                  value={selectedDocType}
+                  onChange={(e) => setSelectedDocType(e.target.value)}
+                  style={{
+                    marginBottom: "10px",
+                    width: "100%",
+                    padding: "8px",
+                  }}
+                >
+                  {tiposDeDocumentoFaltantes.map((doc) => (
+                    <option key={doc.key} value={doc.key}>
+                      {doc.label}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Selector de archivo */}
                 <input
-                  id="attachment-file-input"
                   type="file"
-                  accept=".pdf,.doc,.docx,image/*"
-                  onChange={handleAttachmentSelect}
-                  style={profileStyles.fileInput}
-                  disabled={isLoading || isEditing}
+                  onChange={(e) => setSelectedFile(e.target.files[0])}
+                  style={{ display: "block", marginBottom: "10px" }}
                 />
-                {selectedAttachmentFile && (
-                  <button
-                    onClick={uploadAttachment}
-                    disabled={isLoading || isEditing}
-                    style={profileStyles.uploadButton}
-                  >
-                    {isLoading ? "Subiendo Adjunto..." : "Subir Adjunto"}
-                  </button>
-                )}
-              </>
+
+                {/* Botón único de subida */}
+                <button
+                  onClick={handleFileUpload}
+                  disabled={!selectedFile || !selectedDocType}
+                >
+                  Subir Documento Seleccionado
+                </button>
+              </div>
             )}
           </div>
           {isLoading && (selectedProfilePicFile || selectedAttachmentFile) && (
@@ -1969,8 +2078,12 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                   >
                     <option value="">Seleccione...</option>
                     <option value="01 ACTIVO">01 ACTIVO</option>
-                    <option value="02 RETIRO TEMP.(CUBA)">02 RETIRO TEMP.CUBA</option>                    
-                    <option value="03 RETIRO TEMP.(MEXICO)">03 RETIRO TEMP.MEXICO</option>
+                    <option value="02 RETIRO TEMP.(CUBA)">
+                      02 RETIRO TEMP.CUBA
+                    </option>
+                    <option value="03 RETIRO TEMP.(MEXICO)">
+                      03 RETIRO TEMP.MEXICO
+                    </option>
                     <option value="04 SOL. PERSONAL">04 SOL. PERSONAL</option>
                     <option value="05 INCAPACIDAD">05 INCAPACIDAD</option>
                     <option value="06 BAJA">06 BAJA</option>
@@ -2214,8 +2327,12 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                   >
                     <option value="">Seleccione...</option>
                     <option value="01 ACTIVO">01 ACTIVO</option>
-                    <option value="02 RETIRO TEMP.(CUBA)">02 RETIRO TEMP.(CUBA)</option>                    
-                    <option value="03 RETIRO TEMP.(MEXICO)">03 RETIRO TEMP.(MEXICO)</option>
+                    <option value="02 RETIRO TEMP.(CUBA)">
+                      02 RETIRO TEMP.(CUBA)
+                    </option>
+                    <option value="03 RETIRO TEMP.(MEXICO)">
+                      03 RETIRO TEMP.(MEXICO)
+                    </option>
                     <option value="04 SOL. PERSONAL">04 SOL. PERSONAL</option>
                     <option value="05 INCAPACIDAD">05 INCAPACIDAD</option>
                     <option value="06 BAJA">06 BAJA</option>
