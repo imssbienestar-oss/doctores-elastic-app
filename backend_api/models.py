@@ -1,5 +1,5 @@
 # backend_api/models.py
-from sqlalchemy import Column, Integer, String, Date, Text, DateTime,Boolean, ForeignKey # Asegúrate de tener DateTime y ForeignKey
+from sqlalchemy import Column, Integer, String, Date, Text, DateTime,Boolean, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship # Para definir relaciones entre tablas
 from sqlalchemy.sql import func # Para funciones SQL como now() para timestamps
 from database import Base # Importa la Base que definimos en database.py
@@ -97,6 +97,10 @@ class DoctorAttachment(Base):
     file_url = Column(String(1024), nullable=False, unique=True) 
     file_type = Column(String(100), nullable=True) 
     uploaded_at = Column(DateTime(timezone=True), server_default=func.now()) 
+    documento_tipo = Column(String(100), nullable=False) 
+    __table_args__ = (
+        UniqueConstraint('doctor_id', 'documento_tipo', name='_doctor_documento_tipo_uc'),
+    )
 
     doctor = relationship("Doctor", back_populates="attachments")
 
