@@ -82,24 +82,24 @@ const profileStyles = {
     color: "white",
     border: "none",
     borderRadius: "6px",
-    fontWeight: '500',
-    display: 'inline-block',
-    marginTop: '20px',
+    fontWeight: "500",
+    display: "inline-block",
+    marginTop: "20px",
     marginLeft: "10px",
   },
   uploadSelect: {
-    marginBottom: '10px',
-    width: '100%',
-    padding: '10px',
-    border: '1px solid #ccc',
-    borderRadius: '4px',
-    fontSize: '1em',
+    marginBottom: "10px",
+    width: "100%",
+    padding: "10px",
+    border: "1px solid #ccc",
+    borderRadius: "4px",
+    fontSize: "1em",
   },
   uploadFileInput: {
-    display: 'block',
-    marginBottom: '10px',
-    color: '#495057',
-    fontSize: '0.9em',
+    display: "block",
+    marginBottom: "10px",
+    color: "#495057",
+    fontSize: "0.9em",
   },
   sectionTitle: {
     fontSize: "24px",
@@ -417,17 +417,26 @@ const renderCommentWithBoldPrefix = (comment) => {
 };
 
 const formatDateForDisplay = (dateString) => {
-  if (!dateString) return "N/A";
+  if (!dateString) {
+    return "No especificado";
+  }
+  const specialTexts = ["EN TRAMITE", "SIN DATOS"];
+  if (specialTexts.includes(String(dateString).toUpperCase())) {
+    return dateString;
+  }
+
   try {
     const date = new Date(dateString);
-    if (isNaN(date.getTime())) return "Fecha inválida";
-    // Usamos UTC para evitar que la zona horaria del navegador cambie el día
+    if (isNaN(date.getTime())) {
+      return dateString;
+    }
+
     const day = String(date.getUTCDate()).padStart(2, "0");
     const month = String(date.getUTCMonth() + 1).padStart(2, "0");
     const year = date.getUTCFullYear();
     return `${day}/${month}/${year}`;
-  } catch (error) {
-    return "Inválido";
+  } catch (e) {
+    return dateString;
   }
 };
 
@@ -483,15 +492,19 @@ const FieldRenderer = React.memo(
       "fecha_expiracion",
     ];
 
-    if (!isEditing && dateFieldsToFormat.includes(fieldName) && currentValue) {
-      valueForDisplay = formatDateForDisplay(currentValue);
-    } else {
-      valueForDisplay =
-        currentValue === null ||
-        currentValue === undefined ||
-        String(currentValue).trim() === ""
-          ? "No especificado"
-          : String(currentValue);
+    if (!isEditing) {
+      if (type === "date") {
+        valueForDisplay = formatDateForDisplay(currentValue);
+      } else {
+        // Para otros campos, si el valor es nulo o vacío, muestra "No especificado".
+        // Si tiene un valor (como "Sin Datos"), lo muestra tal cual.
+        valueForDisplay =
+          currentValue === null ||
+          currentValue === undefined ||
+          String(currentValue).trim() === ""
+            ? "No especificado"
+            : String(currentValue);
+      }
     }
     return (
       <div style={profileStyles.fieldPair}>
@@ -606,21 +619,23 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
   }, [doctor.attachments]);
 
   const handleFileSelect = (event) => {
-        const file = event.target.files[0];
-        if (!file) return;
+    const file = event.target.files[0];
+    if (!file) return;
 
-        const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
-        if (file.size > MAX_FILE_SIZE) {
-            setError("El archivo es demasiado grande. El tamaño máximo permitido es de 5 MB.");
-            event.target.value = null; 
-            setSelectedFile(null);
-            return;
-        }
+    if (file.size > MAX_FILE_SIZE) {
+      setError(
+        "El archivo es demasiado grande. El tamaño máximo permitido es de 5 MB."
+      );
+      event.target.value = null;
+      setSelectedFile(null);
+      return;
+    }
 
-        setError(""); // Limpia cualquier error anterior
-        setSelectedFile(file);
-    };
+    setError(""); // Limpia cualquier error anterior
+    setSelectedFile(file);
+  };
 
   const handleFileUpload = async () => {
     if (!selectedFile || !selectedDocType) {
@@ -1956,8 +1971,9 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
         {/*Apartado Foto y Archivos Adjuntos */}
         <div style={profileStyles.filesColumn}>
           <div style={profileStyles.profilePicSection}>
-            
-            <h2 style={profileStyles.sectionTitleAttachments}>Foto de Perfil</h2>
+            <h2 style={profileStyles.sectionTitleAttachments}>
+              Foto de Perfil
+            </h2>
             {currentProfilePicUrl ? (
               <img
                 src={currentProfilePicUrl}
@@ -2001,10 +2017,10 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
           </div>
 
           <div style={profileStyles.attachmentsSection}>
-            <h2 style={profileStyles.sectionTitleAttachments}>Expedientes Adjuntos </h2>
-            <div
-              style={{ listStyle: "none", padding: 0, marginBottom: "5px" }}
-            >
+            <h2 style={profileStyles.sectionTitleAttachments}>
+              Expedientes Adjuntos{" "}
+            </h2>
+            <div style={{ listStyle: "none", padding: 0, marginBottom: "5px" }}>
               {DOCUMENTOS_REQUERIDOS.map((doc) => {
                 const archivoExistente = doctor.attachments.find(
                   (att) => att.documento_tipo === doc.key
@@ -2042,41 +2058,51 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
               })}
             </div>
 
-            {/* Formulario de Subida Unificado */}
-            {tiposDeDocumentoFaltantes.length > 0 && (
-              <div style={profileStyles.uploadSection}>
-                <h4 style={profileStyles.uploadTitle}>
-                  Subir Documento Faltante
-                </h4>
-                {/* Menú para seleccionar el tipo de documento */}
-                <select
-                  value={selectedDocType}
-                  onChange={(e) => setSelectedDocType(e.target.value)}
-                  style={profileStyles.uploadSelect}
-                >
-                  {tiposDeDocumentoFaltantes.map((doc) => (
-                    <option key={doc.key} value={doc.key}>
-                      {doc.label}
-                    </option>
-                  ))}
-                </select>
+            {currentUser && currentUser.role !== "consulta" && (
+              <>
+                {/* Formulario de Subida Unificado */}
+                {tiposDeDocumentoFaltantes.length > 0 && (
+                  <div style={profileStyles.uploadSection}>
+                    <h4 style={profileStyles.uploadTitle}>
+                      Subir Documento Faltante
+                    </h4>
+                    {/* Menú para seleccionar el tipo de documento */}
+                    <select
+                      value={selectedDocType}
+                      onChange={(e) => setSelectedDocType(e.target.value)}
+                      style={profileStyles.uploadSelect}
+                    >
+                      {tiposDeDocumentoFaltantes.map((doc) => (
+                        <option key={doc.key} value={doc.key}>
+                          {doc.label}
+                        </option>
+                      ))}
+                    </select>
 
-                {/* Selector de archivo */}
-                <input
-                  type="file"
-                  onChange={handleFileSelect}
-                  style={profileStyles.uploadFileInput}
-                />
+                    {currentUser && currentUser.role !== "consulta" && (
+                      <>
+                        {/* Selector de archivo */}
+                        <input
+                          type="file"
+                          onChange={handleFileSelect}
+                          style={profileStyles.uploadFileInput}
+                        />
 
-                {/* Botón único de subida */}
-                <button
-                  onClick={handleFileUpload}
-                  disabled={!selectedFile || !selectedDocType || isLoading}
-                  style={profileStyles.uploadButton}
-                >
-                  {isLoading ? "Subiendo..." : "Subir Documento"}
-                </button>
-              </div>
+                        {/* Botón único de subida */}
+                        <button
+                          onClick={handleFileUpload}
+                          disabled={
+                            !selectedFile || !selectedDocType || isLoading
+                          }
+                          style={profileStyles.uploadButton}
+                        >
+                          {isLoading ? "Subiendo..." : "Subir Documento"}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
           {isLoading && (selectedProfilePicFile || selectedAttachmentFile) && (
@@ -2252,6 +2278,8 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
         {/* Nueva Tabla de Historial */}
         <div style={profileStyles.historyHeader}>
           <div style={profileStyles.sectionTitle}>Historial de Movimientos</div>
+         {currentUser && currentUser.role !== "consulta" && (
+              <>
           <button
             onClick={() => setIsHistoryModalOpen(true)}
             style={profileStyles.addHistoryButton}
@@ -2261,7 +2289,9 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
             </span>
             Añadir Registro
           </button>
+          </>)}
         </div>
+        
 
         {/* Nueva Tabla de Historial */}
         <table style={profileStyles.dataTable}>
