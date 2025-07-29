@@ -1303,14 +1303,6 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
               />
 
               <FieldRenderer
-                label="Lugar de Nacimiento"
-                fieldName="entidad_nacimiento"
-                isEditing={isEditing}
-                currentValue={editableDoctorData.entidad_nacimiento}
-                onChange={handleInputChange}
-                isLoading={isLoading}
-              />
-              <FieldRenderer
                 label="Matrimonio ID"
                 fieldName="matrimonio_id"
                 isEditing={isEditing}
