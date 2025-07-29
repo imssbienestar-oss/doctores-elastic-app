@@ -108,10 +108,12 @@ class DoctorAttachmentBase(BaseModel):
     file_name: str
     file_url: str 
     file_type: Optional[str] = None
+    documento_tipo: str
 
 # --- SCHEMA SUBIR DOCUMENTO
 class DoctorAttachmentCreate(DoctorAttachmentBase):
     doctor_id: str
+    documento_tipo: str
     pass
 
 # --- SCHEMA REGISTRAR DOCUMENTO
