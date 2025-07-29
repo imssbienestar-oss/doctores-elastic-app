@@ -1,6 +1,7 @@
 # backend_api/main.py
 from fastapi import FastAPI, Depends, HTTPException, status, Query, File, UploadFile, Body, Response
 from sqlalchemy.orm import Session
+from fastapi import Form 
 from sqlalchemy import text, func, or_, and_  # Importar func para server_default
 import sqlalchemy.exc
 from sqlalchemy.exc import IntegrityError
