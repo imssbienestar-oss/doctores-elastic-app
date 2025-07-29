@@ -489,7 +489,7 @@ async def subir_foto_perfil_doctor(
 # --- ENDPOINT (SUBIR ARCHIVO FIREBASE) ---
 @app.post("/api/doctores/{id_imss}/attachments", response_model=schemas.DoctorAttachment, tags=["Doctores - Archivos"])
 async def subir_expediente_doctor(
-    id_imss: str, file: UploadFile = File(...), db: Session = Depends(get_db_session),
+    id_imss: str, file: UploadFile = File(...), documento_tipo: str = Form(...), db: Session = Depends(get_db_session),
     current_user: models.User = Depends(security.get_current_user)
 ):
     db_doctor = db.query(models.Doctor).filter(models.Doctor.id_imss == id_imss).first()
@@ -506,7 +506,8 @@ async def subir_expediente_doctor(
         doctor_id=id_imss, 
         file_name=file.filename, 
         file_url=file_url,      
-        file_type=file.content_type
+        file_type=file.content_type,
+        documento_tipo=documento_tipo
     )
     db_attachment = models.DoctorAttachment(
         **attachment_data_pydantic.model_dump(exclude={'doctor_id'}),
