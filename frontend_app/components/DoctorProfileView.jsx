@@ -1359,47 +1359,8 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                 onChange={handleInputChange}
                 isLoading={isLoading}
               />
-              <FieldRenderer
-                label="Institución"
-                fieldName="institucion_lic"
-                type="select"
-                options={[
-                  { value: "ISCM DE CAMAGÜEY", label: "ISCM DE CAMAGÜEY" },
-                  { value: "ISCM DE LA HABANA", label: "ISCM DE LA HABANA" },
-                  { value: "ISCM DE LAS TUNAS", label: "ISCM DE LAS TUNAS" },
-                  { value: "ISCM DE SANTIAGO DE CHILE", label: "ISCM DE SANTIAGO DE CHILE" },
-                  { value: "ISCM DE SANTIAGO DE CUBA", label: "ISCM DE SANTIAGO DE CUBA" },
-                  { value: "ISCM DE VILLA CLARA", label: "ISCM DE VILLA CLARA" },
-                  { value: "UCM DE CAMAGÜEY", label: "UCM DE CAMAGÜEY" },
-                  { value: "UCM DE CIEGO DE ÁVILA", label: "UCM DE CIEGO DE ÁVILA" },
-                  { value: "UCM DE CIENFUEGOS", label: "UCM DE CIENFUEGOS" },
-                  { value: "UCM DE GRANMA", label: "UCM DE GRANMA" },
-                  { value: "UCM DE GUANTÁNAMO", label: "UCM DE GUANTÁNAMO" },
-                  { value: "UCM DE HOLGUÍN", label: "UCM DE HOLGUÍN" },
-                  { value: "UCM DE LA HABANA", label: "UCM DE LA HABANA" },
-                  { value: "UCM DE LAS FAR", label: "UCM DE LAS FAR" },
-                  { value: "UCM DE LAS TUNAS", label: "UCM DE LAS TUNAS" },
-                  { value: "UCM DE MATANZAS", label: "UCM DE MATANZAS" },
-                  { value: "UCM DE PINAR DEL RÍO", label: "UCM DE PINAR DEL RÍO" },
-                  { value: "UCM DE SANCTI SPÍRITUS", label: "UCM DE SANCTI SPÍRITUS" },
-                  { value: "UCM DE SANTIAGO DE CUBA", label: "UCM DE SANTIAGO DE CUBA" },
-                  { value: "UCM DE VILLA CLARA", label: "UCM DE VILLA CLARA" },
-                  { value: "UCM DE GRANMA", label: "UCM DE GRANMA" },
-                ]}
-                isEditing={isEditing}
-                currentValue={editableDoctorData.institucion_lic}
-                onChange={handleInputChange}
-                isLoading={isLoading}
-              />
-              <FieldRenderer
-                label="Año de Egreso"
-                fieldName="fecha_egreso_lic"
-                type="date"
-                isEditing={isEditing}
-                currentValue={editableDoctorData.fecha_egreso_lic}
-                onChange={handleInputChange}
-                isLoading={isLoading}
-              />
+        
+             
 
               <FieldRenderer
                 label="Cédula Licenciatura"
@@ -1416,52 +1377,6 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                 fieldName="especialidad"
                 isEditing={isEditing}
                 currentValue={editableDoctorData.especialidad}
-                onChange={handleInputChange}
-                isLoading={isLoading}
-              />
-              <FieldRenderer
-                label="Institución"
-                fieldName="institucion_esp"
-                type="select"
-                options={[
-                  { value: "ISCM DE CAMAGÜEY", label: "ISCM DE CAMAGÜEY" },
-                  { value: "ISCM DE LA HABANA", label: "ISCM DE LA HABANA" },
-                  { value: "ISCM DE LAS TUNAS", label: "ISCM DE LAS TUNAS" },
-                  { value: "ISCM DE SANTIAGO DE CHILE", label: "ISCM DE SANTIAGO DE CHILE" },
-                  { value: "ISCM DE SANTIAGO DE CUBA", label: "ISCM DE SANTIAGO DE CUBA" },
-                  { value: "ISCM DE VILLA CLARA", label: "ISCM DE VILLA CLARA" },
-                  { value: "UCM DE CAMAGÜEY", label: "UCM DE CAMAGÜEY" },
-                  { value: "UCM DE CIEGO DE ÁVILA", label: "UCM DE CIEGO DE ÁVILA" },
-                  { value: "UCM DE CIENFUEGOS", label: "UCM DE CIENFUEGOS" },
-                  { value: "UCM DE GRANMA", label: "UCM DE GRANMA" },
-                  { value: "UCM DE GUANTÁNAMO", label: "UCM DE GUANTÁNAMO" },
-                  { value: "UCM DE HOLGUÍN", label: "UCM DE HOLGUÍN" },
-                  { value: "UCM DE LA HABANA", label: "UCM DE LA HABANA" },
-                  { value: "UCM DE LAS FAR", label: "UCM DE LAS FAR" },
-                  { value: "UCM DE LAS TUNAS", label: "UCM DE LAS TUNAS" },
-                  { value: "UCM DE MATANZAS", label: "UCM DE MATANZAS" },
-                  { value: "UCM DE PINAR DEL RÍO", label: "UCM DE PINAR DEL RÍO" },
-                  { value: "UCM DE SANCTI SPÍRITUS", label: "UCM DE SANCTI SPÍRITUS" },
-                  { value: "UCM DE SANTIAGO DE CUBA", label: "UCM DE SANTIAGO DE CUBA" },
-                  { value: "UCM DE VILLA CLARA", label: "UCM DE VILLA CLARA" },
-                  { value: "UCM DE GRANMA", label: "UCM DE GRANMA" },
-                ]}
-                isEditing={isEditing}
-                currentValue={editableDoctorData.institucion_esp}
-                onChange={handleInputChange}
-                isLoading={isLoading}
-              />
-
-              <FieldRenderer
-                label="Año de Egreso"
-                fieldName="fecha_egreso_esp"
-                type="date"
-                isEditing={isEditing}
-                currentValue={
-                  isEditing
-                    ? editableDoctorData.fecha_egreso_esp
-                    : doctor.fecha_egreso_esp
-                }
                 onChange={handleInputChange}
                 isLoading={isLoading}
               />
