@@ -594,6 +594,9 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
     comentarios: "",
   };
 
+  const [isLoadingClues, setIsLoadingClues] = useState(false);
+  const [cluesError, setCluesError] = useState("");
+
   const DOCUMENTOS_REQUERIDOS = [
     { key: "CURP", label: "CURP" },
     { key: "Pasaporte", label: "Pasaporte" },
@@ -919,49 +922,48 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
     setSuccessMessage("");
   };
 
-  const fetchAndApplyCluesData = async (cluesCode) => {
-    if (!cluesCode || cluesCode.length < 11) {
+  const fetchAndApplyCluesDataForEdit = async (cluesCode) => {
+    if (!cluesCode || cluesCode.length !== 11) {
+      setCluesError("");
       return;
     }
-
-    setIsLoading(true);
-    setError("");
-
+    setIsLoadingClues(true);
+    setCluesError("");
     try {
-      const authToken = localStorage.getItem("authToken");
-      const response = await fetch(`${API_BASE_URL}/api/clues/${cluesCode}`, {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-
+      const response = await fetch(
+        `${API_BASE_URL}/api/clues-con-capacidad/${cluesCode}`
+      );
       if (!response.ok) {
-        if (response.status === 404) {
-          setError("CLUES no encontrada en el catálogo.");
-        } else {
-          throw new Error("Error al buscar la CLUES.");
-        }
-        return;
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Error al buscar CLUES.");
       }
+      const data = await response.json();
 
-      const cluesData = await response.json();
-      setEditableDoctorData((prevData) => ({
-        ...prevData,
-        nombre_unidad: cluesData.nombre_unidad || prevData.nombre_unidad,
-        nivel_atencion: cluesData.nivel_atencion || prevData.nivel_atencion,
-        estrato: cluesData.estrato || prevData.estrato,
-        tipo_establecimiento:
-          cluesData.tipo_establecimiento || prevData.tipo_establecimiento,
-        subtipo_establecimiento:
-          cluesData.subtipo_establecimiento || prevData.subtipo_establecimiento,
-        entidad: cluesData.entidad || prevData.entidad,
-        municipio: cluesData.municipio || prevData.municipio,
-        direccion_unidad:
-          cluesData.direccion_unidad || prevData.direccion_unidad,
-      }));
-    } catch (err) {
-      console.error("Error al obtener datos de CLUES:", err);
-      setError(err.message);
+      if (data.actual >= data.maximo) {
+        setCluesError(
+          `La entidad ${data.entidad} tiene el cupo lleno (${data.actual}/${data.maximo}).`
+        );
+        // No actualizamos los datos si el cupo está lleno
+      } else {
+        // Si hay cupo, actualizamos el formulario de edición
+        setEditableDoctorData((prev) => ({
+          ...prev,
+          nombre_unidad: data.nombre_unidad || "",
+          direccion_unidad: data.direccion_unidad || "",
+          nivel_atencion: data.nivel_atencion || "",
+          tipo_establecimiento: data.tipo_establecimiento || "",
+          subtipo_establecimiento: data.subtipo_establecimiento || "",
+          estrato: data.estrato || "",
+          entidad: data.entidad || "",
+          municipio: data.municipio || "",
+         
+          region: data.region || "SIN ESPECIFICAR",
+        }));
+      }
+    } catch (error) {
+      setCluesError(error.message);
     } finally {
-      setIsLoading(false);
+      setIsLoadingClues(false);
     }
   };
 
@@ -970,9 +972,8 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
 
     setEditableDoctorData((prevData) => {
       let newData = { ...prevData, [name]: value };
-
-      if (name === "clues") {
-        fetchAndApplyCluesData(value);
+      if (isEditing && name === "clues") {
+        fetchAndApplyCluesDataForEdit(value);
       }
 
       if (name === "estatus") {
@@ -1628,7 +1629,6 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                       onChange={handleInputChange}
                       isLoading={isLoading}
                     />
-
                     <FieldRenderer
                       label="Despliegue"
                       fieldName="despliegue"
@@ -1638,7 +1638,6 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                       onChange={handleInputChange}
                       isLoading={isLoading}
                     />
-
                     <FieldRenderer
                       label="Clues"
                       fieldName="clues"
@@ -1648,6 +1647,12 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                       onChange={handleInputChange}
                       isLoading={isLoading}
                     />
+                    {isEditing && isLoadingClues && (
+                      <p style={{ fontStyle: "italic" }}>Buscando CLUES...</p>
+                    )}
+                    {isEditing && cluesError && (
+                      <p style={{ color: "red" }}>{cluesError}</p>
+                    )}
 
                     <FieldRenderer
                       label="Unidad Médica"
@@ -2278,20 +2283,20 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
         {/* Nueva Tabla de Historial */}
         <div style={profileStyles.historyHeader}>
           <div style={profileStyles.sectionTitle}>Historial de Movimientos</div>
-         {currentUser && currentUser.role !== "consulta" && (
-              <>
-          <button
-            onClick={() => setIsHistoryModalOpen(true)}
-            style={profileStyles.addHistoryButton}
-          >
-            <span role="img" aria-label="agregar">
-              ➕
-            </span>
-            Añadir Registro
-          </button>
-          </>)}
+          {currentUser && currentUser.role !== "consulta" && (
+            <>
+              <button
+                onClick={() => setIsHistoryModalOpen(true)}
+                style={profileStyles.addHistoryButton}
+              >
+                <span role="img" aria-label="agregar">
+                  ➕
+                </span>
+                Añadir Registro
+              </button>
+            </>
+          )}
         </div>
-        
 
         {/* Nueva Tabla de Historial */}
         <table style={profileStyles.dataTable}>
