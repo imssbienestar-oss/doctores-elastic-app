@@ -241,11 +241,7 @@ function getInfoFromCURP(curp) {
 
   const sexoChar = curp.charAt(10).toUpperCase();
   const sexo =
-    sexoChar === "H"
-      ? "Masculino"
-      : sexoChar === "M"
-      ? "Femenino"
-      : "Otro";
+    sexoChar === "H" ? "Masculino" : sexoChar === "M" ? "Femenino" : "Otro";
 
   const anioStr = curp.substring(4, 6);
   const mesStr = curp.substring(6, 8);
@@ -295,7 +291,6 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
     nombre_unidad: "",
     curp: "",
     especialidad: "",
-    entidad: "",
     fecha_nacimiento: "",
     sexo: "",
     turno: "",
@@ -315,6 +310,9 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
   const [isCheckingCurp, setIsCheckingCurp] = useState(false);
   const [debouncedCurp, setDebouncedCurp] = useState("");
 
+  const [opcionesEntidad, setOpcionesEntidad] = useState([]);
+  const [isLoadingEntidades, setIsLoadingEntidades] = useState(false);
+
   // --- useEffect para manejar la apertura del modal ---
   useEffect(() => {
     if (isOpen) {
@@ -322,78 +320,25 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
       setError("");
       setIsSaving(false);
       setCurpError("");
+      setCluesError("");
+
+      const fetchEntidades = async () => {
+        setIsLoadingEntidades(true);
+        try {
+          const response = await fetch(
+            `${API_BASE_URL}/api/opciones/entidades-capacidad`
+          );
+          const data = await response.json();
+          setOpcionesEntidad(data);
+        } catch (error) {
+          console.error("Error al cargar capacidades de entidades:", error);
+        } finally {
+          setIsLoadingEntidades(false);
+        }
+      };
+      fetchEntidades();
     }
   }, [isOpen]);
-
-  const calcularFechaNacimientoDesdeCURP = (curp) => {
-    if (curp && curp.length >= 10) {
-      const anioStr = curp.substring(4, 6);
-      const mesStr = curp.substring(6, 8);
-      const diaStr = curp.substring(8, 10);
-
-      if (
-        !/^\d+$/.test(anioStr) ||
-        !/^\d+$/.test(mesStr) ||
-        !/^\d+$/.test(diaStr)
-      ) {
-        return {
-          displayDate: "CURP: Formato de fecha inválido en CURP.",
-          isoDate: null,
-        };
-      }
-
-      let anio = parseInt(anioStr, 10);
-      const mes = parseInt(mesStr, 10);
-      const dia = parseInt(diaStr, 10);
-
-      const currentYear = new Date().getFullYear();
-      const currentCentury = Math.floor(currentYear / 100) * 100;
-      const currentYearLastTwoDigits = currentYear % 100;
-
-      if (anio > currentYearLastTwoDigits + 10 && anio <= 99) {
-        anio = currentCentury - 100 + anio;
-      } else {
-        anio = currentCentury + anio;
-      }
-
-      if (anio > currentYear + 5) {
-        anio -= 100;
-      }
-
-      if (mes < 1 || mes > 12 || dia < 1 || dia > 31) {
-        return { displayDate: "CURP: Fecha en CURP inválida.", isoDate: null };
-      }
-      try {
-        const fecha = new Date(anio, mes - 1, dia);
-
-        if (
-          fecha.getFullYear() !== anio ||
-          fecha.getMonth() !== mes - 1 ||
-          fecha.getDate() !== dia
-        ) {
-          return {
-            displayDate: "CURP: Fecha no válida (ej. 31/02).",
-            isoDate: null,
-          };
-        }
-        const displayDate = fecha.toLocaleDateString("es-MX", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-        });
-        const isoDate = `${anio}-${String(mes).padStart(2, "0")}-${String(
-          dia
-        ).padStart(2, "0")}`;
-        return { displayDate, isoDate };
-      } catch (e) {
-        return {
-          displayDate: "CURP: Error al formatear fecha.",
-          isoDate: null,
-        };
-      }
-    }
-    return { displayDate: "", isoDate: null };
-  };
 
   // --- FUNCIÓN PARA VERIFICAR SI EL CURP EXISTE ---
   const checkCurpExists = useCallback(
@@ -452,6 +397,55 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
     return () => clearTimeout(handler);
   }, [formData.curp, checkCurpExists]);
 
+  const fetchAndApplyCluesData = async (cluesCode) => {
+    if (cluesCode.length !== 11) {
+      setCluesError("");
+      return;
+    }
+
+    setIsLoadingClues(true);
+    setCluesError("");
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/clues-con-capacidad/${cluesCode}`,
+        {
+          headers: { Authorization: `Bearer ${authToken}` },
+        }
+      );
+      if (!response.ok) {
+        if (response.status === 404) setCluesError("CLUES no encontrada.");
+        else setCluesError("Error al buscar CLUES.");
+        return;
+      }
+      const data = await response.json();
+
+      if (data.actual >= data.maximo) {
+        setCluesError(
+          `La entidad ${data.entidad} ha alcanzado su cupo máximo (${data.actual}/${data.maximo}).`
+        );
+        return;
+      }
+
+      // Rellenamos el formulario con los datos encontrados
+      setFormData((prev) => ({
+        ...prev,
+        direccion_unidad: data.direccion_unidad || "",
+        nombre_unidad: data.nombre_unidad || "",
+        entidad: data.entidad || "",
+        municipio: data.municipio || "",
+        nivel_atencion: data.nivel_atencion || "",
+        tipo_establecimiento: data.tipo_establecimiento || "",
+        subtipo_establecimiento: data.subtipo_establecimiento || "",
+        estrato: data.estrato || "",
+      }));
+    } catch (error) {
+      console.error("Error al obtener datos de CLUES:", error);
+      setCluesError("Error de conexión al buscar CLUES.");
+    } finally {
+      setIsLoadingClues(false);
+    }
+  };
+
   const handleChange = (event) => {
     const { name, value } = event.target;
 
@@ -484,45 +478,6 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
     }
   };
 
-  const fetchAndApplyCluesData = async (cluesCode) => {
-    if (cluesCode.length !== 11) {
-      setCluesError("");
-      return;
-    }
-
-    setIsLoadingClues(true);
-    setCluesError("");
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/clues/${cluesCode}`, {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-      if (!response.ok) {
-        if (response.status === 404) setCluesError("CLUES no encontrada.");
-        else setCluesError("Error al buscar CLUES.");
-        return;
-      }
-      const data = await response.json();
-
-      // Rellenamos el formulario con los datos encontrados
-      setFormData((prev) => ({
-        ...prev,
-        direccion_unidad: data.direccion_unidad || "",
-        nombre_unidad: data.nombre_unidad || "",
-        entidad: data.entidad || "",
-        municipio: data.municipio || "",
-        nivel_atencion: data.nivel_atencion || "",
-        tipo_establecimiento: data.tipo_establecimiento || "",
-        subtipo_establecimiento: data.subtipo_establecimiento || "",
-        estrato: data.estrato || "",
-      }));
-    } catch (error) {
-      console.error("Error al obtener datos de CLUES:", error);
-      setCluesError("Error de conexión al buscar CLUES.");
-    } finally {
-      setIsLoadingClues(false);
-    }
-  };
-
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
@@ -534,7 +489,8 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
       !formData.apellido_paterno.trim() ||
       !formData.estatus ||
       !formData.especialidad ||
-      !formData.entidad
+      !formData.entidad ||
+      !formData.fecha_estatus
     ) {
       setError("Por favor, completa todos los campos requeridos (*).");
       setIsSaving(false);
@@ -577,67 +533,6 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
       setIsSaving(false);
     }
   };
-
-  const createFields = [
-    {
-      name: "id_imss",
-      label: "ID IMSS",
-      type: "text",
-      required: true,
-      placeholder: "Ej: MC_0000",
-    },
-    {
-      name: "nombre",
-      label: "Nombres",
-      type: "text",
-      required: true,
-      placeholder: "Ej: Ana Sofía",
-    },
-    {
-      name: "apellido_paterno",
-      label: "Apellido Paterno",
-      type: "text",
-      required: true,
-      placeholder: "Ej: Pérez",
-    },
-    {
-      name: "apellido_materno",
-      label: "Apellido Materno",
-      type: "text",
-      required: true,
-      placeholder: "Ej: López",
-    },
-
-    {
-      name: "estatus",
-      label: "Estatus",
-      type: "select",
-      options: ESTATUS_OPTIONS,
-      required: true,
-    },
-    {
-      name: "curp",
-      label: "CURP",
-      type: "text",
-      required: false,
-      maxLength: 18,
-      placeholder: "18 caracteres (opcional)",
-    },
-    {
-      name: "especialidad",
-      label: "Especialidad",
-      type: "select",
-      options: ESPECIALIDAD_OPTIONS,
-      required: true,
-    },
-    {
-      name: "entidad",
-      label: "Entidad de Adscripción",
-      type: "select",
-      options: ESTADOS_OPTIONS,
-      required: true,
-    },
-  ];
 
   if (!isOpen) return null;
 
@@ -703,8 +598,8 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
             onChange={handleChange}
             maxLength={18}
             style={modalStyles.input}
-          />{" "}
-          {curpError && <p style={modalStyles.errorText}>{curpError}</p>}{" "}
+          />
+          {curpError && <p style={modalStyles.errorText}>{curpError}</p>}
           {fechaNacimientoCalculada && (
             <p style={modalStyles.infoText}>
               Fecha de Nacimiento (calculada): {fechaNacimientoCalculada}
@@ -786,15 +681,35 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
         </div>
         <div style={modalStyles.formGroup}>
           <label style={modalStyles.label}>Entidad*:</label>
-          <input
-            type="text"
+          <select
             name="entidad"
             value={formData.entidad}
             onChange={handleChange}
             required
-            style={modalStyles.input}
-            readOnly
-          />
+            style={modalStyles.select}
+          >
+            <option value="">
+              {isLoadingEntidades ? "Cargando..." : "Seleccione una entidad..."}
+            </option>
+            {opcionesEntidad.map((opt) => {
+              const isFull = opt.actual >= opt.maximo;
+              const isLow = opt.actual < opt.minimo;
+              let label = `${opt.label} (${opt.actual}/${opt.maximo})`;
+              if (isFull) label += " - CUPO LLENO";
+              if (isLow) label += " - BAJA OCUPACIÓN";
+
+              return (
+                <option
+                  key={opt.entidad}
+                  value={opt.entidad}
+                  disabled={isFull}
+                  style={{ color: isLow ? "green" : isFull ? "red" : "black" }}
+                >
+                  {label}
+                </option>
+              );
+            })}
+          </select>
         </div>
         <div style={modalStyles.formGroup}>
           <label style={modalStyles.label}>Unidad Médica:</label>
