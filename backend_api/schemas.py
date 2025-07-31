@@ -335,3 +335,32 @@ class OpcionesFiltro(BaseModel):
     unidades: List[str]
     especialidades: List[str]
     niveles_atencion: List[str]
+
+class EntidadCapacidad(BaseModel):
+    entidad: str
+    label: str # El nombre completo, ej. "Baja California"
+    minimo: int
+    maximo: int
+    actual: int
+
+class CluesConCapacidad(BaseModel):
+    # Datos de la unidad
+    clues: str
+    nombre_unidad: Optional[str] = None
+    entidad: Optional[str] = None
+    municipio: Optional[str] = None
+    direccion_unidad: Optional[str] = None
+    nivel_atencion: Optional[str] = None
+    tipo_establecimiento: Optional[str] = None
+    subtipo_establecimiento: Optional[str] = None
+    estrato: Optional[str] = None
+    
+    # Datos del cupo de la entidad
+    minimo: int
+    maximo: int
+    actual: int
+
+    class Config:
+        from_attributes = True
+
+
