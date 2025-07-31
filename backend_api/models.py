@@ -62,7 +62,6 @@ class Doctor(Base):
     fecha_fin = Column(Date, nullable=True)
     motivo = Column(String(255), nullable=True)
     tipo_incapacidad = Column(String(255), nullable=True) 
-    entidad_nacimiento= Column(String(255), nullable=True)
     attachments = relationship("DoctorAttachment", back_populates="doctor", cascade="all, delete-orphan")
     coordinacion = Column(String(100), nullable=True)
     __table_args__ = {'extend_existing': True}
@@ -154,5 +153,11 @@ class EstatusHistorico(Base):
     comentarios = Column(Text, nullable=True)   
     fecha_registro = Column(DateTime(timezone=True), server_default=func.now())
     
-
     doctor = relationship("Doctor", back_populates="historial")
+
+class EntidadCupos(Base):
+    __tablename__ = "entidad_cupos"
+
+    entidad = Column(String, primary_key=True, index=True) 
+    minimo = Column(Integer, nullable=False, default=0)
+    maximo = Column(Integer, nullable=False, default=0)
