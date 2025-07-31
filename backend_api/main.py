@@ -1703,6 +1703,80 @@ async def get_opciones_de_filtro(
         "niveles_atencion": niveles_atencion
     }
 
+@app.get("/api/opciones/entidades-capacidad", response_model=List[schemas.EntidadCapacidad], tags=["Opciones de Filtro"])
+async def get_entidades_con_capacidad(db: Session = Depends(get_db_session)):
+    # 1. Contar los médicos activos por entidad
+    conteo_actual_query = db.query(
+        models.Doctor.entidad,
+        func.count(models.Doctor.id_imss).label("conteo")
+    ).filter(
+        models.Doctor.is_deleted == False,
+        models.Doctor.estatus == '01 ACTIVO'
+    ).group_by(models.Doctor.entidad).subquery()
+
+    # 2. Unir los cupos con el conteo actual
+    resultados = db.query(
+        models.EntidadCupos.entidad,
+        models.EntidadCupos.minimo,
+        models.EntidadCupos.maximo,
+        func.coalesce(conteo_actual_query.c.conteo, 0).label("actual")
+    ).outerjoin(
+        conteo_actual_query, models.EntidadCupos.entidad == conteo_actual_query.c.entidad
+    ).order_by(models.EntidadCupos.entidad).all()
+
+    # Aquí necesitarás un diccionario para mapear 'BC' a 'Baja California', etc.
+    # Por simplicidad, usamos el código de la entidad como label.
+    return [
+        {
+            "entidad": r.entidad, "label": r.entidad, "minimo": r.minimo,
+            "maximo": r.maximo, "actual": r.actual
+        } for r in resultados
+    ]
+
+@app.get("/api/clues-con-capacidad/{clues_code}", response_model=schemas.CluesConCapacidad, tags=["Catálogos"])
+async def get_clues_data_with_capacity(clues_code: str, db: Session = Depends(get_db_session)):
+  
+    # 1. Buscar la información de la CLUES en el catálogo
+    clues_info = db.query(models.CatalogoClues).filter(models.CatalogoClues.clues == clues_code).first()
+    
+    if not clues_info:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="La CLUES no fue encontrada en el catálogo."
+        )
+
+    # 2. Si la encontramos, buscamos los datos de cupo para su entidad
+    entidad_de_clues = clues_info.entidad
+    cupo_info = db.query(models.EntidadCupos).filter(models.EntidadCupos.entidad == entidad_de_clues).first()
+
+    if not cupo_info:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No se encontraron datos de cupo para la entidad {entidad_de_clues}."
+        )
+
+    # 3. Contamos los médicos activos actuales en esa entidad
+    conteo_actual = db.query(models.Doctor).filter(
+        models.Doctor.entidad == entidad_de_clues,
+        models.Doctor.is_deleted == False,
+        models.Doctor.estatus == '01 ACTIVO'
+    ).count()
+
+    # 4. Combinamos toda la información en la respuesta
+    return {
+        "clues": clues_info.clues,
+        "nombre_unidad": clues_info.nombre_unidad,
+        "direccion_unidad": clues_info.direccion_unidad, 
+        "entidad": clues_info.entidad,
+        "municipio": clues_info.municipio,
+        "nivel_atencion": clues_info.nivel_atencion,
+        "tipo_establecimiento": clues_info.tipo_establecimiento,
+        "subtipo_establecimiento": clues_info.subtipo_establecimiento,
+        "estrato": clues_info.estrato,
+        "minimo": cupo_info.minimo,
+        "maximo": cupo_info.maximo,
+        "actual": conteo_actual
+    }
 
 
 
