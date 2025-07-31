@@ -392,6 +392,9 @@ async def crear_doctor(
     try:
         doctor_dict = doctor_data.model_dump()
         
+        if doctor_dict.get("fecha_estatus"):
+            doctor_dict['fecha_vuelo'] = doctor_dict['fecha_estatus']
+
         if 'coordinacion' not in doctor_dict or doctor_dict['coordinacion'] is None:
             doctor_dict['coordinacion'] = '0'
         
@@ -412,6 +415,22 @@ async def crear_doctor(
             nombre_unidad=db_doctor.nombre_unidad,
             turno=db_doctor.turno
         )
+
+        cupo = db.query(models.EntidadCupos).filter(models.EntidadCupos.entidad == db_doctor.entidad).first()
+        if cupo:
+            # Contar cuántos doctores activos hay actualmente en esa entidad
+            conteo_actual = db.query(models.Doctor).filter(
+                models.Doctor.entidad == db_doctor.entidad,
+                models.Doctor.is_deleted == False,
+                models.Doctor.estatus == '01 ACTIVO'
+            ).count()
+
+            # Si al añadir este nuevo doctor se supera el máximo, lanzar un error
+            if conteo_actual >= cupo.maximo:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"La entidad {db_doctor.entidad} ha alcanzado su cupo máximo de {cupo.maximo} médicos."
+                )
         db.add(nuevo_registro_historial)
         db.flush()
         log_action(db, current_user, "Crear Registro", "Doctor", target_id_str=db_doctor.id_imss, details=f"Doctor creado: {db_doctor.nombre}")
@@ -427,6 +446,7 @@ async def crear_doctor(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error inesperado en el servidor: {str(e)}")
+
 
 # --- ENDPOINT (ELIMINAR REGISTRO) ---
 @app.delete("/api/doctores/{id_imss}", status_code=status.HTTP_204_NO_CONTENT, tags=["Doctores"])
