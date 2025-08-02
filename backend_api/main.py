@@ -913,7 +913,7 @@ async def generar_reporte_excel(
                 "ID_IMSS", "NOMBRE","APELLIDO_PATERNO","APELLIDO_MATERNO", "ESTATUS","MATRIMONIO_ID", "CURP", 
                 "CEDULA_ESP","CEDULA_LIC","ESPECIALIDAD","ENTIDAD","CLUES","FORMA_NOTIFICACION","MOTIVO_BAJA",
                 "FECHA_EXTRACCION","FECHA_NOTIFICACION","SEXO","TURNO","NOMBRE_UNIDAD","MUNICIPIO","NIVEL_ATENCION",
-                "FECHA_ESTATUS","DESPLIEGUE","FECHA_VUELO","ESTRATO","ACUERDO","CORREO","ENTIDAD_NACIMIENTO","TELEFONO",
+                "FECHA_ESTATUS","DESPLIEGUE","FECHA_VUELO","ESTRATO","ACUERDO","CORREO","TELEFONO",
                 "COMENTARIOS_ESTATUS","FECHA_NACIMIENTO","PASAPORTE","FECHA_EMISION","FECHA_EXPIRACION",
                 "DOMICILIO","LICENCIATURA","INSTITUCION_LIC","INSTITUCION_ESP","FECHA_EGRESO_LIC", "FECHA_EGRESO_ESP", "TIPO_ESTABLECIMIENTO","SUBTIPO_ESTABLECIMIENTO","DIRECCION_UNIDAD","REGION"
                 "FECHA_INICIO","FECHA_FIN","MOTIVO","TIPO_INCAPACIDAD",
@@ -951,7 +951,6 @@ async def generar_reporte_excel(
                     "ESTRATO" : doc.estrato,
                     "ACUERDO" : doc.acuerdo,
                     "CORREO" : doc.correo,
-                    "ENTIDAD_NACIMIENTO" : doc.entidad_nacimiento,
                     "TELEFONO" : doc.telefono,
                     "COMENTARIOS_ESTATUS" : doc.comentarios_estatus,
                     "FECHA_NACIMIENTO" : doc.fecha_nacimiento,
