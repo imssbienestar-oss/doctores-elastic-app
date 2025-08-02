@@ -915,7 +915,7 @@ async def generar_reporte_excel(
                 "FECHA_EXTRACCION","FECHA_NOTIFICACION","SEXO","TURNO","NOMBRE_UNIDAD","MUNICIPIO","NIVEL_ATENCION",
                 "FECHA_ESTATUS","DESPLIEGUE","FECHA_VUELO","ESTRATO","ACUERDO","CORREO","TELEFONO",
                 "COMENTARIOS_ESTATUS","FECHA_NACIMIENTO","PASAPORTE","FECHA_EMISION","FECHA_EXPIRACION",
-                "DOMICILIO","LICENCIATURA","INSTITUCION_LIC","INSTITUCION_ESP","FECHA_EGRESO_LIC", "FECHA_EGRESO_ESP", "TIPO_ESTABLECIMIENTO","SUBTIPO_ESTABLECIMIENTO","DIRECCION_UNIDAD","REGION"
+                "DOMICILIO","LICENCIATURA", "TIPO_ESTABLECIMIENTO","SUBTIPO_ESTABLECIMIENTO","DIRECCION_UNIDAD","REGION"
                 "FECHA_INICIO","FECHA_FIN","MOTIVO","TIPO_INCAPACIDAD",
             ]
             df = pd.DataFrame(columns=column_names)
@@ -959,10 +959,6 @@ async def generar_reporte_excel(
                     "FECHA_EXPIRACION": doc.fecha_expiracion,
                     "DOMICILIO" : doc.domicilio,
                     "LICENCIATURA" : doc.licenciatura,
-                    "INSTITUCION_LIC" : doc.institucion_lic,
-                    "INSTITUCION_ESP" : doc.institucion_esp,
-                    "FECHA_EGRESO_LIC" : doc.fecha_egreso_lic, 
-                    "FECHA_EGRESO_ESP" : doc.fecha_egreso_esp, 
                     "TIPO_ESTABLECIMIENTO" : doc.tipo_establecimiento ,
                     "SUBTIPO_ESTABLECIMIENTO": doc. subtipo_establecimiento,
                     "DIRECCION_UNIDAD": doc.direccion_unidad,
