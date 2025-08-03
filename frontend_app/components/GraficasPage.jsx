@@ -5,6 +5,7 @@ import { ResponsiveBar } from "@nivo/bar";
 import { ResponsivePie } from "@nivo/pie";
 import DoctoresModal from "./DoctoresModal";
 import { useNavigate } from "react-router-dom";
+import ColumnSelectorModal from "./ColumnSelectorModal";
 
 
 // --- ESTILOS (Sin cambios) ---
