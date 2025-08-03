@@ -300,27 +300,6 @@ function Navbar({
     }
   }
 
-  // Botón de Descarga Excel
-  if (currentPath === "/" && vistaActual === "tabla" && showViewToggleButtons) {
-    navActionItems.push(
-      <>
-        {currentUser && currentUser.role !== "consulta" && (
-          <button
-            key="descargarExcel"
-            onClick={() => handleDownload("xlsx")}
-            style={styles.button}
-            disabled={downloading || !showViewToggleButtons}
-          >
-            {downloading &&
-            downloadError === "" &&
-            reportTypeBeingDownloaded === "xlsx"
-              ? "Generando Excel..."
-              : "Generar Excel"}
-          </button>
-        )}
-      </>
-    );
-  }
   // Botón Agregar Doctor
   if (
     currentPath === "/" &&
