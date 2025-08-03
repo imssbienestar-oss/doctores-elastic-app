@@ -447,7 +447,6 @@ async def crear_doctor(
         db.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error inesperado en el servidor: {str(e)}")
 
-
 # --- ENDPOINT (ELIMINAR REGISTRO) ---
 @app.delete("/api/doctores/{id_imss}", status_code=status.HTTP_204_NO_CONTENT, tags=["Doctores"])
 async def eliminar_doctor(
@@ -913,9 +912,9 @@ async def generar_reporte_excel(
                 "ID_IMSS", "NOMBRE","APELLIDO_PATERNO","APELLIDO_MATERNO", "ESTATUS","MATRIMONIO_ID", "CURP", 
                 "CEDULA_ESP","CEDULA_LIC","ESPECIALIDAD","ENTIDAD","CLUES","FORMA_NOTIFICACION","MOTIVO_BAJA",
                 "FECHA_EXTRACCION","FECHA_NOTIFICACION","SEXO","TURNO","NOMBRE_UNIDAD","MUNICIPIO","NIVEL_ATENCION",
-                "FECHA_ESTATUS","DESPLIEGUE","FECHA_VUELO","ESTRATO","ACUERDO","CORREO","TELEFONO",
+                "FECHA_ESTATUS","DESPLIEGUE","FECHA_VUELO","ESTRATO","ACUERDO","CORREO","ENTIDAD_NACIMIENTO","TELEFONO",
                 "COMENTARIOS_ESTATUS","FECHA_NACIMIENTO","PASAPORTE","FECHA_EMISION","FECHA_EXPIRACION",
-                "DOMICILIO","LICENCIATURA", "TIPO_ESTABLECIMIENTO","SUBTIPO_ESTABLECIMIENTO","DIRECCION_UNIDAD","REGION"
+                "DOMICILIO","LICENCIATURA","INSTITUCION_LIC","INSTITUCION_ESP","FECHA_EGRESO_LIC", "FECHA_EGRESO_ESP", "TIPO_ESTABLECIMIENTO","SUBTIPO_ESTABLECIMIENTO","DIRECCION_UNIDAD","REGION"
                 "FECHA_INICIO","FECHA_FIN","MOTIVO","TIPO_INCAPACIDAD",
             ]
             df = pd.DataFrame(columns=column_names)
@@ -951,6 +950,7 @@ async def generar_reporte_excel(
                     "ESTRATO" : doc.estrato,
                     "ACUERDO" : doc.acuerdo,
                     "CORREO" : doc.correo,
+                    "ENTIDAD_NACIMIENTO" : doc.entidad_nacimiento,
                     "TELEFONO" : doc.telefono,
                     "COMENTARIOS_ESTATUS" : doc.comentarios_estatus,
                     "FECHA_NACIMIENTO" : doc.fecha_nacimiento,
@@ -959,6 +959,10 @@ async def generar_reporte_excel(
                     "FECHA_EXPIRACION": doc.fecha_expiracion,
                     "DOMICILIO" : doc.domicilio,
                     "LICENCIATURA" : doc.licenciatura,
+                    "INSTITUCION_LIC" : doc.institucion_lic,
+                    "INSTITUCION_ESP" : doc.institucion_esp,
+                    "FECHA_EGRESO_LIC" : doc.fecha_egreso_lic, 
+                    "FECHA_EGRESO_ESP" : doc.fecha_egreso_esp, 
                     "TIPO_ESTABLECIMIENTO" : doc.tipo_establecimiento ,
                     "SUBTIPO_ESTABLECIMIENTO": doc. subtipo_establecimiento,
                     "DIRECCION_UNIDAD": doc.direccion_unidad,
@@ -1400,7 +1404,7 @@ async def obtener_doctores_por_nivel_atencion(
     current_user: models.User = Depends(security.get_current_user)
 ):
     try:
-        niveles_predefinidos_raw = ["01 PNA", "02 SNA", "03 TNA", "04 OTRO", "05 NO APLICA"]
+        niveles_predefinidos_raw = ["PRIMER NIVEL", "SEGUNDO NIVEL", "TERCER NIVEL", "OTRO", "NO APLICA"]
         niveles_predefinidos_normalizados = [
             (nivel.strip() if nivel is not None else "") or "SIN REGISTRO"
             for nivel in niveles_predefinidos_raw
@@ -1624,6 +1628,18 @@ async def generar_reporte_dinamico_excel(
     if request_data.nombre_unidad:
         query = query.filter(models.Doctor.nombre_unidad == request_data.nombre_unidad)
 
+    if request_data.search and request_data.search.strip():
+        search_words = request_data.search.strip().split()
+        search_conditions = []
+        for word in search_words:
+            word_term = f"%{word}%"
+            search_conditions.append(
+                or_(
+                    models.Doctor.clues.ilike(word_term)
+                )
+            )
+        query = query.filter(and_(*search_conditions))
+
     doctores_filtrados = query.all()
 
     if not doctores_filtrados:
@@ -1792,7 +1808,6 @@ async def get_clues_data_with_capacity(clues_code: str, db: Session = Depends(ge
         "maximo": cupo_info.maximo,
         "actual": conteo_actual
     }
-
 
 
 
