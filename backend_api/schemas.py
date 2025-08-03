@@ -27,7 +27,7 @@ class DoctorBase(BaseModel):
     nivel_atencion: Optional[str] = Field(None, max_length=50)
     fecha_estatus: Optional[date] = None
     despliegue: Optional[str] = Field(None, max_length=255)
-    fecha_vuelo: Optional[date] = None
+    fecha_vuelo: Optional[str] = None
     estrato: Optional[str] = Field(None, max_length=100)
     acuerdo: Optional[str] = Field(None, max_length=255)
     foto_url: Optional[str] = Field(None, max_length=1024) 
@@ -36,7 +36,7 @@ class DoctorBase(BaseModel):
     comentarios_estatus:  Optional[str] = Field(None, max_length=255)
     fecha_fallecimiento:  Optional[date] = None
     fecha_nacimiento: Optional[date] = None
-    edad: Optional[str] = Field(None, max_length=10)
+    edad: Optional[str] = Field(None, max_length=25)
     pasaporte: Optional[str] = Field(None, max_length=255)
     fecha_emision: Optional[str] = None
     fecha_expiracion: Optional[str] = None
@@ -53,7 +53,6 @@ class DoctorBase(BaseModel):
     fecha_fin: Optional[date] = None
     motivo: Optional[str] = Field(None, max_length=255)
     tipo_incapacidad: Optional[str] = Field(None, max_length=255)
-    entidad_nacimiento: Optional[str] = Field(None, max_length=255)
     coordinacion: Optional[str] = Field(None, max_length=100)
 
 # --- SCHEMA DATOS USUARIO
@@ -121,6 +120,7 @@ class DoctorAttachment(DoctorAttachmentBase):
     id: int
     doctor_id: str 
     uploaded_at: datetime
+    documento_tipo: str
 
     class Config:
         from_attributes = True
@@ -327,6 +327,7 @@ class ReporteDinamicoRequest(BaseModel):
     especialidad: Optional[str] = None
     nivel_atencion: Optional[str] = None
     nombre_unidad: Optional[str] = None
+    search: Optional[str] = None
     
     columnas: List[str]
 
