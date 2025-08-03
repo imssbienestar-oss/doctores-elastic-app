@@ -175,10 +175,11 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
   const [selectedStatus, setSelectedStatus] = useState("01 ACTIVO"); 
   const estatusDisponibles = [
     "01 ACTIVO",
-    "02 RETIRO TEMP.",
-    "03 SOL. PERSONAL",
-    "04 INCAPACIDAD",
-    "05 BAJA",
+    "02 RETIRO TEMP. (CUBA)",
+    "03 RETIRO TEMP. (MEXICO)",
+    "04 SOL. PERSONAL",
+    "05 INCAPACIDAD",
+    "06 BAJA",
     "todos",
   ];
 
