@@ -5,9 +5,9 @@ from sqlalchemy.sql import func # Para funciones SQL como now() para timestamps
 from database import Base # Importa la Base que definimos en database.py
 
 class Doctor(Base):
-    __tablename__ = "doctores" # Nombre exacto de la tabla en PostgreSQL
+    __tablename__ = "doctores" #TABLA EN POSTGRES
 
-  # Columnas existentes
+    # Columnas existentes
     id_imss = Column(String, primary_key=True, index=True) 
     nombre = Column(String(255))
     apellido_paterno = Column(String(100), nullable=True)
@@ -31,13 +31,13 @@ class Doctor(Base):
     nivel_atencion = Column(String(50), nullable=True)
     fecha_estatus = Column(Date, nullable=True)
     despliegue = Column(String(255), nullable=True)
-    fecha_vuelo = Column(Date, nullable=True)
+    fecha_vuelo = Column(String, nullable=True)
     estrato = Column(String(100), nullable=True)
     acuerdo = Column(String(255), nullable=True)
     foto_url = Column(String(1024), nullable=True, index=True) 
     correo = Column(String(100), nullable=True)
     telefono = Column(String(255), nullable=True)
-    edad = Column(String(10), nullable=True)
+    edad = Column(String(25), nullable=True)
     comentarios_estatus = Column(Text, nullable=True)
     fecha_fallecimiento = Column(Date, nullable=True)
     fecha_nacimiento = Column(Date, nullable=True)  
@@ -153,8 +153,10 @@ class EstatusHistorico(Base):
     comentarios = Column(Text, nullable=True)   
     fecha_registro = Column(DateTime(timezone=True), server_default=func.now())
     
+
     doctor = relationship("Doctor", back_populates="historial")
 
+#Ultimo Github
 class EntidadCupos(Base):
     __tablename__ = "entidad_cupos"
 
