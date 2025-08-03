@@ -1551,7 +1551,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                 fieldName="acuerdo"
                 type="select"
                 options={[
-                  { value: "AAC231222ctivo", label: "AC231222" },
+                  { value: "AC231222", label: "AC231222" },
                   { value: "AC240511", label: "AC240511" },
                 ]}
                 isEditing={isEditing}
