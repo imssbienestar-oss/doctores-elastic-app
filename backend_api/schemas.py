@@ -364,4 +364,12 @@ class CluesConCapacidad(BaseModel):
     class Config:
         from_attributes = True
 
+class AlertaVencimiento(BaseModel):
+    id_imss: str
+    nombre_completo: str
+    estatus: str
+    fecha_fin: date
+
+    class Config:
+        from_attributes = True
 
