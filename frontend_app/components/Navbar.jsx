@@ -1,9 +1,10 @@
 // src/components/Navbar.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "../src/contexts/AuthContext";
 import { Link, useLocation } from "react-router-dom";
 // import { useModal } from "../src/contexts/ModalContext"; // Solo si onAgregarDoctorClick no se pasa
 import logo from "./gobierno.png";
+import AlertasModal from "./AlertasModal";
 
 // Estilos (deben estar definidos antes de usarlos en renderNavItems si se define fuera del componente)
 const styles = {
@@ -114,6 +115,31 @@ const styles = {
     lineHeight: "1",
     userSelect: "none",
   },
+  alertButton: {
+    padding: "8px 10px",
+    fontSize: "1.5em", // Aumenta el tamaño para el ícono
+    cursor: "pointer",
+    backgroundColor: "transparent",
+    color: "white",
+    border: "none",
+    borderRadius: "0px",
+    transition: "background-color 0.2s ease, color 0.2s ease",
+    whiteSpace: "nowrap",
+    outline: "none",
+    position: 'relative',
+  },
+   alertBadge: {
+    position: 'absolute',
+    top: '2px', // Ajusta la posición del contador
+    right: '2px',
+    backgroundColor: '#dc3545',
+    color: 'white',
+    borderRadius: '50%',
+    padding: '2px 5px',
+    fontSize: '0.6em', // Letra más pequeña para el contador
+    fontWeight: 'bold',
+    lineHeight: 1,
+  },
   downloadStatus: {
     color: "white",
     marginLeft: "10px",
@@ -156,7 +182,7 @@ function Navbar({
   vistaActual,
   onAgregarDoctorClick,
 }) {
-  const { isAuthenticated, isGuestMode, token, logout, currentUser } =
+  const { isAuthenticated, isGuestMode, token, logout, currentUser,dataRefreshKey } =
     useAuth();
   const location = useLocation();
   const currentPath = location.pathname;
@@ -164,6 +190,32 @@ function Navbar({
   const [downloadError, setDownloadError] = useState("");
   const [reportTypeBeingDownloaded, setReportTypeBeingDownloaded] =
     useState(null);
+
+  const [isAlertsModalOpen, setIsAlertsModalOpen] = useState(false);
+  const [alertCount, setAlertCount] = useState(0);
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+
+  useEffect(() => {
+    const fetchAlertCount = async () => {
+      if (isAuthenticated && token) {
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/doctores/alertas-vencimiento`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+          if (response.ok) {
+            const data = await response.json();
+            setAlertCount(data.length);
+          } else {
+            setAlertCount(0);
+          }
+        } catch (error) {
+          console.error("Error al cargar conteo de alertas:", error);
+          setAlertCount(0);
+        }
+      }
+    };
+    fetchAlertCount();
+  }, [isAuthenticated, token, location.pathname,dataRefreshKey]); // Se recarga al cambiar de página
 
   const handleDownload = async (reportType) => {
     setDownloading(true);
@@ -248,6 +300,17 @@ function Navbar({
 
   // Botones de Ver Tabla / Ver Gráficas
   if (showViewToggleButtons && canClickVerGraficas && canClickVerTabla) {
+    navActionItems.push(
+      <button
+        key="alertas"
+        onClick={() => setIsAlertsModalOpen(true)}
+        style={styles.alertButton}
+        title="Ver alertas de vencimiento"
+      >
+            <span role="img" aria-label="alertas">🔔</span>
+            {alertCount > 0 && <span style={styles.alertBadge}>{alertCount}</span>}
+      </button>
+    );
     if (currentPath === "/") {
       // Si estamos en la página principal de doctores
       if (vistaActual === "tabla") {
@@ -407,6 +470,10 @@ function Navbar({
           )}
         </div>
       </nav>
+      <AlertasModal
+        isOpen={isAlertsModalOpen}
+        onClose={() => setIsAlertsModalOpen(false)}
+      />
     </div>
   );
 }
