@@ -7,7 +7,6 @@ import DoctoresModal from "./DoctoresModal";
 import { useNavigate } from "react-router-dom";
 import ColumnSelectorModal from "./ColumnSelectorModal";
 
-
 // --- ESTILOS (Sin cambios) ---
 const styles = {
   pageContainerStyle: { padding: "20px" },
@@ -478,7 +477,7 @@ function GraficasPage() {
         <div style={styles.pieChartsColumn}>
           <div style={styles.chartWrapper}>
             <h2 style={styles.chartTitle}>
-              Médicos por Estatus de Cooperación
+              Médicos 'TOTALES' por Estatus de Cooperación
             </h2>
             <ResponsivePie
               data={dataPorEstatus}
@@ -513,7 +512,7 @@ function GraficasPage() {
             />
           </div>
           <div style={styles.chartWrapper}>
-            <h2 style={styles.chartTitle}>Médicos por Nivel de Atención</h2>
+            <h2 style={styles.chartTitle}>Médicos 'ACTIVOS' por Nivel de Atención</h2>
             <ResponsivePie
               data={dataPorNivelAtencion}
               margin={{ top: 40, right: 160, bottom: 120, left: 20 }}
@@ -548,7 +547,7 @@ function GraficasPage() {
           </div>
         </div>
         <div style={{ ...styles.chartWrapper, height: "925px" }}>
-          <h2 style={styles.chartTitle}>Médicos por Entidad Federativa</h2>
+          <h2 style={styles.chartTitle}>Médicos 'ACTIVOS' por Entidad Federativa</h2>
           <ResponsiveBar
             data={dataPorEstado}
             keys={["value"]}
@@ -776,7 +775,7 @@ function GraficasPage() {
             paddingRight: "10px",
           }}
         >
-          Total de Médicos (con filtros aplicados): {totalDoctorsInGroups}
+          Total de Médicos 'ACTIVOS' (con filtros aplicados): {totalDoctorsInGroups}
         </div>
         {totalPagesEstadistica > 1 && (
           <div style={styles.paginationControls}>
@@ -833,4 +832,3 @@ function GraficasPage() {
 }
 
 export default GraficasPage;
-
