@@ -368,6 +368,42 @@ async def obtener_detalles_doctores_filtrados(
         
     return doctores_para_respuesta
 
+@app.get("/api/doctores/alertas-vencimiento", response_model=List[schemas.AlertaVencimiento], tags=["Doctores"])
+async def get_alertas_de_vencimiento(db: Session = Depends(get_db_session)):
+    """
+    Obtiene una lista de doctores cuyo estatus temporal está programado 
+    para finalizar en los próximos 15 días.
+    """
+    hoy = datetime.now(USER_TIMEZONE).date()
+    fecha_limite = hoy + timedelta(days=15)
+
+    estatus_temporales_patterns = [
+        "02 RETIRO TEMP%",
+        "03 RETIRO TEMP%",
+        "04 SOL. PERSONAL%",
+        "05 INCAPACIDAD%"
+    ]
+
+    doctores_por_vencer = db.query(models.Doctor).filter(
+        and_(
+            or_(*[models.Doctor.estatus.ilike(pattern) for pattern in estatus_temporales_patterns]),
+            models.Doctor.fecha_fin >= hoy,
+            models.Doctor.fecha_fin <= fecha_limite,
+            models.Doctor.is_deleted == False
+        )
+    ).order_by(models.Doctor.fecha_fin.asc()).all()
+
+    respuesta = []
+    for doc in doctores_por_vencer:
+        respuesta.append({
+            "id_imss": doc.id_imss,
+            "nombre_completo": f"{doc.nombre or ''} {doc.apellido_paterno or ''} {doc.apellido_materno or ''}".strip(),
+            "estatus": doc.estatus,
+            "fecha_fin": doc.fecha_fin
+        })
+        
+    return respuesta
+
 # --- ENDPOINT (REGISTRO POR ID) ---
 @app.get("/api/doctores/{id_imss}", response_model=schemas.DoctorDetail, tags=["Doctores"])
 async def leer_doctor_por_id(
@@ -1057,10 +1093,39 @@ async def get_data_grafica_doctores_por_especialidad(
 async def get_data_grafica_doctores_por_estatus(
     db: Session = Depends(get_db_session)
 ):
-    query = text("""SELECT COALESCE(estatus, 'SD') as label, COUNT(*) as value FROM doctores WHERE estatus IS NOT NULL AND coordinacion != '1' AND estatus != '' GROUP BY label ORDER BY value DESC;""")
-    result = db.execute(query); data_items = []
+    """
+    Obtiene el número de doctores agrupados por el tipo principal de estatus,
+    ignorando las variaciones en el texto.
+    """
+    estatus_map = {
+        '01': '01 ACTIVO',
+        '02': '02 RETIRO TEMP. (CUBA)',
+        '03': '03 RETIRO TEMP. (MEXICO)',
+        '04': '04 SOL. PERSONAL',
+        '05': '05 INCAPACIDAD',
+        '06': '06 BAJA'
+    }
+
+    # La consulta ahora extrae los primeros 2 caracteres del estatus para agrupar.
+    query = text("""
+        SELECT 
+            SUBSTRING(estatus FROM 1 FOR 2) as estatus_code, 
+            COUNT(*) as value 
+        FROM doctores 
+        WHERE estatus IS NOT NULL AND estatus != '' AND coordinacion != '1'
+        GROUP BY estatus_code 
+        ORDER BY value DESC;
+    """)
+    
+    result = db.execute(query)
+    
+    # Transformamos el resultado para usar las etiquetas limpias del mapa.
+    data_items = []
     for row in result:
-        if row.label: data_items.append({"id": row.label, "label": row.label, "value": row.value})
+        # Usamos el mapa para obtener la etiqueta correcta, o el código si no se encuentra.
+        label = estatus_map.get(row.estatus_code, row.estatus_code)
+        data_items.append({"id": label, "label": label, "value": row.value})
+        
     return data_items
 
 # --- ENDPOINT (GRAFICAS PASTEL NIVEL ATENCION) ---
@@ -1809,10 +1874,6 @@ async def get_clues_data_with_capacity(clues_code: str, db: Session = Depends(ge
         "maximo": cupo_info.maximo,
         "actual": conteo_actual
     }
-
-
-
-
 
 
 
