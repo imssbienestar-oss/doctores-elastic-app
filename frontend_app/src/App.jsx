@@ -445,7 +445,7 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
     if (!isAuthenticated) return;
     if (
       window.confirm(
-        `¿Estás seguro de que quieres eliminar al doctor "${doctorNombre}" (ID: ${doctorId})?`
+        `¿Estás seguro de que quieres eliminar el registro "${doctorNombre}" (ID: ${doctorId})?`
       )
     ) {
       deleteDoctor(doctorId);
