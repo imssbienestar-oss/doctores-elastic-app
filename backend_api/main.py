@@ -1727,7 +1727,7 @@ async def generar_reporte_dinamico_excel(
     output.seek(0)
 
     headers = {
-        'Content-Disposition': 'attachment; filename="reporte_filtrado_doctores.xlsx"'
+        'Content-Disposition': 'attachment; filename="reporte_filtrado.xlsx"'
     }
     return StreamingResponse(output, headers=headers, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
