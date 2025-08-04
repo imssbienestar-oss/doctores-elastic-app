@@ -2047,6 +2047,8 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                         >
                           Ver Archivo
                         </a>
+                        {currentUser && currentUser.role !== "consulta" && (
+                      <>
                         <button
                           onClick={() =>
                             handleDeleteAttachment(
@@ -2057,6 +2059,8 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                         >
                           &times;
                         </button>
+                         </>
+                         )}
                       </div>
                     ) : (
                       <span style={profileStyles.statusPending}>Pendiente</span>
