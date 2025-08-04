@@ -294,6 +294,8 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
     fecha_nacimiento: "",
     sexo: "",
     turno: "",
+    municipio: "",
+    nivel_atencion: ""
   };
 
   const API_BASE_URL =
