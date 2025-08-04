@@ -565,6 +565,7 @@ FieldRenderer.displayName = "FieldRenderer";
 function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
   const { currentUser } = useAuth();
   const userRole = currentUser?.role;
+  const { triggerDataRefresh } = useAuth();
 
   const [doctor, setDoctor] = useState(initialDoctor);
   const [editableDoctorData, setEditableDoctorData] = useState(null);
@@ -835,6 +836,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
         nombre_unidad: "",
         comentarios: "",
       });
+      triggerDataRefresh();
       onProfileUpdate(doctor.id_imss);
       setSuccessMessage("Registro de historial añadido exitosamente.");
     } catch (err) {
@@ -956,7 +958,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
           estrato: data.estrato || "",
           entidad: data.entidad || "",
           municipio: data.municipio || "",
-         
+
           region: data.region || "SIN ESPECIFICAR",
         }));
       }
@@ -1068,6 +1070,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
       setEditableDoctorData({ ...updatedDoctor });
       setIsEditing(false);
       setSuccessMessage("Perfil actualizado.");
+      triggerDataRefresh();
       if (onProfileUpdate) onProfileUpdate(updatedDoctor.id_imss);
     } catch (err) {
       console.error("Error saving profile:", err.message);
@@ -1280,8 +1283,8 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
   const esEstatusDeBaja = estatusActualParaUI === "06 BAJA";
   const esEstatusDeDefuncion = estatusActualParaUI === "Defunción";
   const esEstatusDeRetiro =
-    estatusActualParaUI === "02 RETIRO TEMP.(CUBA)" ||
-    estatusActualParaUI === "03 RETIRO TEMP.(MEXICO)";
+    estatusActualParaUI === "02 RETIRO TEMP. (CUBA)" ||
+    estatusActualParaUI === "03 RETIRO TEMP. (MEXICO)";
   const esEstatusDeSolicitud = estatusActualParaUI === "04 SOL. PERSONAL";
   const esEstatusDeIncapacidad = estatusActualParaUI === "05 INCAPACIDAD";
   const currentProfilePicUrl = profilePicPreviewUrl || doctor.foto_url || null;
@@ -1576,12 +1579,12 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                 options={[
                   { value: "01 ACTIVO", label: "01 ACTIVO" },
                   {
-                    value: "02 RETIRO TEMP.(CUBA)",
-                    label: "02 RETIRO TEMP.(CUBA)",
+                    value: "02 RETIRO TEMP. (CUBA)",
+                    label: "02 RETIRO TEMP. (CUBA)",
                   },
                   {
-                    value: "03 RETIRO TEMP.(MEXICO)",
-                    label: "03 RETIRO TEMP.(MEXICO)",
+                    value: "03 RETIRO TEMP. (MEXICO)",
+                    label: "03 RETIRO TEMP. (MEXICO)",
                   },
                   { value: "04 SOL. PERSONAL", label: "04 SOL. PERSONAL" },
                   {
@@ -1687,11 +1690,11 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                       fieldName="nivel_atencion"
                       type="select"
                       options={[
-                        { value: "01 PNA", label: "01 PRIMER NIVEL" },
-                        { value: "02 SNA", label: "02 SEGUNDO NIVEL" },
-                        { value: "03 TNA", label: "03 TERCER NIVEL" },
-                        { value: "04 OTRO", label: "04 OTRO" },
-                        { value: "05 NO APLICA", label: "05 NO APLICA" },
+                        { value: "PRIMER NIVEL", label: "PRIMER NIVEL" },
+                        { value: "SEGUNDO NIVEL", label: "SEGUNDO NIVEL" },
+                        { value: "TERCER NIVEL", label: "TERCER NIVEL" },
+                        { value: "OTRO", label: "OTRO" },
+                        { value: "NO APLICA", label: "NO APLICA" },
                       ]}
                       isEditing={isEditing}
                       currentValue={editableDoctorData.nivel_atencion}
@@ -2164,10 +2167,10 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                   >
                     <option value="">Seleccione...</option>
                     <option value="01 ACTIVO">01 ACTIVO</option>
-                    <option value="02 RETIRO TEMP.(CUBA)">
+                    <option value="02 RETIRO TEMP. (CUBA)">
                       02 RETIRO TEMP.CUBA
                     </option>
-                    <option value="03 RETIRO TEMP.(MEXICO)">
+                    <option value="03 RETIRO TEMP. (MEXICO)">
                       03 RETIRO TEMP.MEXICO
                     </option>
                     <option value="04 SOL. PERSONAL">04 SOL. PERSONAL</option>
@@ -2417,11 +2420,11 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                   >
                     <option value="">Seleccione...</option>
                     <option value="01 ACTIVO">01 ACTIVO</option>
-                    <option value="02 RETIRO TEMP.(CUBA)">
-                      02 RETIRO TEMP.(CUBA)
+                    <option value="02 RETIRO TEMP. (CUBA)">
+                      02 RETIRO TEMP. (CUBA)
                     </option>
-                    <option value="03 RETIRO TEMP.(MEXICO)">
-                      03 RETIRO TEMP.(MEXICO)
+                    <option value="03 RETIRO TEMP. (MEXICO)">
+                      03 RETIRO TEMP. (MEXICO)
                     </option>
                     <option value="04 SOL. PERSONAL">04 SOL. PERSONAL</option>
                     <option value="05 INCAPACIDAD">05 INCAPACIDAD</option>
