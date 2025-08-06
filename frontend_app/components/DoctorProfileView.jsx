@@ -1609,9 +1609,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
               />
               {!esEstatusDeBaja &&
                 !esEstatusDeDefuncion &&
-                !esEstatusDeRetiro &&
-                !esEstatusDeSolicitud &&
-                !esEstatusDeIncapacidad && (
+                 (
                   <>
                     <FieldRenderer
                       label="Turno"
@@ -1670,10 +1668,8 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
             </div>
             <div>
               {!esEstatusDeBaja &&
-                !esEstatusDeDefuncion &&
-                !esEstatusDeRetiro &&
-                !esEstatusDeSolicitud &&
-                !esEstatusDeIncapacidad && (
+                !esEstatusDeDefuncion
+                && (
                   <>
                     <FieldRenderer
                       label="Dirección Unidad"
