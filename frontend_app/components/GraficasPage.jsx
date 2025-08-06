@@ -142,6 +142,52 @@ const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 const ITEMS_PER_PAGE_ESTADISTICA = 10;
 
+const CupoMaximoLayer = ({ bars, fullData }) => (
+  <g>
+    {bars.map((bar) => {
+      // Usamos el índice de la barra para encontrar el objeto de datos original
+      // en el array 'fullData' que le pasamos.
+      const originalData = fullData[bar.index];
+
+      // Ahora la condición funcionará, porque originalData SÍ tiene la propiedad 'maximo'.
+      const hasMaximo =
+        originalData &&
+        originalData.maximo !== undefined &&
+        originalData.maximo !== null;
+
+      return (
+        hasMaximo && (
+          <text
+            key={bar.key}
+            x={bar.x + bar.width + 5}
+            y={bar.y + bar.height / 2}
+            textAnchor="start"
+            dominantBaseline="central"
+            style={{
+              fill: "#666",
+              fontSize: 11,
+              fontWeight: "600",
+            }}
+          >
+            /{" "}
+            <tspan style={{ fontWeight: "bold" }}>{originalData.maximo}</tspan>
+          </text>
+        )
+      );
+    })}
+  </g>
+);
+
+const ESTATUS_OPTIONS_FILTRO = [
+  { value: "", label: "Todos los Estatus" },
+  { value: "01 ACTIVO", label: "01 ACTIVO" },
+  { value: "02 RETIRO TEMP. (CUBA)", label: "02 RETIRO TEMPORAL (CUBA)" },
+  { value: "03 RETIRO TEMP. (MEXICO)", label: "03 RETIRO TEMPORAL (MEXICO)" },
+  { value: "04 SOL. PERSONAL", label: "04 SOLICITUD PERSONAL" },
+  { value: "05 INCAPACIDAD", label: "05 INCAPACIDAD" },
+  { value: "06 BAJA", label: "06 BAJA" },
+];
+
 function GraficasPage() {
   const { token } = useAuth();
   const navigate = useNavigate();
@@ -158,9 +204,11 @@ function GraficasPage() {
   const [filtroEspecialidad, setFiltroEspecialidad] = useState("");
   const [filtroNivel, setFiltroNivel] = useState("");
   const [filtroBusqueda, setFiltroBusqueda] = useState("");
+  const [filtroEstatus, setFiltroEstatus] = useState("");
   const [debouncedBusqueda, setDebouncedBusqueda] = useState("");
 
   // --- Estados para las OPCIONES de los filtros ---
+  const [opcionesEstatus, setOpcionesEstatus] = useState([]);
   const [opcionesEntidad, setOpcionesEntidad] = useState([]);
   const [opcionesUnidad, setOpcionesUnidad] = useState([]);
   const [opcionesEspecialidad, setOpcionesEspecialidad] = useState([]);
@@ -183,7 +231,7 @@ function GraficasPage() {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   const misColoresPastel = [
-    "#10312B",
+    "#235B5E",
     "#BC955C",
     "#691C32",
     "#DDC9A3",
@@ -228,6 +276,8 @@ function GraficasPage() {
               id: item.label,
               label: item.label,
               value: item.value,
+              minimo: item.minimo,
+              maximo: item.maximo,
             }))
             .reverse()
         );
@@ -259,6 +309,7 @@ function GraficasPage() {
     const fetchFilterOptions = async () => {
       setIsLoadingFiltros(true);
       const params = new URLSearchParams();
+      if (filtroEstatus) params.append("estatus", filtroEstatus);
       if (filtroEntidad) params.append("entidad", filtroEntidad);
       if (filtroUnidad) params.append("nombre_unidad", filtroUnidad);
       if (filtroEspecialidad) params.append("especialidad", filtroEspecialidad);
@@ -267,7 +318,7 @@ function GraficasPage() {
 
       try {
         const response = await fetch(
-          `${API_BASE_URL}/api/opciones/filtros?${params.toString()}`,
+          `${API_BASE_URL}/api/opciones/filtros-dinamicos?${params.toString()}`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -275,6 +326,7 @@ function GraficasPage() {
         if (!response.ok) throw new Error("Error al cargar opciones de filtro");
         const data = await response.json();
 
+        setOpcionesEstatus(data.estatus);
         setOpcionesEntidad(data.entidades);
         setOpcionesUnidad(data.unidades);
         setOpcionesEspecialidad(data.especialidades);
@@ -287,6 +339,7 @@ function GraficasPage() {
     };
     if (token) fetchFilterOptions();
   }, [
+    filtroEstatus,
     filtroEntidad,
     filtroUnidad,
     filtroEspecialidad,
@@ -309,6 +362,7 @@ function GraficasPage() {
       if (filtroEspecialidad) params.append("especialidad", filtroEspecialidad);
       if (filtroNivel) params.append("nivel_atencion", filtroNivel);
       if (debouncedBusqueda) params.append("search", debouncedBusqueda);
+      if (filtroEstatus) params.append("estatus", filtroEstatus);
 
       try {
         const response = await fetch(
@@ -336,6 +390,7 @@ function GraficasPage() {
     filtroEspecialidad,
     filtroNivel,
     debouncedBusqueda,
+    filtroEstatus,
     token,
   ]);
 
@@ -356,12 +411,17 @@ function GraficasPage() {
     setFiltroNivel(e.target.value);
     setCurrentPageEstadistica(0);
   };
+  const handleEstatusChange = (e) => {
+    setFiltroEstatus(e.target.value);
+    setCurrentPageEstadistica(0);
+  };
 
   const handleClearStatisticFilters = () => {
     setFiltroEntidad("");
     setFiltroUnidad("");
     setFiltroEspecialidad("");
     setFiltroNivel("");
+    setFiltroEstatus("");
     setFiltroBusqueda("");
     setDebouncedBusqueda("");
     setCurrentPageEstadistica(0);
@@ -376,6 +436,7 @@ function GraficasPage() {
     if (filtroEspecialidad) params.append("especialidad", filtroEspecialidad);
     if (filtroNivel) params.append("nivel_atencion", filtroNivel);
     if (debouncedBusqueda) params.append("search", debouncedBusqueda);
+    if (filtroEstatus) params.append("estatus", filtroEstatus);
     try {
       const response = await fetch(
         `${API_BASE_URL}/api/doctores/detalles_filtrados?${params.toString()}`,
@@ -411,36 +472,41 @@ function GraficasPage() {
       especialidad: filtroEspecialidad || null,
       nivel_atencion: filtroNivel || null,
       nombre_unidad: filtroUnidad || null,
+      estatus: filtroEstatus || null,
       search: debouncedBusqueda || null,
       columnas: selectedColumns,
     };
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/reporte/dinamico/xlsx`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(body)
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/api/reporte/dinamico/xlsx`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(body),
+        }
+      );
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: "Error al generar el reporte." }));
+        const errorData = await response
+          .json()
+          .catch(() => ({ detail: "Error al generar el reporte." }));
         throw new Error(errorData.detail || `Error ${response.status}`);
       }
 
       // Procesa el archivo para la descarga
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
-      a.download = 'reporte_filtrado_doctores.xlsx';
+      a.download = "reporte_filtrado.xlsx";
       document.body.appendChild(a);
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
-
     } catch (error) {
       console.error("Error al descargar el archivo:", error);
       alert(`No se pudo descargar el archivo: ${error.message}`);
@@ -512,7 +578,9 @@ function GraficasPage() {
             />
           </div>
           <div style={styles.chartWrapper}>
-            <h2 style={styles.chartTitle}>Médicos 'ACTIVOS' por Nivel de Atención</h2>
+            <h2 style={styles.chartTitle}>
+              Médicos 'ACTIVOS' por Nivel de Atención
+            </h2>
             <ResponsivePie
               data={dataPorNivelAtencion}
               margin={{ top: 40, right: 160, bottom: 120, left: 20 }}
@@ -547,7 +615,9 @@ function GraficasPage() {
           </div>
         </div>
         <div style={{ ...styles.chartWrapper, height: "925px" }}>
-          <h2 style={styles.chartTitle}>Médicos 'ACTIVOS' por Entidad Federativa</h2>
+          <h2 style={styles.chartTitle}>
+            Médicos 'ACTIVOS' por Entidad Federativa
+          </h2>
           <ResponsiveBar
             data={dataPorEstado}
             keys={["value"]}
@@ -557,7 +627,6 @@ function GraficasPage() {
             padding={0.35}
             valueScale={{ type: "linear" }}
             indexScale={{ type: "band", round: true }}
-            colors="#BC955C"
             borderColor={{ from: "color", modifiers: [["darker", 1.6]] }}
             axisTop={null}
             axisRight={null}
@@ -577,12 +646,52 @@ function GraficasPage() {
               legendPosition: "middle",
               legendOffset: -90,
             }}
-            labelSkipWidth={12}
             labelSkipHeight={12}
-            labelTextColor="white"
             animate={true}
             motionStiffness={90}
             motionDamping={15}
+            label={(d) => d.value}
+            labelTextColor={{ from: "color", modifiers: [["brighter", 3]] }}
+            labelSkipWidth={10}
+            layers={[
+              "grid",
+              "axes",
+              "bars",
+              "markers",
+              (props) => (
+                <CupoMaximoLayer {...props} fullData={dataPorEstado} />
+              ),
+              "legends",
+            ]}
+            tooltip={({ id, value, data }) => (
+              <div
+                style={{
+                  padding: "12px",
+                  background: "white",
+                  border: "1px solid #ccc",
+                  borderRadius: "4px",
+                  color: "black",
+                }}
+              >
+                <strong>{data.id}</strong>
+                <br />
+                <br />
+                Médicos Actuales: <strong>{value}</strong>
+                <br />
+                Cupo Mínimo: {data.minimo}
+                <br />
+                Cupo Máximo: {data.maximo}
+              </div>
+            )}
+            colors={({ data }) => {
+              if (data.value >= data.maximo) {
+                return "#dc3545"; // Rojo si el cupo está lleno o excedido
+              }
+              if (data.value < data.minimo) {
+                return "#28a745"; // Verde si está por debajo del mínimo
+              }
+              return "#BC955C"; // Color normal
+            }}
           />
         </div>
       </div>
@@ -687,11 +796,34 @@ function GraficasPage() {
             ))}
           </select>
         </div>
+        <div style={styles.filterGroup}>
+          <label htmlFor="filtroEstatus" style={styles.filterLabel}>
+            Estatus:
+          </label>
+          <select
+            id="filtroEstatus"
+            value={filtroEstatus}
+            onChange={handleEstatusChange}
+            style={styles.filterSelect}
+            disabled={isLoadingFiltros}
+          >
+            <option value="">
+              {isLoadingFiltros ? "Cargando..." : "Todos los Estatus"}
+            </option>
+            {opcionesEstatus.map((estatus) => (
+              <option key={estatus} value={estatus}>
+                {estatus}
+              </option>
+            ))}
+          </select>
+        </div>
+
         {(filtroBusqueda ||
           filtroEntidad ||
           filtroEspecialidad ||
           filtroUnidad ||
-          filtroNivel) && (
+          filtroNivel ||
+          filtroEstatus) && (
           <>
             <div style={{ ...styles.filterGroup, justifyContent: "flex-end" }}>
               <button
@@ -718,22 +850,17 @@ function GraficasPage() {
                 Visualizar Registros
               </button>
             </div>
-
-            
           </>
-          
         )}
         <div style={{ ...styles.filterGroup, justifyContent: "flex-end" }}>
-              <button
-                onClick={handleOpenReportModal}
-                style={{ ...styles.button, backgroundColor: "#006657" }}
-              >
-                Generar Reporte
-              </button>
-            </div>
+          <button
+            onClick={handleOpenReportModal}
+            style={{ ...styles.button, backgroundColor: "#006657" }}
+          >
+            Generar Reporte
+          </button>
+        </div>
       </div>
-
-
 
       <div style={styles.tableContainer}>
         <table style={styles.dataTable}>
@@ -775,7 +902,7 @@ function GraficasPage() {
             paddingRight: "10px",
           }}
         >
-          Total de Médicos 'ACTIVOS' (con filtros aplicados): {totalDoctorsInGroups}
+          Total de Médicos (con filtros aplicados): {totalDoctorsInGroups}
         </div>
         {totalPagesEstadistica > 1 && (
           <div style={styles.paginationControls}>
