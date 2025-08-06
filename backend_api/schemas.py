@@ -302,6 +302,7 @@ class DoctorDetalleItem(BaseModel):
     nivel_atencion: Optional[str] = "N/A"
     clues: str
     entidad: str
+    estatus: Optional[str] = "N/A"
 
     class Config:
         from_attributes = True
@@ -328,6 +329,7 @@ class ReporteDinamicoRequest(BaseModel):
     nivel_atencion: Optional[str] = None
     nombre_unidad: Optional[str] = None
     search: Optional[str] = None
+    estatus: Optional[str] = None
     
     columnas: List[str]
 
@@ -336,6 +338,7 @@ class OpcionesFiltro(BaseModel):
     unidades: List[str]
     especialidades: List[str]
     niveles_atencion: List[str]
+    estatus: List[str]
 
 class EntidadCapacidad(BaseModel):
     entidad: str
@@ -372,4 +375,11 @@ class AlertaVencimiento(BaseModel):
 
     class Config:
         from_attributes = True
+
+class DataGraficaConCupos(BaseModel):
+    label: str
+    value: int  # Conteo actual de médicos
+    minimo: int
+    maximo: int
+
 
