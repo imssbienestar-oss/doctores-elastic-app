@@ -1296,7 +1296,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
         <div style={profileStyles.infoColumn}>
           <div style={profileStyles.header}>
             <h1 style={profileStyles.title}>
-              Expediente del Doctor
+              Expediente del Médico
               <span style={profileStyles.idStyle}>({doctor.id_imss})</span>
             </h1>
             <div style={profileStyles.buttonsContainer}>
@@ -2047,7 +2047,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                         >
                           Ver Archivo
                         </a>
-                        {currentUser && currentUser.role !== "consulta" && (
+                         {currentUser && currentUser.role !== "consulta" && (
                       <>
                         <button
                           onClick={() =>
@@ -2059,7 +2059,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                         >
                           &times;
                         </button>
-                         </>
+                        </>
                          )}
                       </div>
                     ) : (
