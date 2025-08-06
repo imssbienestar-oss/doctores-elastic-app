@@ -101,6 +101,7 @@ const ALL_COLUMNS = [
     { key: 'fecha_vuelo', label: 'Fecha Llegada'},
     { key: 'estatus', label: 'Estatus' },
     { key: 'fecha_estatus', label: 'Fecha de Estatus' },
+    { key: 'fecha_fin', label: 'Fecha Termino'},
     { key: 'turno', label: 'Turno' },
     { key: 'despliegue', label: 'Despliegue'},
     { key: 'clues', label: 'CLUES' },
