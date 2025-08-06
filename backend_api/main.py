@@ -319,11 +319,11 @@ async def obtener_detalles_doctores_filtrados(
     nombre_unidad: Optional[str] = Query(None),
     especialidad: Optional[str] = Query(None),
     nivel_atencion: Optional[str] = Query(None),
+    estatus: Optional[str] = Query(None),
     search: Optional[str] = Query(None)
 ):
     query = db.query(models.Doctor).filter(
         models.Doctor.is_deleted == False,
-        models.Doctor.estatus == '01 ACTIVO',
         models.Doctor.coordinacion == '0'
     )
     if entidad:
@@ -334,6 +334,8 @@ async def obtener_detalles_doctores_filtrados(
         query = query.filter(models.Doctor.especialidad == especialidad)
     if nivel_atencion:
         query = query.filter(models.Doctor.nivel_atencion == nivel_atencion)
+    if estatus:
+        query = query.filter(models.Doctor.estatus == estatus)
 
     if search and search.strip():
         search_words = search.strip().split()
@@ -362,6 +364,7 @@ async def obtener_detalles_doctores_filtrados(
             "nombre_unidad": doc.nombre_unidad or "N/A",
             "especialidad": doc.especialidad or "N/A",
             "nivel_atencion": doc.nivel_atencion or "N/A",
+            "estatus": doc.estatus or "N/A",
             "clues": doc.clues or "N/A"
         }
         doctores_para_respuesta.append(detalle_doctor)
@@ -1073,12 +1076,39 @@ async def generar_reporte_resumen_pdf(
     return StreamingResponse(pdf_output_stream, headers={'Content-Disposition': 'attachment; filename="reporte_resumido_doctores.pdf"'}, media_type='application/pdf')
 
 # --- ENDPOINT (GRAFICAS BARRAS) ---
-@app.get("/api/graficas/doctores_por_estado", response_model=List[schemas.DataGraficaItem], tags=["Gráficas"])
+@app.get("/api/graficas/doctores_por_estado", response_model=List[schemas.DataGraficaConCupos], tags=["Gráficas"])
 async def get_data_grafica_doctores_por_estado(
     db: Session = Depends(get_db_session)
 ):
-    query = text("SELECT entidad as label, COUNT(*) as value FROM doctores WHERE estatus = '01 ACTIVO' AND entidad IS NOT NULL AND coordinacion != '1' AND entidad != '' AND entidad != 'NO APLICA'GROUP BY entidad ORDER BY value DESC;")
-    result = db.execute(query); return [{"label": row.label, "value": row.value} for row in result]
+    #Contamos cuantos doctores Activos tenemos 
+    conteo_actual_subquery = db.query(
+        models.Doctor.entidad,
+        func.count(models.Doctor.id_imss).label("conteo_actual")
+    ).filter(
+        models.Doctor.is_deleted == False,
+        models.Doctor.estatus == '01 ACTIVO',
+        models.Doctor.coordinacion != '1'
+    ).group_by(models.Doctor.entidad).subquery()
+
+    #Unimos los cupos con el conteo total
+    resultados = db.query(
+        models.EntidadCupos.entidad,
+        models.EntidadCupos.minimo,
+        models.EntidadCupos.maximo,
+        func.coalesce(conteo_actual_subquery.c.conteo_actual, 0).label("value")
+    ).outerjoin(
+        conteo_actual_subquery, 
+        models.EntidadCupos.entidad == conteo_actual_subquery.c.entidad
+    ).order_by(func.coalesce(conteo_actual_subquery.c.conteo_actual, 0).desc()).all()
+
+    return [
+        {
+            "label": r.entidad,
+            "value": r.value,
+            "minimo": r.minimo,
+            "maximo": r.maximo
+        } for r in resultados
+    ]
 
 # --- ENDPOINT (GRAFICAS PASTEL ESPECIALIDAD) ---
 @app.get("/api/graficas/doctores_por_especialidad", response_model=List[schemas.DataGraficaItem], tags=["Gráficas"])
@@ -1342,18 +1372,20 @@ async def obtener_estadistica_doctores_agrupados(
     entidad: Optional[str] = Query(None),
     especialidad: Optional[str] = Query(None),
     nivel_atencion: Optional[str] = Query(None),
-    nombre_unidad: Optional[str] = Query(None)
+    nombre_unidad: Optional[str] = Query(None),
+    estatus: Optional[str] = Query(None) 
 ):
     try:
         base_filtered_query = db.query(models.Doctor).filter(
             models.Doctor.is_deleted == False,
-            models.Doctor.estatus == '01 ACTIVO',
             models.Doctor.coordinacion == '0'
         )
         if entidad: base_filtered_query = base_filtered_query.filter(models.Doctor.entidad == entidad)
         if especialidad: base_filtered_query = base_filtered_query.filter(models.Doctor.especialidad == especialidad)
         if nivel_atencion: base_filtered_query = base_filtered_query.filter(models.Doctor.nivel_atencion == nivel_atencion)
         if nombre_unidad: base_filtered_query = base_filtered_query.filter(models.Doctor.nombre_unidad == nombre_unidad)
+        if estatus: base_filtered_query = base_filtered_query.filter(models.Doctor.estatus == estatus)
+
 
         if search and search.strip():
             search_words = search.strip().split()
@@ -1376,17 +1408,19 @@ async def obtener_estadistica_doctores_agrupados(
             models.Doctor.clues,   
             models.Doctor.especialidad,
             models.Doctor.nivel_atencion,
+            models.Doctor.estatus,
             func.count(models.Doctor.id_imss).label("cantidad")
         ).group_by(
             models.Doctor.entidad,
             models.Doctor.nombre_unidad, 
             models.Doctor.clues,        
             models.Doctor.especialidad,
-            models.Doctor.nivel_atencion
+            models.Doctor.nivel_atencion,
+            models.Doctor.estatus
         )
 
         count_subquery = grouped_query_for_items.with_entities(
-             models.Doctor.entidad, models.Doctor.especialidad, models.Doctor.nivel_atencion
+             models.Doctor.entidad, models.Doctor.especialidad, models.Doctor.nivel_atencion, models.Doctor.estatus
         ).distinct().subquery('grouped_data_for_count')
         
         total_groups_count_query = db.query(func.count()).select_from(count_subquery)
@@ -1396,7 +1430,8 @@ async def obtener_estadistica_doctores_agrupados(
             models.Doctor.entidad.asc().nullsfirst(),
             models.Doctor.especialidad.asc().nullsfirst(),
             models.Doctor.nivel_atencion.asc().nullsfirst(),
-            models.Doctor.nombre_unidad.asc().nullsfirst()
+            models.Doctor.nombre_unidad.asc().nullsfirst(),
+            models.Doctor.estatus.asc().nullsfirst()
         ).offset(skip).limit(limit).all()
 
         items_for_response = []
@@ -1407,6 +1442,7 @@ async def obtener_estadistica_doctores_agrupados(
                 "clues": row.clues or "N/A",   
                 "especialidad": row.especialidad if row.especialidad is not None else "N/A",
                 "nivel_atencion": row.nivel_atencion if row.nivel_atencion is not None else "N/A",
+                "estatus": row.estatus if row.estatus is not None else "N/A",
                 "cantidad": row.cantidad if row.cantidad is not None else 0
             }
             items_for_response.append(schemas.EstadisticaAgrupadaItem(**item_data))
@@ -1681,7 +1717,6 @@ async def generar_reporte_dinamico_excel(
 ):
     query = db.query(models.Doctor).filter(
         models.Doctor.is_deleted == False,
-        models.Doctor.estatus == '01 ACTIVO',
         models.Doctor.coordinacion == '0'
     )
 
@@ -1693,6 +1728,8 @@ async def generar_reporte_dinamico_excel(
         query = query.filter(models.Doctor.nivel_atencion == request_data.nivel_atencion)
     if request_data.nombre_unidad:
         query = query.filter(models.Doctor.nombre_unidad == request_data.nombre_unidad)
+    if request_data.estatus:
+        query = query.filter(models.Doctor.estatus == request_data.estatus)
 
     if request_data.search and request_data.search.strip():
         search_words = request_data.search.strip().split()
@@ -1732,30 +1769,37 @@ async def generar_reporte_dinamico_excel(
     return StreamingResponse(output, headers=headers, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 # --- ENDPOINT (GENERA REPORTE OPCIONES FILTRO - PENDIENTE) ---
-@app.get("/api/opciones/filtros", response_model=schemas.OpcionesFiltro, tags=["Opciones de Filtro"])
-async def get_opciones_de_filtro(
+@app.get("/api/opciones/filtros-dinamicos", response_model=schemas.OpcionesFiltro, tags=["Opciones de Filtro"])
+async def get_opciones_dinamicas(
     entidad: Optional[str] = Query(None),
     nombre_unidad: Optional[str] = Query(None),
-    especialidad: Optional[str] = Query(None),    
-    nivel_atencion: Optional[str] = Query(None), 
+    especialidad: Optional[str] = Query(None),
+    nivel_atencion: Optional[str] = Query(None),
+    estatus: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     db: Session = Depends(get_db_session)
 ):
-
+    """
+    Obtiene las listas de opciones disponibles para TODOS los filtros, 
+    basadas en los filtros ya aplicados.
+    """
+    # Consulta base: siempre sobre doctores no eliminados y no de coordinación.
     base_query = db.query(models.Doctor).filter(
         models.Doctor.is_deleted == False,
-        models.Doctor.estatus == '01 ACTIVO',
         models.Doctor.coordinacion == '0'
     )
 
+    # Aplicamos los filtros que vienen del frontend a nuestra consulta base
     if entidad:
         base_query = base_query.filter(models.Doctor.entidad == entidad)
     if nombre_unidad:
         base_query = base_query.filter(models.Doctor.nombre_unidad == nombre_unidad)
     if especialidad:
         base_query = base_query.filter(models.Doctor.especialidad == especialidad)
-    if  nivel_atencion:
+    if nivel_atencion:
         base_query = base_query.filter(models.Doctor.nivel_atencion == nivel_atencion)
+    if estatus:
+        base_query = base_query.filter(models.Doctor.estatus == estatus)
 
     if search and search.strip():
         search_words = search.strip().split()
@@ -1764,41 +1808,32 @@ async def get_opciones_de_filtro(
             word_term = f"%{word}%"
             search_conditions.append(
                 or_(
+                    models.Doctor.nombre.ilike(word_term),
+                    models.Doctor.apellido_paterno.ilike(word_term),
+                    models.Doctor.apellido_materno.ilike(word_term),
+                    models.Doctor.id_imss.ilike(word_term),
                     models.Doctor.clues.ilike(word_term)
                 )
             )
         base_query = base_query.filter(and_(*search_conditions))
 
-    # OPCIONES PARA ENTIDADES
-    entidades_query = base_query.with_entities(distinct(models.Doctor.entidad)).filter(
-        models.Doctor.entidad.isnot(None), models.Doctor.entidad != ''
-    ).order_by(models.Doctor.entidad)
-    entidades = [row[0] for row in entidades_query.all()]
 
-    #OPCIONES PARA UNIDADES
-    unidades_query = base_query.with_entities(distinct(models.Doctor.nombre_unidad)).filter(
-        models.Doctor.nombre_unidad.isnot(None), models.Doctor.nombre_unidad != ''
-    ).order_by(models.Doctor.nombre_unidad)
-    unidades = [row[0] for row in unidades_query.all()]
+    # Función auxiliar para obtener valores únicos de una columna
+    def get_distinct_values(field):
+        query = base_query.with_entities(distinct(field)).filter(field.isnot(None), field != '').order_by(field)
+        return [row[0] for row in query.all()]
 
-    # OPCIONES PARA ESPECIALIDADES
-    especialidades_query = base_query.with_entities(distinct(models.Doctor.especialidad)).filter(
-        models.Doctor.especialidad.isnot(None), models.Doctor.especialidad != ''
-    ).order_by(models.Doctor.especialidad)
-    especialidades = [row[0] for row in especialidades_query.all()]
-
-    # OPCIONES PARA NIVEL DE ATENCION
-    niveles_query = base_query.with_entities(distinct(models.Doctor.nivel_atencion)).filter(
-        models.Doctor.nivel_atencion.isnot(None), models.Doctor.nivel_atencion != ''
-    ).order_by(models.Doctor.nivel_atencion)
-    niveles_atencion = [row[0] for row in niveles_query.all()]
-
+    # --- CORRECCIÓN CLAVE AQUÍ ---
+    # A partir de la consulta base filtrada, obtenemos las opciones únicas para cada campo
+    # y nos aseguramos de incluir 'estatuses' en la respuesta.
     return {
-        "entidades": entidades,
-        "unidades": unidades,
-        "especialidades": especialidades,
-        "niveles_atencion": niveles_atencion
+        "entidades": get_distinct_values(models.Doctor.entidad),
+        "unidades": get_distinct_values(models.Doctor.nombre_unidad),
+        "especialidades": get_distinct_values(models.Doctor.especialidad),
+        "niveles_atencion": get_distinct_values(models.Doctor.nivel_atencion),
+        "estatus": get_distinct_values(models.Doctor.estatus),
     }
+
 
 @app.get("/api/opciones/entidades-capacidad", response_model=List[schemas.EntidadCapacidad], tags=["Opciones de Filtro"])
 async def get_entidades_con_capacidad(db: Session = Depends(get_db_session)):
