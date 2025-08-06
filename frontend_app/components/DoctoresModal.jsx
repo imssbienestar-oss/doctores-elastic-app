@@ -20,7 +20,7 @@ const styles = {
     borderRadius: "8px",
     boxShadow: "0 5px 15px rgba(0, 0, 0, 0.3)",
     width: "100%",
-    maxWidth: "1200px",
+    maxWidth: "1400px",
     maxHeight: "80vh",
     overflowY: "auto",
     position: "relative",
@@ -123,6 +123,7 @@ function DoctoresModal({
                 <th style={styles.th}>Unidad</th>
                 <th style={styles.th}>Especialidad</th>
                 <th style={styles.th}>Nivel de Atención</th>
+                <th style={styles.th}>Estatus</th>
                 <th style={styles.th}>Acción</th>
               </tr>
             </thead>
@@ -137,6 +138,7 @@ function DoctoresModal({
                     <td style={styles.td}>{doc.nombre_unidad}</td>
                     <td style={styles.td}>{doc.especialidad}</td>
                     <td style={styles.td}>{doc.nivel_atencion}</td>
+                    <td style={styles.td}>{doc.estatus}</td>
                     <td style={styles.td}>
                       <button
                         onClick={() => onViewProfile(doc)}
