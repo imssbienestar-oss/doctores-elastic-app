@@ -376,9 +376,12 @@ async def get_alertas_de_vencimiento(db: Session = Depends(get_db_session)):
     """
     Obtiene una lista de doctores cuyo estatus temporal está programado 
     para finalizar en los próximos 15 días.
-    """
-    hoy = datetime.now(USER_TIMEZONE).date()
-    fecha_limite = hoy + timedelta(days=15)
+    """ 
+    now_aware = datetime.now(USER_TIMEZONE)
+    hoy_inicio_dia = now_aware.replace(hour=0, minute=0, second=0, microsecond=0)
+    fecha_actual = hoy_inicio_dia.date()
+    fecha_inicio_rango = fecha_actual - timedelta(days=30) 
+    fecha_limite_rango = fecha_actual + timedelta(days=15)
 
     estatus_temporales_patterns = [
         "02 RETIRO TEMP%",
@@ -390,19 +393,25 @@ async def get_alertas_de_vencimiento(db: Session = Depends(get_db_session)):
     doctores_por_vencer = db.query(models.Doctor).filter(
         and_(
             or_(*[models.Doctor.estatus.ilike(pattern) for pattern in estatus_temporales_patterns]),
-            models.Doctor.fecha_fin >= hoy,
-            models.Doctor.fecha_fin <= fecha_limite,
+            models.Doctor.fecha_fin >= fecha_inicio_rango,
+            models.Doctor.fecha_fin <= fecha_limite_rango,
             models.Doctor.is_deleted == False
         )
     ).order_by(models.Doctor.fecha_fin.asc()).all()
 
     respuesta = []
     for doc in doctores_por_vencer:
+        fecha_fin_obj = doc.fecha_fin
+        if isinstance(fecha_fin_obj, datetime):
+            fecha_fin_obj = fecha_fin_obj.date()
+        delta = fecha_fin_obj - fecha_actual
+        dias_restantes = delta.days
         respuesta.append({
             "id_imss": doc.id_imss,
             "nombre_completo": f"{doc.nombre or ''} {doc.apellido_paterno or ''} {doc.apellido_materno or ''}".strip(),
             "estatus": doc.estatus,
-            "fecha_fin": doc.fecha_fin
+            "fecha_fin": doc.fecha_fin,
+            "dias_restantes": dias_restantes
         })
         
     return respuesta
@@ -1868,7 +1877,6 @@ async def get_entidades_con_capacidad(db: Session = Depends(get_db_session)):
 @app.get("/api/clues-con-capacidad/{clues_code}", response_model=schemas.CluesConCapacidad, tags=["Catálogos"])
 async def get_clues_data_with_capacity(clues_code: str, db: Session = Depends(get_db_session)):
   
-    # 1. Buscar la información de la CLUES en el catálogo
     clues_info = db.query(models.CatalogoClues).filter(models.CatalogoClues.clues == clues_code).first()
     
     if not clues_info:
@@ -1877,7 +1885,6 @@ async def get_clues_data_with_capacity(clues_code: str, db: Session = Depends(ge
             detail="La CLUES no fue encontrada en el catálogo."
         )
 
-    # 2. Si la encontramos, buscamos los datos de cupo para su entidad
     entidad_de_clues = clues_info.entidad
     cupo_info = db.query(models.EntidadCupos).filter(models.EntidadCupos.entidad == entidad_de_clues).first()
 
@@ -1887,14 +1894,12 @@ async def get_clues_data_with_capacity(clues_code: str, db: Session = Depends(ge
             detail=f"No se encontraron datos de cupo para la entidad {entidad_de_clues}."
         )
 
-    # 3. Contamos los médicos activos actuales en esa entidad
     conteo_actual = db.query(models.Doctor).filter(
         models.Doctor.entidad == entidad_de_clues,
         models.Doctor.is_deleted == False,
         models.Doctor.estatus == '01 ACTIVO'
     ).count()
 
-    # 4. Combinamos toda la información en la respuesta
     return {
         "clues": clues_info.clues,
         "nombre_unidad": clues_info.nombre_unidad,
@@ -1909,6 +1914,5 @@ async def get_clues_data_with_capacity(clues_code: str, db: Session = Depends(ge
         "maximo": cupo_info.maximo,
         "actual": conteo_actual
     }
-
 
 
