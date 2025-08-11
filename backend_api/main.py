@@ -1916,4 +1916,27 @@ async def get_clues_data_with_capacity(clues_code: str, db: Session = Depends(ge
         "actual": conteo_actual
     }
 
+@app.delete("/api/historico/{historico_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Histórico"])
+async def delete_registro_historico(
+    historico_id: int,
+    db: Session = Depends(get_db_session),
+    admin_user: models.User = Depends(get_current_admin_user)
+):
+    """
+    Elimina un registro específico del histórico de movimientos.
+    Solo es accesible para usuarios con el rol de 'admin'.
+    """
+    registro_a_eliminar = db.query(models.EstatusHistorico).filter(models.EstatusHistorico.id == historico_id).first()
+
+    if not registro_a_eliminar:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No se encontró el registro histórico con id {historico_id}"
+        )
+
+    db.delete(registro_a_eliminar)
+    db.commit()
+
+    return
+
 
