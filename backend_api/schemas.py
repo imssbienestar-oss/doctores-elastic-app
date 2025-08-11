@@ -382,4 +382,3 @@ class DataGraficaConCupos(BaseModel):
     minimo: int
     maximo: int
 
-
