@@ -371,6 +371,7 @@ class AlertaVencimiento(BaseModel):
     id_imss: str
     nombre_completo: str
     estatus: str
+    entidad: str
     fecha_fin: date
 
     class Config:
