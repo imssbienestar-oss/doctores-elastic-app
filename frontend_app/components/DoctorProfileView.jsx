@@ -232,6 +232,10 @@ const profileStyles = {
     color: "#dc3545", // Rojo
     fontStyle: "italic",
   },
+  deleteButton: {
+    background: "#dc3545",
+    color: "#fff",
+  },
   uploadSection: {
     marginTop: "10px",
     paddingTop: "10px",
@@ -606,6 +610,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
     { key: "Títulos de Estudio", label: "Títulos de Estudio" },
     { key: "Solicitud de Vacaciones", label: "Solicitud de Vacaciones" },
   ];
+  const [registrosHistorico, setRegistrosHistorico] = useState([]);
 
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedDocType, setSelectedDocType] = useState("");
@@ -613,6 +618,67 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
   const tiposDeDocumentoFaltantes = DOCUMENTOS_REQUERIDOS.filter(
     (doc) => !doctor.attachments.some((att) => att.documento_tipo === doc.key)
   );
+
+  const handleEliminarRegistro = async (historicoId, tipoCambio) => {
+    if (
+      !window.confirm(
+        `¿Estás seguro de que quieres eliminar el movimiento "${tipoCambio}" (ID: ${historicoId})? Esta acción no se puede deshacer.`
+      )
+    ) {
+      return;
+    }
+
+    setIsLoading(true);
+    setError("");
+    setSuccessMessage("");
+
+    const token = localStorage.getItem("authToken");
+
+    if (!token) {
+      setError("Error de autenticación. No se encontró el token.");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      // 4. Llamada a la API usando la URL completa (resuelve el 404)
+      // Asegúrate de que API_URL está definida y apunta a http://localhost:8000
+      const response = await fetch(
+        `${API_BASE_URL}/api/historico/${historicoId}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      // 5. Manejo de errores de la respuesta (igual que tu función de referencia)
+      if (!response.ok) {
+        const errorData = await response
+          .json()
+          .catch(() => ({ detail: "Error al eliminar el registro." }));
+        throw new Error(
+          errorData.detail || `Error del servidor: ${response.status}`
+        );
+      }
+
+      setDoctor((prevDoctor) => ({
+        ...prevDoctor,
+        historial: prevDoctor.historial.filter(
+          (registro) => registro.id !== historicoId
+        ),
+      }));
+
+      setSuccessMessage(
+        `Registro (ID: ${historicoId}) eliminado exitosamente.`
+      );
+      alert(`El registro (ID: ${historicoId}) fue eliminado con éxito.`);
+    } catch (err) {
+      console.error("Error al eliminar registro del histórico:", err);
+      setError(err.message || "Ocurrió un error al eliminar el registro.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (tiposDeDocumentoFaltantes.length > 0) {
@@ -1208,6 +1274,9 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
     }
   };
 
+  const { user, token } = useAuth();
+  const API_URL = import.meta.env.VITE_API_BASE_URL;
+
   const handleDeleteAttachment = async (attachmentId, attachmentName) => {
     if (!doctor?.id_imss) return;
     if (
@@ -1607,214 +1676,210 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                 onChange={handleInputChange}
                 isLoading={isLoading}
               />
-              {!esEstatusDeBaja &&
-                !esEstatusDeDefuncion &&
-                 (
-                  <>
-                    <FieldRenderer
-                      label="Turno"
-                      fieldName="turno"
-                      type="select"
-                      options={[
-                        {
-                          value: "Jornada Acumulada",
-                          label: "Jornada Acumulada",
-                        },
-                        { value: "Matutino", label: "Matutino" },
-                        { value: "Nocturno A", label: "Nocturno A" },
-                        { value: "Nocturno B", label: "Nocturno B" },
-                        { value: "Vespertino", label: "Vespertino" },
-                      ]}
-                      isEditing={isEditing}
-                      currentValue={editableDoctorData.turno}
-                      onChange={handleInputChange}
-                      isLoading={isLoading}
-                    />
-                    <FieldRenderer
-                      label="Despliegue"
-                      fieldName="despliegue"
-                      type="text"
-                      isEditing={isEditing}
-                      currentValue={editableDoctorData.despliegue}
-                      onChange={handleInputChange}
-                      isLoading={isLoading}
-                    />
-                    <FieldRenderer
-                      label="Clues"
-                      fieldName="clues"
-                      type="text"
-                      isEditing={isEditing}
-                      currentValue={editableDoctorData.clues}
-                      onChange={handleInputChange}
-                      isLoading={isLoading}
-                    />
-                    {isEditing && isLoadingClues && (
-                      <p style={{ fontStyle: "italic" }}>Buscando CLUES...</p>
-                    )}
-                    {isEditing && cluesError && (
-                      <p style={{ color: "red" }}>{cluesError}</p>
-                    )}
+              {!esEstatusDeBaja && !esEstatusDeDefuncion && (
+                <>
+                  <FieldRenderer
+                    label="Turno"
+                    fieldName="turno"
+                    type="select"
+                    options={[
+                      {
+                        value: "Jornada Acumulada",
+                        label: "Jornada Acumulada",
+                      },
+                      { value: "Matutino", label: "Matutino" },
+                      { value: "Nocturno A", label: "Nocturno A" },
+                      { value: "Nocturno B", label: "Nocturno B" },
+                      { value: "Vespertino", label: "Vespertino" },
+                    ]}
+                    isEditing={isEditing}
+                    currentValue={editableDoctorData.turno}
+                    onChange={handleInputChange}
+                    isLoading={isLoading}
+                  />
+                  <FieldRenderer
+                    label="Despliegue"
+                    fieldName="despliegue"
+                    type="text"
+                    isEditing={isEditing}
+                    currentValue={editableDoctorData.despliegue}
+                    onChange={handleInputChange}
+                    isLoading={isLoading}
+                  />
+                  <FieldRenderer
+                    label="Clues"
+                    fieldName="clues"
+                    type="text"
+                    isEditing={isEditing}
+                    currentValue={editableDoctorData.clues}
+                    onChange={handleInputChange}
+                    isLoading={isLoading}
+                  />
+                  {isEditing && isLoadingClues && (
+                    <p style={{ fontStyle: "italic" }}>Buscando CLUES...</p>
+                  )}
+                  {isEditing && cluesError && (
+                    <p style={{ color: "red" }}>{cluesError}</p>
+                  )}
 
-                    <FieldRenderer
-                      label="Unidad Médica"
-                      fieldName="nombre_unidad"
-                      isEditing={isEditing}
-                      currentValue={editableDoctorData.nombre_unidad}
-                      onChange={handleInputChange}
-                      isLoading={isLoading}
-                    />
-                  </>
-                )}
+                  <FieldRenderer
+                    label="Unidad Médica"
+                    fieldName="nombre_unidad"
+                    isEditing={isEditing}
+                    currentValue={editableDoctorData.nombre_unidad}
+                    onChange={handleInputChange}
+                    isLoading={isLoading}
+                  />
+                </>
+              )}
             </div>
             <div>
-              {!esEstatusDeBaja &&
-                !esEstatusDeDefuncion
-                && (
-                  <>
-                    <FieldRenderer
-                      label="Dirección Unidad"
-                      fieldName="direccion_unidad"
-                      type="text"
-                      isEditing={isEditing}
-                      currentValue={editableDoctorData.direccion_unidad}
-                      onChange={handleInputChange}
-                      isLoading={isLoading}
-                    />
+              {!esEstatusDeBaja && !esEstatusDeDefuncion && (
+                <>
+                  <FieldRenderer
+                    label="Dirección Unidad"
+                    fieldName="direccion_unidad"
+                    type="text"
+                    isEditing={isEditing}
+                    currentValue={editableDoctorData.direccion_unidad}
+                    onChange={handleInputChange}
+                    isLoading={isLoading}
+                  />
 
-                    <FieldRenderer
-                      label="Nivel de Atención"
-                      fieldName="nivel_atencion"
-                      type="select"
-                      options={[
-                        { value: "PRIMER NIVEL", label: "PRIMER NIVEL" },
-                        { value: "SEGUNDO NIVEL", label: "SEGUNDO NIVEL" },
-                        { value: "TERCER NIVEL", label: "TERCER NIVEL" },
-                        { value: "OTRO", label: "OTRO" },
-                        { value: "NO APLICA", label: "NO APLICA" },
-                      ]}
-                      isEditing={isEditing}
-                      currentValue={editableDoctorData.nivel_atencion}
-                      onChange={handleInputChange}
-                      isLoading={isLoading}
-                    />
+                  <FieldRenderer
+                    label="Nivel de Atención"
+                    fieldName="nivel_atencion"
+                    type="select"
+                    options={[
+                      { value: "PRIMER NIVEL", label: "PRIMER NIVEL" },
+                      { value: "SEGUNDO NIVEL", label: "SEGUNDO NIVEL" },
+                      { value: "TERCER NIVEL", label: "TERCER NIVEL" },
+                      { value: "OTRO", label: "OTRO" },
+                      { value: "NO APLICA", label: "NO APLICA" },
+                    ]}
+                    isEditing={isEditing}
+                    currentValue={editableDoctorData.nivel_atencion}
+                    onChange={handleInputChange}
+                    isLoading={isLoading}
+                  />
 
-                    <FieldRenderer
-                      label="Tipo Establecimiento"
-                      fieldName="tipo_establecimiento"
-                      type="text"
-                      isEditing={isEditing}
-                      currentValue={editableDoctorData.tipo_establecimiento}
-                      onChange={handleInputChange}
-                      isLoading={isLoading}
-                    />
+                  <FieldRenderer
+                    label="Tipo Establecimiento"
+                    fieldName="tipo_establecimiento"
+                    type="text"
+                    isEditing={isEditing}
+                    currentValue={editableDoctorData.tipo_establecimiento}
+                    onChange={handleInputChange}
+                    isLoading={isLoading}
+                  />
 
-                    <FieldRenderer
-                      label="Subtipo Establecimiento"
-                      fieldName="subtipo_establecimiento"
-                      type="text"
-                      isEditing={isEditing}
-                      currentValue={editableDoctorData.subtipo_establecimiento}
-                      onChange={handleInputChange}
-                      isLoading={isLoading}
-                    />
+                  <FieldRenderer
+                    label="Subtipo Establecimiento"
+                    fieldName="subtipo_establecimiento"
+                    type="text"
+                    isEditing={isEditing}
+                    currentValue={editableDoctorData.subtipo_establecimiento}
+                    onChange={handleInputChange}
+                    isLoading={isLoading}
+                  />
 
-                    <FieldRenderer
-                      label="Estrato"
-                      fieldName="estrato"
-                      type="text"
-                      isEditing={isEditing}
-                      currentValue={
-                        isEditing ? editableDoctorData.estrato : doctor.estrato
-                      }
-                      onChange={handleInputChange}
-                      isLoading={isLoading}
-                    />
+                  <FieldRenderer
+                    label="Estrato"
+                    fieldName="estrato"
+                    type="text"
+                    isEditing={isEditing}
+                    currentValue={
+                      isEditing ? editableDoctorData.estrato : doctor.estrato
+                    }
+                    onChange={handleInputChange}
+                    isLoading={isLoading}
+                  />
 
-                    <FieldRenderer
-                      label="Entidad"
-                      fieldName="entidad"
-                      type="select"
-                      options={[
-                        { value: "AGS", label: "Aguascalientes" },
-                        { value: "BC", label: "Baja California" },
-                        {
-                          value: "BCS",
-                          label: "Baja California Sur",
-                        },
-                        { value: "CAMP", label: "Campeche" },
-                        {
-                          value: "COAH",
-                          label: "Coahuila de Zaragoza",
-                        },
-                        { value: "COL", label: "Colima" },
-                        { value: "CHIS", label: "Chiapas" },
-                        { value: "CHIH", label: "Chihuahua" },
-                        { value: "CDMX", label: "Ciudad de México" },
-                        { value: "DGO", label: "Durango" },
-                        { value: "GTO", label: "Guanajuato" },
-                        { value: "GRO", label: "Guerrero" },
-                        { value: "HGO", label: "Hidalgo" },
-                        { value: "JAL", label: "Jalisco" },
-                        { value: "MEX", label: "México" },
-                        {
-                          value: "MICH",
-                          label: "Michoacán de Ocampo",
-                        },
-                        { value: "MOR", label: "Morelos" },
-                        { value: "NAY", label: "Nayarit" },
-                        { value: "NL", label: "Nuevo León" },
-                        { value: "OAX", label: "Oaxaca" },
-                        { value: "PUE", label: "Puebla" },
-                        { value: "QRO", label: "Querétaro" },
-                        { value: "QROO", label: "Quintana Roo" },
-                        { value: "SLP", label: "San Luis Potosí" },
-                        { value: "SIN", label: "Sinaloa" },
-                        { value: "SON", label: "Sonora" },
-                        { value: "TAB", label: "Tabasco" },
-                        { value: "TAMPS", label: "Tamaulipas" },
-                        { value: "TLAX", label: "Tlaxcala" },
-                        {
-                          value: "VER",
-                          label: "Veracruz de Ignacio de la Llave",
-                        },
-                        { value: "YUC", label: "Yucatán" },
-                        { value: "ZAC", label: "Zacatecas " },
-                      ]}
-                      isEditing={isEditing}
-                      currentValue={
-                        isEditing ? editableDoctorData.entidad : doctor.entidad
-                      }
-                      onChange={handleInputChange}
-                      isLoading={isLoading}
-                    />
+                  <FieldRenderer
+                    label="Entidad"
+                    fieldName="entidad"
+                    type="select"
+                    options={[
+                      { value: "AGS", label: "Aguascalientes" },
+                      { value: "BC", label: "Baja California" },
+                      {
+                        value: "BCS",
+                        label: "Baja California Sur",
+                      },
+                      { value: "CAMP", label: "Campeche" },
+                      {
+                        value: "COAH",
+                        label: "Coahuila de Zaragoza",
+                      },
+                      { value: "COL", label: "Colima" },
+                      { value: "CHIS", label: "Chiapas" },
+                      { value: "CHIH", label: "Chihuahua" },
+                      { value: "CDMX", label: "Ciudad de México" },
+                      { value: "DGO", label: "Durango" },
+                      { value: "GTO", label: "Guanajuato" },
+                      { value: "GRO", label: "Guerrero" },
+                      { value: "HGO", label: "Hidalgo" },
+                      { value: "JAL", label: "Jalisco" },
+                      { value: "MEX", label: "México" },
+                      {
+                        value: "MICH",
+                        label: "Michoacán de Ocampo",
+                      },
+                      { value: "MOR", label: "Morelos" },
+                      { value: "NAY", label: "Nayarit" },
+                      { value: "NL", label: "Nuevo León" },
+                      { value: "OAX", label: "Oaxaca" },
+                      { value: "PUE", label: "Puebla" },
+                      { value: "QRO", label: "Querétaro" },
+                      { value: "QROO", label: "Quintana Roo" },
+                      { value: "SLP", label: "San Luis Potosí" },
+                      { value: "SIN", label: "Sinaloa" },
+                      { value: "SON", label: "Sonora" },
+                      { value: "TAB", label: "Tabasco" },
+                      { value: "TAMPS", label: "Tamaulipas" },
+                      { value: "TLAX", label: "Tlaxcala" },
+                      {
+                        value: "VER",
+                        label: "Veracruz de Ignacio de la Llave",
+                      },
+                      { value: "YUC", label: "Yucatán" },
+                      { value: "ZAC", label: "Zacatecas " },
+                    ]}
+                    isEditing={isEditing}
+                    currentValue={
+                      isEditing ? editableDoctorData.entidad : doctor.entidad
+                    }
+                    onChange={handleInputChange}
+                    isLoading={isLoading}
+                  />
 
-                    <FieldRenderer
-                      label="Municipio"
-                      fieldName="municipio"
-                      type="text"
-                      isEditing={isEditing}
-                      currentValue={
-                        isEditing
-                          ? editableDoctorData.municipio
-                          : doctor.municipio
-                      }
-                      onChange={handleInputChange}
-                      isLoading={isLoading}
-                    />
+                  <FieldRenderer
+                    label="Municipio"
+                    fieldName="municipio"
+                    type="text"
+                    isEditing={isEditing}
+                    currentValue={
+                      isEditing
+                        ? editableDoctorData.municipio
+                        : doctor.municipio
+                    }
+                    onChange={handleInputChange}
+                    isLoading={isLoading}
+                  />
 
-                    <FieldRenderer
-                      label="Región"
-                      fieldName="region"
-                      type="text"
-                      isEditing={isEditing}
-                      currentValue={
-                        isEditing ? editableDoctorData.region : doctor.region
-                      }
-                      onChange={handleInputChange}
-                      isLoading={isLoading}
-                    />
-                  </>
-                )}
+                  <FieldRenderer
+                    label="Región"
+                    fieldName="region"
+                    type="text"
+                    isEditing={isEditing}
+                    currentValue={
+                      isEditing ? editableDoctorData.region : doctor.region
+                    }
+                    onChange={handleInputChange}
+                    isLoading={isLoading}
+                  />
+                </>
+              )}
 
               {esEstatusDeRetiro && (
                 <>
@@ -2043,20 +2108,20 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                         >
                           Ver Archivo
                         </a>
-                         {currentUser && currentUser.role !== "consulta" && (
-                      <>
-                        <button
-                          onClick={() =>
-                            handleDeleteAttachment(
-                              archivoExistente.id,
-                              archivoExistente.file_name
-                            )
-                          }
-                        >
-                          &times;
-                        </button>
-                        </>
-                         )}
+                        {currentUser && currentUser.role !== "consulta" && (
+                          <>
+                            <button
+                              onClick={() =>
+                                handleDeleteAttachment(
+                                  archivoExistente.id,
+                                  archivoExistente.file_name
+                                )
+                              }
+                            >
+                              &times;
+                            </button>
+                          </>
+                        )}
                       </div>
                     ) : (
                       <span style={profileStyles.statusPending}>Pendiente</span>
@@ -2315,6 +2380,9 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
               <th style={profileStyles.dataTableTh}>Turno</th>
               <th style={profileStyles.dataTableTh}>Entidad</th>
               <th style={profileStyles.dataTableTh}>Registro</th>
+              {currentUser && currentUser.role === "admin" && (
+                <th style={profileStyles.dataTableTh}>Acciones</th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -2355,6 +2423,19 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                     <td style={profileStyles.dataTableTd}>
                       {renderCommentWithBoldPrefix(item.comentarios)}
                     </td>
+                    {currentUser && currentUser.role === "admin" && (
+                      <td style={profileStyles.dataTableTd}>
+                        <button
+                          style={profileStyles.deleteButton}
+                          onClick={() =>
+                            handleEliminarRegistro(item.id, item.tipo_cambio)
+                          }
+                          className="boton-eliminar"
+                        >
+                          Eliminar
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))
             ) : (
