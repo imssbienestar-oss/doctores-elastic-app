@@ -410,6 +410,7 @@ async def get_alertas_de_vencimiento(db: Session = Depends(get_db_session)):
             "id_imss": doc.id_imss,
             "nombre_completo": f"{doc.nombre or ''} {doc.apellido_paterno or ''} {doc.apellido_materno or ''}".strip(),
             "estatus": doc.estatus,
+            "entidad": doc.entidad,
             "fecha_fin": doc.fecha_fin,
             "dias_restantes": dias_restantes
         })
