@@ -599,6 +599,31 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
     comentarios: "",
   };
 
+  const handleViewAttachment = async (attachmentId) => {
+    try {
+      const authToken = localStorage.getItem("authToken");
+      const response = await fetch(
+        `${API_BASE_URL}/api/attachments/${attachmentId}/signed-url`,
+        {
+          headers: { Authorization: `Bearer ${authToken}` },
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.detail || "No se pudo obtener el enlace del archivo."
+        );
+      }
+
+      const data = await response.json();
+      // Abre la URL fresca en una nueva pestaña
+      window.open(data.signed_url, "_blank");
+    } catch (err) {
+      setError(err.message); // Muestra el error en tu componente
+    }
+  };
+
   const [isLoadingClues, setIsLoadingClues] = useState(false);
   const [cluesError, setCluesError] = useState("");
 
@@ -2087,7 +2112,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
 
           <div style={profileStyles.attachmentsSection}>
             <h2 style={profileStyles.sectionTitleAttachments}>
-              Expedientes Adjuntos{" "}
+              Expedientes Adjuntos
             </h2>
             <div style={{ listStyle: "none", padding: 0, marginBottom: "5px" }}>
               {DOCUMENTOS_REQUERIDOS.map((doc) => {
@@ -2101,13 +2126,14 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                     </span>
                     {archivoExistente ? (
                       <div style={profileStyles.attachmentActions}>
-                        <a
-                          href={archivoExistente.file_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          onClick={() =>
+                            handleViewAttachment(archivoExistente.id)
+                          }
+                          style={profileStyles.attachmentLink}
                         >
                           Ver Archivo
-                        </a>
+                        </button>
                         {currentUser && currentUser.role !== "consulta" && (
                           <>
                             <button
@@ -2117,6 +2143,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                                   archivoExistente.file_name
                                 )
                               }
+                              style={profileStyles.deleteAttachmentButton}
                             >
                               &times;
                             </button>
