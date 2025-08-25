@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from fastapi import Form 
 from sqlalchemy import text, func, or_, and_  # Importar func para server_default
 import sqlalchemy.exc
+import pytz
 from io import BytesIO 
 from sqlalchemy.exc import IntegrityError
 from typing import List, Optional, Any
@@ -164,21 +165,26 @@ async def upload_to_firebase(file: UploadFile, destination_path: str, optimize_i
         bucket_name = app_instance.options.get('storageBucket')
         if not bucket_name:
             return None
-        bucket = storage.bucket(bucket_name)
+        bucket = storage.bucket(bucket_name, app=app_instance)
         
-        filename, file_extension = os.path.splitext(file.filename)
-        safe_filename = re.sub(r"[^a-zA-Z0-9_\-\.]", "_", filename) 
-        unique_filename = f"{uuid.uuid4()}_{safe_filename}{file_extension}"
-        blob_path = f"{destination_path}/{unique_filename}"
+        filename_base, file_extension = os.path.splitext(file.filename)
+
+        safe_filename_base = re.sub(r"[^a-zA-Z0-9_\-]", "_", filename_base) 
+        unique_filename = f"{uuid.uuid4()}_{safe_filename_base}{file_extension}"
+        blob_path = f"{destination_path.strip('/')}/{unique_filename}"
         blob = bucket.blob(blob_path)
+
         file_content = await file.read()
+        file_content_to_upload = file_content
+        content_type_to_upload = file.content_type
 
         # --- OPTIMIZAR IMAGEN ---
-        if optimize_image and file.content_type and file.content_type.startswith("image/"):
+        if optimize_image and file.content_type and file.content_type.startswith("image/") and Image:
             try:
                 img_io = BytesIO(file_content)
                 img = Image.open(img_io)
                 
+                # Convertir a RGB si es necesario (RGBA a RGB con fondo blanco, o P a RGB)
                 if img.mode == "RGBA":
                     background = Image.new("RGB", img.size, (255, 255, 255))
                     background.paste(img, mask=img.split()[3])
@@ -186,11 +192,12 @@ async def upload_to_firebase(file: UploadFile, destination_path: str, optimize_i
                 elif img.mode == "P":
                     img = img.convert("RGB")
 
+                # Redimensionar la imagen
                 img.thumbnail((1024, 1024))
-                output_buffer =io.BytesIO()
+                output_buffer = io.BytesIO()
                 
+                # Formato de salida y calidad
                 img_format = "JPEG" 
-                
                 save_kwargs = {'format': img_format}
                 if img_format == "JPEG":
                     save_kwargs['quality'] = 80
@@ -199,67 +206,39 @@ async def upload_to_firebase(file: UploadFile, destination_path: str, optimize_i
                 img.save(output_buffer, **save_kwargs)
                 file_content_to_upload = output_buffer.getvalue()
                 content_type_to_upload = f"image/{img_format.lower()}"
+
             except Exception as img_e:
-               
+                print(f"ERROR_UPLOAD: Fallo en la optimización de imagen para {file.filename}: {img_e}")
                 traceback.print_exc()
+                # Si falla la optimización, subir el contenido original
                 file_content_to_upload = file_content
                 content_type_to_upload = file.content_type
-        else:
-            file_content_to_upload = file_content
-            content_type_to_upload = file.content_type
-        
+        # --- FIN OPTIMIZAR IMAGEN ---
         blob.upload_from_string(file_content_to_upload, content_type=content_type_to_upload)
-        signed_url = blob.generate_signed_url(version="v4", expiration=timedelta(days=7), method="GET")
-        return signed_url
+        
+        # ¡CORRECCIÓN CLAVE! Devolver la ruta del objeto, NO la URL firmada.
+        return blob_path 
+
     except firebase_admin.exceptions.FirebaseError as fb_e:
-            traceback.print_exc()
-            return None
+        print(f"ERROR_UPLOAD: Error de Firebase al subir el archivo: {fb_e}")
+        traceback.print_exc()
+        return None
     except Exception as e:
-            traceback.print_exc()
-            return None
+        print(f"ERROR_UPLOAD: Error inesperado al subir el archivo: {e}")
+        traceback.print_exc()
+        return None
 
 # --- ELIMINAR ARCHIVOS FIREBASE ---
-async def delete_from_firebase(file_url: Optional[str]) -> bool:
+async def delete_from_firebase(file_path_in_storage: str) -> bool:
     try:
-        app_instance = firebase_admin.get_app()
-    except ValueError:
-        return False
-    
-    if not file_url:
-        return False 
-
-    try:
-        bucket_name_from_app = app_instance.options.get('storageBucket')
-        if not bucket_name_from_app:
-            return False
-        
-        bucket = storage.bucket(bucket_name_from_app)
-        parsed_url = urlparse(file_url)
-        
-        object_path_encoded = parsed_url.path
-        if object_path_encoded.startswith('/'):
-            object_path_encoded = object_path_encoded[1:]
-        
-        if object_path_encoded.startswith(f"{bucket_name_from_app}/"):
-            object_path = object_path_encoded[len(bucket_name_from_app)+1:]
-        else:
-            object_path = object_path_encoded
-            
-        object_path_decoded = unquote(object_path) 
-
-        if not object_path_decoded:
-            return False 
-
-        blob_to_delete = bucket.blob(object_path_decoded)
-        if blob_to_delete.exists():
-            blob_to_delete.delete()
-            return True
-        else:
-            return True 
-            
-    except firebase_admin.exceptions.FirebaseError as fb_e:
-        return False
+        firebase_app_instance = firebase_admin.get_app()
+        bucket = storage.bucket(app=firebase_app_instance)
+        blob = bucket.blob(file_path_in_storage)
+        blob.delete()
+        print(f"DEBUG_DELETE: Archivo eliminado de Firebase: {file_path_in_storage}")
+        return True
     except Exception as e:
+        print(f"ERROR_DELETE: Error al eliminar el archivo {file_path_in_storage} de Firebase: {e}")
         return False
 
 # --- INICIO ENDPOINT ---
@@ -769,7 +748,6 @@ async def actualizar_doctor_perfil_completo(
         db.rollback()
         traceback.print_exc()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error inesperado al actualizar: {str(e)}")
-
 
 # --- ENDPOINT (REGISTRO HISTORIAL MANUAL) ---
 @app.post("/api/doctores/{id_imss}/historial", response_model=schemas.EstatusHistoricoItem, tags=["Doctores - Historial"])
@@ -1844,7 +1822,6 @@ async def get_opciones_dinamicas(
         "estatus": get_distinct_values(models.Doctor.estatus),
     }
 
-
 @app.get("/api/opciones/entidades-capacidad", response_model=List[schemas.EntidadCapacidad], tags=["Opciones de Filtro"])
 async def get_entidades_con_capacidad(db: Session = Depends(get_db_session)):
     # 1. Contar los médicos activos por entidad
@@ -1878,6 +1855,7 @@ async def get_entidades_con_capacidad(db: Session = Depends(get_db_session)):
 @app.get("/api/clues-con-capacidad/{clues_code}", response_model=schemas.CluesConCapacidad, tags=["Catálogos"])
 async def get_clues_data_with_capacity(clues_code: str, db: Session = Depends(get_db_session)):
   
+    # 1. Buscar la información de la CLUES en el catálogo
     clues_info = db.query(models.CatalogoClues).filter(models.CatalogoClues.clues == clues_code).first()
     
     if not clues_info:
@@ -1886,6 +1864,7 @@ async def get_clues_data_with_capacity(clues_code: str, db: Session = Depends(ge
             detail="La CLUES no fue encontrada en el catálogo."
         )
 
+    # 2. Si la encontramos, buscamos los datos de cupo para su entidad
     entidad_de_clues = clues_info.entidad
     cupo_info = db.query(models.EntidadCupos).filter(models.EntidadCupos.entidad == entidad_de_clues).first()
 
@@ -1895,12 +1874,14 @@ async def get_clues_data_with_capacity(clues_code: str, db: Session = Depends(ge
             detail=f"No se encontraron datos de cupo para la entidad {entidad_de_clues}."
         )
 
+    # 3. Contamos los médicos activos actuales en esa entidad
     conteo_actual = db.query(models.Doctor).filter(
         models.Doctor.entidad == entidad_de_clues,
         models.Doctor.is_deleted == False,
         models.Doctor.estatus == '01 ACTIVO'
     ).count()
 
+    # 4. Combinamos toda la información en la respuesta
     return {
         "clues": clues_info.clues,
         "nombre_unidad": clues_info.nombre_unidad,
@@ -1939,4 +1920,59 @@ async def delete_registro_historico(
 
     return
 
+@app.get("/api/attachments/{attachment_id}/signed-url", response_model=schemas.SignedUrlResponse, tags=["Doctores - Archivos"])
+async def get_signed_url_for_attachment(
+    attachment_id: int,
+    db: Session = Depends(get_db_session)
+):
+  
+    # 1. Busca el archivo en la base de datos
+    attachment = db.query(models.DoctorAttachment).filter(models.DoctorAttachment.id == attachment_id).first()
+    if not attachment:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Archivo no encontrado")
 
+    object_path: str
+    
+    try:
+        # Accede al bucket de almacenamiento para obtener su nombre, que usaremos en la lógica de extracción.
+        firebase_storage_app_instance = firebase_admin.get_app()
+        firebase_storage_bucket = storage.bucket(app=firebase_storage_app_instance)
+        bucket_name = firebase_storage_bucket.name
+
+        file_url = attachment.file_url
+
+        # Caso 1: URL de descarga (con /o/ y token, ej: https://firebasestorage.googleapis.com/v0/b/.../o/path%2Fto%2Ffile.pdf?alt=media&token=...)
+        if '/o/' in file_url:
+            # Extrae la parte después de '/o/' y antes del '?', que es la ruta codificada del objeto.
+            object_path_encoded = file_url.split('/o/')[1].split('?')[0]
+            object_path = urllib.parse.unquote(object_path_encoded)
+        # Caso 2: URL pública de Cloud Storage (sin /o/ ni token, ej: https://storage.googleapis.com/<bucket_name>/path/to/file.pdf)
+        elif f'https://storage.googleapis.com/{bucket_name}/' in file_url:
+            object_path = file_url.split(f'https://storage.googleapis.com/{bucket_name}/', 1)[1]
+        # Caso 3: Ruta de gs:// (ej: gs://<bucket_name>/path/to/file.pdf)
+        elif file_url.startswith(f'gs://{bucket_name}/'):
+            object_path = file_url.replace(f'gs://{bucket_name}/', '', 1)
+        # Caso 4: Asumimos que file_url es directamente la ruta del objeto (ej: path/to/file.pdf)
+        else:
+            object_path = file_url
+        
+    except IndexError:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                            detail="La URL del archivo en la base de datos es inválida o tiene un formato inesperado.")
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                            detail=f"Error al procesar la URL del archivo: {str(e)}")
+
+    # 3. Usa el SDK de Firebase para generar la nueva URL firmada
+    try:
+        # Ahora que `firebase_storage_bucket` ya está definido, lo usamos directamente.
+        blob = firebase_storage_bucket.blob(object_path)
+
+        # Genera la URL firmada. Será válida por 15 minutos.
+        signed_url = blob.generate_signed_url(expiration=timedelta(minutes=15), method='GET', version="v4")
+        
+        return {"signed_url": signed_url}
+    except Exception as e:
+        print(f"ERROR: No se pudo generar la URL firmada para {object_path}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                            detail=f"No se pudo generar la URL firmada: {str(e)}")
