@@ -383,3 +383,5 @@ class DataGraficaConCupos(BaseModel):
     minimo: int
     maximo: int
 
+class SignedUrlResponse(BaseModel):
+    signed_url: str
