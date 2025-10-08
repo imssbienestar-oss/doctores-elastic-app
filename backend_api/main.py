@@ -1831,7 +1831,8 @@ async def get_entidades_con_capacidad(db: Session = Depends(get_db_session)):
         func.count(models.Doctor.id_imss).label("conteo")
     ).filter(
         models.Doctor.is_deleted == False,
-        models.Doctor.estatus == '01 ACTIVO'
+        models.Doctor.estatus == '01 ACTIVO',
+        models.Doctor.coordinacion != '1'
     ).group_by(models.Doctor.entidad).subquery()
 
     # 2. Unir los cupos con el conteo actual
