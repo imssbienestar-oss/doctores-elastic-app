@@ -451,7 +451,8 @@ async def crear_doctor(
             conteo_actual = db.query(models.Doctor).filter(
                 models.Doctor.entidad == db_doctor.entidad,
                 models.Doctor.is_deleted == False,
-                models.Doctor.estatus == '01 ACTIVO'
+                models.Doctor.estatus == '01 ACTIVO',
+                models.Doctor.coordinacion != '1'
             ).count()
 
             # Si al añadir este nuevo doctor se supera el máximo, lanzar un error
