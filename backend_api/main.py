@@ -1880,7 +1880,8 @@ async def get_clues_data_with_capacity(clues_code: str, db: Session = Depends(ge
     conteo_actual = db.query(models.Doctor).filter(
         models.Doctor.entidad == entidad_de_clues,
         models.Doctor.is_deleted == False,
-        models.Doctor.estatus == '01 ACTIVO'
+        models.Doctor.estatus == '01 ACTIVO',
+        models.Doctor.coordinacion != '1'
     ).count()
 
     # 4. Combinamos toda la información en la respuesta
