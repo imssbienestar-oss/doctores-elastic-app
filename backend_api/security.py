@@ -15,38 +15,37 @@ import schemas # Asegúrate que tus esquemas Pydantic estén aquí (ej. schemas.
 load_dotenv() # Cargar variables de .env
 
 # --- Configuración de Seguridad ---
-SECRET_KEY = os.getenv("SECRET_KEY", "tu_clave_secreta_por_defecto_si_no_esta_en_env")
+SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 43200))
+REFRESH_TOKEN_EXPIRE_DAYS = 30   
 
-if not SECRET_KEY or SECRET_KEY == "tu_clave_secreta_por_defecto_si_no_esta_en_env":
-    # Es mejor advertir si se usa la clave por defecto en lugar de salir
-    print("ADVERTENCIA: SECRET_KEY no está definida en .env o es la de por defecto. Usando una clave insegura.")
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-# Definimos UN SOLO esquema de autenticación que se usará en todas partes
+pwd_context = CryptContext(schemes=["argon2", "bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/token")
 
-# --- Hashing y Verificación de Contraseñas ---
+# --- VERIFICACION DE CONTRASEÑAS ---
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
-
+    try:
+        return pwd_context.verify(plain_password, hashed_password)
+    except Exception:
+        # Evita que el backend explote si el hash es inválido o corrupto
+        return False
+    
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 # --- Creación de Tokens JWT ---
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(data: dict):
     to_encode = data.copy()
-    expire_time = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
-    to_encode.update({"exp": expire_time})
+    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-# --- Dependencia para obtener el usuario actual (ESTA ES LA QUE NECESITAS) ---
+# --- Dependencia para obtener el usuario actual ---
 async def get_current_user(
-    token: str = Depends(oauth2_scheme), # Usa el oauth2_scheme que SÍ definiste
-    db: Session = Depends(get_db) # Asegúrate que el nombre de la función coincida
+    token: str = Depends(oauth2_scheme), 
+    db: Session = Depends(get_db) 
 ):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -61,7 +60,7 @@ async def get_current_user(
     except JWTError:
         raise credentials_exception
 
-    # Busca al usuario directamente con el username del token
+    # Busca al usuario
     user = db.query(models.User).filter(models.User.username == username).first()
     if user is None:
         raise credentials_exception
@@ -69,7 +68,6 @@ async def get_current_user(
     return user
 
 # --- Dependencia para obtener un usuario Administrador ---
-# Esta función depende de la anterior (get_current_user)
 async def get_current_admin_user(current_user: models.User = Depends(get_current_user)):
     if not current_user or current_user.role != "admin":
         raise HTTPException(
