@@ -181,7 +181,7 @@ class UserAdminView(UserBase):
     must_change_password: bool 
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # --- SCHEMA TOKEN AUTENTICACION
 class Token(BaseModel):
