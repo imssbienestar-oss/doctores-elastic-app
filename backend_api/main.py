@@ -783,13 +783,32 @@ async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(), 
     db: Session = Depends(get_db_session)
 ):
-    user = db.query(models.User).filter(models.User.username == form_data.username).first()
+    
+    print("--- INTENTO DE LOGIN RECIBIDO ---")
+    print(f"Buscando usuario con el nombre: '{form_data.username}'")
+    
+    user = db.query(models.User).filter(
+        func.lower(models.User.username) == func.lower(form_data.username.strip())
+    ).first()
+
+     # --- 3. Líneas de diagnóstico para ver si encontramos al usuario ---
+    if user:
+        print(f"ÉXITO: Usuario encontrado en la BD. ID: {user.id}, Username: '{user.username}'")
+    else:
+        print(f"FALLO: No se encontró ningún usuario con el nombre '{form_data.username}' en la consulta.")
+    # ------------------------------------------------------------------
+
+
+     # --- 4. Verificación de la contraseña ---
     if not user or not security.verify_password(form_data.password, user.hashed_password):
+        print("Resultado de la validación: INCORRECTO. Enviando error 401.")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Nombre de usuario o contraseña incorrectos",
         )
-    
+    # -----------------------------------------
+
+    print("Resultado de la validación: CORRECTO. Creando token de acceso.")
     # Creamos el único token de larga duración
     access_token = security.create_access_token(
         data={"sub": user.username, "role": user.role, "userId": user.id}
