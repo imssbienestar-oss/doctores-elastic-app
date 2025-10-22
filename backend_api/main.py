@@ -668,6 +668,24 @@ async def actualizar_doctor_perfil_completo(
             if hasattr(db_doctor, campo) and getattr(db_doctor, campo) is not None:
                 setattr(db_doctor, campo, None)
     
+    ESTATUS_REQUIEREN_FECHA_FIN = [
+        '02 RETIRO TEMP. (CUBA)',
+        '03 RETIRO TEMP. (MEXICO)',
+        '04 SOL. PERSONAL',
+        '05 INCAPACIDAD'
+    ]
+
+    # Obtenemos el estatus FINAL que se guardará en la base de datos
+    estatus_final = db_doctor.estatus 
+    fecha_fin_final = db_doctor.fecha_fin
+
+    # Si el estatus final es uno de los que requieren fecha Y la fecha está vacía...
+    if estatus_final in ESTATUS_REQUIEREN_FECHA_FIN and not fecha_fin_final:
+        db.rollback() # Es importante revertir los cambios antes de lanzar el error
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, # 422 es más apropiado para errores de validación semántica
+            detail=f"La 'Fecha de Fin' es obligatoria para el estatus '{estatus_final}'."
+        )
  
     try:
         if 'curp' in update_data_dict and db_doctor.curp:
@@ -680,8 +698,6 @@ async def actualizar_doctor_perfil_completo(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=f"El CURP '{db_doctor.curp}' ya está registrado para otro doctor."
                 )
-
-
         cambio_estatus = 'estatus' in update_data_dict and db_doctor.estatus != original_estatus
         cambio_clues = 'clues' in update_data_dict and db_doctor.clues != original_clues
         cambio_turno = 'turno' in update_data_dict and db_doctor.turno != original_turno
@@ -725,7 +741,6 @@ async def actualizar_doctor_perfil_completo(
             )
             db.add(nuevo_registro)
 
-        
         if changed_field_names:
             details_for_log = f"Se actualizo Registro: {db_doctor.nombre}: {', '.join(changed_field_names)}."
         else:
@@ -749,6 +764,7 @@ async def actualizar_doctor_perfil_completo(
         db.rollback()
         traceback.print_exc()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error inesperado al actualizar: {str(e)}")
+
 
 # --- ENDPOINT (REGISTRO HISTORIAL MANUAL) ---
 @app.post("/api/doctores/{id_imss}/historial", response_model=schemas.EstatusHistoricoItem, tags=["Doctores - Historial"])
