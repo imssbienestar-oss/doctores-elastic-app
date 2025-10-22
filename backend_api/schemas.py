@@ -97,8 +97,31 @@ class DoctorCreate(BaseModel):
 
 # --- SCHEMA ACTUALIZA EXPEDIENTE
 class DoctorProfileUpdateSchema(DoctorBase): 
-    pass 
+    @model_validator(mode='after')
+    def validar_fecha_fin_segun_estatus(self):
+       
+        # Obtenemos los valores de la instancia del modelo
+        estatus = self.estatus
+        fecha_fin = self.fecha_fin
 
+        ESTATUS_REQUIEREN_FECHA_FIN = [
+            '02 RETIRO TEMP. (CUBA)',
+            '03 RETIRO TEMP. (MEXICO)',
+            '04 SOL. PERSONAL',
+            '05 INCAPACIDAD'
+        ]
+
+        # --- REGLA 1: Validar si la fecha es obligatoria ---
+        if estatus in ESTATUS_REQUIEREN_FECHA_FIN and not fecha_fin:
+            # Si el estatus es de retiro Y la fecha_fin está vacía (None), lanza un error.
+            raise ValueError(
+                "La 'Fecha de Fin' es obligatoria para el estatus seleccionado."
+            )
+
+        # --- REGLA 2: Limpieza de datos (igual que en el frontend) ---
+        if estatus and (estatus not in ESTATUS_REQUIEREN_FECHA_FIN):
+            self.fecha_fin = None # Limpiamos la fecha
+        return self
     class Config:
         from_attributes = True
 
