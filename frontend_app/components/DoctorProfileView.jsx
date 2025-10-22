@@ -987,7 +987,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
     }
   }, [successMessage, error]);
 
-  const handleEditToggle = () => {
+ const handleEditToggle = () => {
     if (edicionGeneralBloqueada) {
       setError(
         "Este registro está cerrado por defunción y su rol actual no permite modificarlo."
@@ -1004,12 +1004,25 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
       });
       setError("");
     } else {
-      if (doctor)
-        setEditableDoctorData({
+      if (doctor) {
+        const dataParaEditar = {
           comentarios_estatus: doctor.comentarios_estatus || "",
           fecha_fallecimiento: doctor.fecha_fallecimiento || "",
           ...doctor,
-        });
+        };
+        const ESTATUS_REQUIEREN_FECHA_FIN = [
+          "02 RETIRO TEMP. (CUBA)",
+          "03 RETIRO TEMP. (MEXICO)",
+          "04 SOL. PERSONAL",
+          "05 INCAPACIDAD",
+        ];
+
+        if (ESTATUS_REQUIEREN_FECHA_FIN.includes(doctor.estatus)) {
+          // 4. Si está, forzamos la 'fecha_fin' a estar vacía en el formulario
+          dataParaEditar.fecha_fin = "";
+        }
+        setEditableDoctorData(dataParaEditar);
+      }
     }
     setIsEditing(!isEditing);
     setSuccessMessage("");
@@ -1100,6 +1113,15 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
         if (nuevoEstatus !== "Defunción") {
           newData.fecha_fallecimiento = null;
         }
+      const ESTATUS_REQUIEREN_FECHA_FIN = [
+        "02 RETIRO TEMP. (CUBA)",
+        "03 RETIRO TEMP. (MEXICO)",
+        "04 SOL. PERSONAL",
+        "05 INCAPACIDAD",
+      ];
+      if (!ESTATUS_REQUIEREN_FECHA_FIN.includes(nuevoEstatus)) {
+        newData.fecha_fin = null; // o ""
+      }
       }
 
       return newData;
@@ -1114,6 +1136,24 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
     setIsLoading(true);
     setError("");
     setSuccessMessage("");
+
+    const { estatus, fecha_fin } = editableDoctorData;
+    const ESTATUS_REQUIEREN_FECHA_FIN = [
+      "02 RETIRO TEMP. (CUBA)",
+      "03 RETIRO TEMP. (MEXICO)",
+      "04 SOL. PERSONAL",
+      "05 INCAPACIDAD",
+    ];
+    if (ESTATUS_REQUIEREN_FECHA_FIN.includes(estatus)) {
+      if (!fecha_fin) {
+        setError(
+          "Registra la 'Fecha de Fin' para el estatus seleccionado."
+        );
+        setIsLoading(false); 
+        return; 
+      }
+    }
+    
     const authToken = localStorage.getItem("authToken");
 
     const { attachments, foto_url, ...dataToUpdate } = editableDoctorData;
@@ -1918,7 +1958,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                   />
 
                   <FieldRenderer
-                    label="Fecha de Fin"
+                    label={isEditing ? "Fecha de Fin*" : "Fecha de Fin"}
                     fieldName="fecha_fin"
                     type="date"
                     isEditing={isEditing}
@@ -1941,7 +1981,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                   />
 
                   <FieldRenderer
-                    label="Fecha de Fin"
+                    label={isEditing ? "Fecha de Fin*" : "Fecha de Fin"}
                     fieldName="fecha_fin"
                     type="date"
                     isEditing={isEditing}
@@ -1964,7 +2004,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                   />
 
                   <FieldRenderer
-                    label="Fecha de Fin"
+                    label={isEditing ? "Fecha de Fin*" : "Fecha de Fin"}
                     fieldName="fecha_fin"
                     type="date"
                     isEditing={isEditing}
