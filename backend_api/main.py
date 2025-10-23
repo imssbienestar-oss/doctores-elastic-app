@@ -350,6 +350,7 @@ async def obtener_detalles_doctores_filtrados(
         
     return doctores_para_respuesta
 
+# --- ENDPOINT (ALERTA DE VENCIMIENTO) ---
 @app.get("/api/doctores/alertas-vencimiento", response_model=List[schemas.AlertaVencimiento], tags=["Doctores"])
 async def get_alertas_de_vencimiento(db: Session = Depends(get_db_session)):
     """
@@ -359,8 +360,8 @@ async def get_alertas_de_vencimiento(db: Session = Depends(get_db_session)):
     now_aware = datetime.now(USER_TIMEZONE)
     hoy_inicio_dia = now_aware.replace(hour=0, minute=0, second=0, microsecond=0)
     fecha_actual = hoy_inicio_dia.date()
-    fecha_inicio_rango = fecha_actual - timedelta(days=30) 
-    fecha_limite_rango = fecha_actual + timedelta(days=15)
+    #-- fecha_inicio_rango = fecha_actual - timedelta(days=30) --- 
+    # ---fecha_limite_rango = fecha_actual + timedelta(days=15)---
 
     estatus_temporales_patterns = [
         "02 RETIRO TEMP%",
@@ -372,8 +373,7 @@ async def get_alertas_de_vencimiento(db: Session = Depends(get_db_session)):
     doctores_por_vencer = db.query(models.Doctor).filter(
         and_(
             or_(*[models.Doctor.estatus.ilike(pattern) for pattern in estatus_temporales_patterns]),
-            models.Doctor.fecha_fin >= fecha_inicio_rango,
-            models.Doctor.fecha_fin <= fecha_limite_rango,
+            models.Doctor.fecha_fin.isnot(None),
             models.Doctor.is_deleted == False
         )
     ).order_by(models.Doctor.fecha_fin.asc()).all()
