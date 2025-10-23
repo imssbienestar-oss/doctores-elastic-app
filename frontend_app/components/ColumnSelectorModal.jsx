@@ -89,6 +89,7 @@ const ALL_COLUMNS = [
     { key: 'matrimonio_id', label: 'Matrimonio ID'},
     { key: 'telefono', label: 'Teléfono'},
     { key: 'correo', label: 'Correo'},
+    { key: 'domicilio', label: 'Docimicilio'},
     
     //DATOS ACADEMICOS
     { key: 'licenciatura', label: 'Licenciatura'},
@@ -105,6 +106,8 @@ const ALL_COLUMNS = [
     { key: 'turno', label: 'Turno' },
     { key: 'despliegue', label: 'Despliegue'},
     { key: 'clues', label: 'CLUES' },
+    { key: 'motivo_baja', label: 'Motivo de Baja'},
+    { key: 'fecha_notificacion', label: 'Fecha Notificación'},
     { key: 'nombre_unidad', label: 'Unidad Médica' },
     { key: 'direccion_unidad', label: 'Dirección Unidad'},
     { key: 'nivel_atencion', label: 'Nivel de Atención' },
@@ -113,7 +116,8 @@ const ALL_COLUMNS = [
     { key: 'estrato', label: 'Estrato'},
     { key: 'entidad', label: 'Entidad'},
     { key: 'municipio', label: 'Municipio'},
-    { key: 'region', label: 'Región'}
+    { key: 'region', label: 'Región'},
+    {key: 'comentarios_estatus', label: 'Comentarios'}
 ];
 
 function ColumnSelectorModal({ isOpen, onClose, onConfirmDownload }) {
