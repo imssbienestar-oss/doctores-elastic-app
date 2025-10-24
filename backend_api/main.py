@@ -473,6 +473,29 @@ async def crear_doctor(
         if 'coordinacion' not in doctor_dict or doctor_dict['coordinacion'] is None:
             doctor_dict['coordinacion'] = '0'
         
+# --- Validación de CURP duplicado ANTES de crear ---
+        if doctor_dict.get('curp'): # Solo si se proporciona CURP
+            existing_doctor_curp = db.query(models.Doctor).filter(
+                models.Doctor.curp == doctor_dict['curp']
+            ).first()
+            if existing_doctor_curp:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"El CURP '{doctor_dict['curp']}' ya está registrado para otro doctor."
+                )
+        # --- Fin Validación CURP ---
+
+        # --- Validación ID_IMSS duplicado ANTES de crear ---
+        existing_doctor_id = db.query(models.Doctor).filter(
+            models.Doctor.id_imss == doctor_dict['id_imss']
+        ).first()
+        if existing_doctor_id:
+             raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"El ID IMSS '{doctor_dict['id_imss']}' ya está registrado."
+                )
+        # --- Fin Validación ID_IMSS ---
+
         db_doctor = models.Doctor(**doctor_dict)
         db.add(db_doctor)
 
@@ -509,19 +532,72 @@ async def crear_doctor(
                 )
         db.add(nuevo_registro_historial)
         db.flush()
+
         log_action(db, current_user, "Crear Registro", "Doctor", target_id_str=db_doctor.id_imss, details=f"Doctor creado: {db_doctor.nombre}")
         db.commit()
         db.refresh(db_doctor)
-        doctor_completo = db.query(models.Doctor).options(
+        db.refresh(nuevo_registro_historial)
+
+        doctor_completo_obj = db.query(models.Doctor).options(
             selectinload(models.Doctor.historial)
         ).filter(models.Doctor.id_imss == db_doctor.id_imss).first()
-        return doctor_completo
+
+        historial_con_usuario = []
+        if doctor_completo_obj and doctor_completo_obj.historial:
+            for item_historial in doctor_completo_obj.historial:
+                # Convertimos a Pydantic y luego a dict para poder modificar
+                item_data = schemas.EstatusHistoricoItem.model_validate(item_historial).model_dump()
+
+                ventana_tiempo = timedelta(seconds=30) # Ventana de tiempo ampliada
+                tiempo_registro = item_historial.fecha_registro
+
+                # Definimos los tipos de acción relevantes (priorizando 'Crear')
+                possible_action_types = ['Crear Registro', '%Actualizar%'] 
+
+                # Buscamos el log de auditoría correspondiente
+                audit_log_entry = db.query(models.AuditLog).filter(
+                    models.AuditLog.target_id_str == item_historial.id_imss,
+                    # Buscamos que coincida con alguno de los tipos de acción
+                    or_(*[models.AuditLog.action_type.like(pattern) for pattern in possible_action_types]), 
+                    # Dentro de la ventana de tiempo
+                    models.AuditLog.timestamp >= tiempo_registro - ventana_tiempo,
+                    models.AuditLog.timestamp <= tiempo_registro + ventana_tiempo
+                ).order_by(
+                    # Ordenamos por la menor diferencia de tiempo
+                    func.abs(func.extract('epoch', models.AuditLog.timestamp - tiempo_registro)) 
+                ).first() # Tomamos el más cercano
+
+                # Añadimos el username encontrado o 'Sistema' si no se encontró
+                item_data['username'] = audit_log_entry.username if audit_log_entry else "Sistema"
+
+                # Volvemos a crear el objeto Pydantic con el username añadido
+                historial_con_usuario.append(schemas.EstatusHistoricoItem(**item_data))
+            
+            # Ordenamos por fecha de inicio (útil si hubiera más de un registro)
+            historial_con_usuario.sort(key=lambda x: x.fecha_inicio, reverse=True)
+
+        # Preparamos los atributos básicos del doctor para la respuesta final
+        doctor_attributes = {
+            key: value 
+            for key, value in doctor_completo_obj.__dict__.items()
+            if not key.startswith('_sa_') and key not in ['attachments', 'historial'] 
+        } if doctor_completo_obj else {} # Manejo por si doctor_completo_obj fuera None
+
+        # Construimos la respuesta final manualmente usando el schema DoctorDetail
+        doctor_detail_response = schemas.DoctorDetail(
+             **doctor_attributes,
+             attachments=doctor_completo_obj.attachments if doctor_completo_obj else [],
+             historial=historial_con_usuario
+        )
+        return doctor_detail_response
     except IntegrityError as e:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Error de integridad, posible ID o CURP duplicado.")
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error inesperado en el servidor: {str(e)}")
+
+
 
 # --- ENDPOINT (ELIMINAR REGISTRO) ---
 @app.delete("/api/doctores/{id_imss}", status_code=status.HTTP_204_NO_CONTENT, tags=["Doctores"])
