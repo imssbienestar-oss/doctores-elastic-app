@@ -450,11 +450,13 @@ async def leer_doctor_por_id(
         if not key.startswith('_sa_') and key not in ['attachments', 'historial'] 
     }
     # Creamos manualmente el objeto de respuesta para asegurar que el historial modificado se use
+    # Esto es necesario porque db_doctor.historial es una relación SQLAlchemy
     doctor_detail_response = schemas.DoctorDetail(
         **doctor_attributes,            # Pasamos solo los atributos básicos
         attachments=db_doctor.attachments, # Pasamos la relación 'attachments'
         historial=historial_con_usuario   # Pasamos la lista 'historial' procesada
     )
+    # --- 💡 FIN: CÓDIGO PARA AÑADIR USERNAME AL HISTORIAL ---
     return doctor_detail_response
 
 # --- ENDPOINT (CREAR NUEVO REGISTRO) ---
