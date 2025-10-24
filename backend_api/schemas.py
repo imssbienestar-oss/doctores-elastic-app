@@ -170,6 +170,7 @@ class EstatusHistoricoItem(EstatusHistoricoBase):
     nombre_unidad: Optional[str] = None
     clues: Optional[str] = None
     fecha_registro: datetime
+    username: Optional[str] = None
     class Config:
         from_attributes = True
         
