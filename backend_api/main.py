@@ -409,7 +409,53 @@ async def leer_doctor_por_id(
     if db_doctor is None:
         raise HTTPException(status_code=404, detail="Doctor no encontrado")
     
-    return db_doctor
+    historial_con_usuario = []
+    if db_doctor.historial: # Solo si hay historial
+        for item_historial in db_doctor.historial:
+            # Convierte el objeto SQLAlchemy a un diccionario o Pydantic model
+            # para poder añadirle el campo 'username'
+            item_data = schemas.EstatusHistoricoItem.model_validate(item_historial).model_dump()
+            
+            # Buscamos el log de auditoría más cercano en el tiempo
+            # Define una ventana de tiempo pequeña (ej. +/- 5 segundos)
+            ventana_tiempo = timedelta(seconds=30) 
+            tiempo_registro = item_historial.fecha_registro
+            
+            possible_action_types = ['%Actualizar%', 'Crear Registro']
+            if item_historial.comentarios == "Registro inicial en el sistema.":
+                possible_action_types = ['Crear Registro', '%Actualizar%'] # Pone 'Crear' primero
+
+            audit_log_entry = db.query(models.AuditLog).filter(
+                models.AuditLog.target_id_str == item_historial.id_imss,
+                or_(*[models.AuditLog.action_type.like(pattern) for pattern in possible_action_types]), 
+                models.AuditLog.timestamp >= tiempo_registro - ventana_tiempo,
+                models.AuditLog.timestamp <= tiempo_registro + ventana_tiempo
+            ).order_by(
+                # Ordena por la diferencia de tiempo más pequeña
+                func.abs(func.extract('epoch', models.AuditLog.timestamp - tiempo_registro)) 
+            ).first() # Tomamos el más cercano
+
+            # Añadimos el username si encontramos una entrada de log
+            item_data['username'] = audit_log_entry.username if audit_log_entry else "Sistema" # O "Desconocido"
+            
+            historial_con_usuario.append(schemas.EstatusHistoricoItem(**item_data)) # Convertimos de nuevo a Pydantic
+            
+        # Ordenamos el historial final por fecha de inicio descendente (más reciente primero)
+        historial_con_usuario.sort(key=lambda x: x.fecha_inicio, reverse=True)
+
+    doctor_attributes = {
+        key: value 
+        for key, value in db_doctor.__dict__.items()
+        # Excluimos el estado interno de SQLAlchemy y las relaciones que manejaremos aparte
+        if not key.startswith('_sa_') and key not in ['attachments', 'historial'] 
+    }
+    # Creamos manualmente el objeto de respuesta para asegurar que el historial modificado se use
+    doctor_detail_response = schemas.DoctorDetail(
+        **doctor_attributes,            # Pasamos solo los atributos básicos
+        attachments=db_doctor.attachments, # Pasamos la relación 'attachments'
+        historial=historial_con_usuario   # Pasamos la lista 'historial' procesada
+    )
+    return doctor_detail_response
 
 # --- ENDPOINT (CREAR NUEVO REGISTRO) ---
 @app.post("/api/doctores", response_model=schemas.DoctorDetail, status_code=status.HTTP_201_CREATED, tags=["Doctores"])
