@@ -2447,6 +2447,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
               <th style={profileStyles.dataTableTh}>Turno</th>
               <th style={profileStyles.dataTableTh}>Entidad</th>
               <th style={profileStyles.dataTableTh}>Registro</th>
+              <th style={profileStyles.dataTableTh}>Usuario</th>
               {currentUser && currentUser.role === "admin" && (
                 <th style={profileStyles.dataTableTh}>Acciones</th>
               )}
@@ -2490,6 +2491,10 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                     <td style={profileStyles.dataTableTd}>
                       {renderCommentWithBoldPrefix(item.comentarios)}
                     </td>
+                     <td style={profileStyles.dataTableTd}>
+                      {item.username || "N/A"}{" "}
+                      {/* Muestra el username o 'N/A' si no viene */}
+                    </td>
                     {currentUser && currentUser.role === "admin" && (
                       <td style={profileStyles.dataTableTd}>
                         <button
@@ -2507,8 +2512,10 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                 ))
             ) : (
               <tr>
-                <td
-                  colSpan="7"
+              <td
+                  colSpan={
+                    currentUser && currentUser.role === "admin" ? 12 : 11
+                  } // <-- AJUSTA EL NÚMERO
                   style={{ textAlign: "center", padding: "10px" }}
                 >
                   No hay registros.
