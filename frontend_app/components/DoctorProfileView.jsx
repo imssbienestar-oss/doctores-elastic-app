@@ -2437,9 +2437,9 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
         <table style={profileStyles.dataTable}>
           <thead>
             <tr>
+              <th style={profileStyles.dataTableTh}>Hora de Registro</th>
               <th style={profileStyles.dataTableTh}>Tipo de Cambio</th>
               <th style={profileStyles.dataTableTh}>Estatus</th>
-              <th style={profileStyles.dataTableTh}>Hora de Registro</th>
               <th style={profileStyles.dataTableTh}>Fecha Inicio</th>
               <th style={profileStyles.dataTableTh}>Fecha Conclusión</th>
               <th style={profileStyles.dataTableTh}>CLUES</th>
@@ -2467,12 +2467,12 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                 .map((item) => (
                   <tr key={item.id}>
                     <td style={profileStyles.dataTableTd}>
+                      {formatDateTimeForDisplay(item.fecha_registro)}
+                    </td>
+                    <td style={profileStyles.dataTableTd}>
                       {item.tipo_cambio}
                     </td>
                     <td style={profileStyles.dataTableTd}>{item.estatus}</td>
-                    <td style={profileStyles.dataTableTd}>
-                      {formatDateTimeForDisplay(item.fecha_registro)}
-                    </td>
                     <td style={profileStyles.dataTableTd}>
                       {formatDateForDisplay(item.fecha_inicio)}
                     </td>
