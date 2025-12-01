@@ -951,6 +951,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
         nombre_unidad: "",
         nivel_atencion: "Seleccionar..",
         turno: "",
+        fecha_aplicacion_cambio: "",
         fecha_notificacion: "",
         notificacion_baja: "",
         fecha_extraccion: "",
@@ -1732,15 +1733,31 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                 onChange={handleInputChange}
                 isLoading={isLoading}
               />
-              <FieldRenderer
-                label="Fecha Estatus"
-                fieldName="fecha_estatus"
-                type="date"
-                isEditing={isEditing}
-                currentValue={editableDoctorData.fecha_estatus}
-                onChange={handleInputChange}
-                isLoading={isLoading}
-              />
+  
+              {mostrarFechaEstatus && (
+                <div style={{
+                  backgroundColor: '#fff3e0', 
+                  padding: '5px',
+                  borderRadius: '4px',
+                  marginBottom: '10px',
+                  border: '1px solid #ffe0b2'
+                }}>
+                  <FieldRenderer
+                    label="Fecha de aplicación Estatus"
+                    fieldName="fecha_estatus"
+                    type="date"
+                    isEditing={isEditing}
+                    currentValue={editableDoctorData.fecha_estatus}
+                    onChange={handleInputChange}
+                    isLoading={isLoading}
+                  />
+                  <small style={{ color: '#e65100', marginLeft: '190px', display: 'block' }}>
+                    Indique la fecha oficial de este cambio de estatus.
+                  </small>
+
+                </div>
+              )}
+              
               {!esEstatusDeBaja && !esEstatusDeDefuncion && (
                 <>
                   <FieldRenderer
@@ -1762,6 +1779,28 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                     onChange={handleInputChange}
                     isLoading={isLoading}
                   />
+
+                  {mostrarFechaCambio && (
+                    <div style={{
+                      backgroundColor: '#fff3e0', // Un fondo suave para resaltar
+                      padding: '5px',
+                      borderRadius: '4px',
+                      marginBottom: '10px'
+                    }}>
+                      <FieldRenderer
+                        label="Fecha de aplicación de cambio"
+                        fieldName="fecha_aplicacion_cambio"
+                        type="date"
+                        isEditing={isEditing}
+                        currentValue={editableDoctorData.fecha_aplicacion_cambio}
+                        onChange={handleInputChange}
+                        isLoading={isLoading}
+                      /><small style={{ color: '#e65100', marginLeft: '190px' }}>
+                        Indique cuándo aplica este cambio de adscripción/turno.
+                      </small>
+                    </div>
+                  )}
+                  
                   <FieldRenderer
                     label="Despliegue"
                     fieldName="despliegue"
@@ -1994,9 +2033,20 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
 
               {esEstatusDeIncapacidad && (
                 <>
-                  <FieldRenderer
+                   <FieldRenderer
                     label="Tipo de Incapacidad"
                     fieldName="tipo_incapacidad"
+                    type="select"
+                    options={[
+                      {
+                        value: "Incapacidad en México",
+                        label: "Incapacidad en México",
+                      },
+                      {
+                        value: "Incapacidad en Cuba",
+                        label: "Incapacidad en Cuba",
+                      },
+                    ]}
                     isEditing={isEditing}
                     currentValue={editableDoctorData.tipo_incapacidad}
                     onChange={handleInputChange}
