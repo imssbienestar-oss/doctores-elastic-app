@@ -761,6 +761,7 @@ async def actualizar_doctor_perfil_completo(
         
     update_data_dict = doctor_update_data.model_dump(exclude_unset=True)
     changed_field_names = []
+
     for key, new_value in update_data_dict.items():
         if hasattr(db_doctor, key):
             old_value = getattr(db_doctor, key)
@@ -848,8 +849,18 @@ async def actualizar_doctor_perfil_completo(
             tipo_cambio_final = " / ".join(tipos_de_cambio)
             comentario_final = " ".join(comentarios)
         
-        # Determinamos la fecha de inicio (la fecha del estatus tiene prioridad)
-            fecha_de_inicio = db_doctor.fecha_estatus if cambio_estatus and db_doctor.fecha_estatus else date.today()
+            fecha_de_inicio = date.today()
+
+            if cambio_estatus and db_doctor.fecha_estatus:
+                fecha_de_inicio = db_doctor.fecha_estatus
+
+            elif (cambio_clues or cambio_turno):
+                # Verificamos si en la petición venía la fecha de aplicación
+                if db_doctor.fecha_aplicacion_cambio:
+                    fecha_de_inicio = db_doctor.fecha_aplicacion_cambio
+                else:
+                    # Si no pusieron fecha, usamos HOY, pero NO la fecha_estatus antigua
+                    fecha_de_inicio = date.today()
 
             nuevo_registro = models.EstatusHistorico(
                 id_imss=id_imss,
@@ -888,7 +899,6 @@ async def actualizar_doctor_perfil_completo(
         db.rollback()
         traceback.print_exc()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error inesperado al actualizar: {str(e)}")
-
 
 # --- ENDPOINT (REGISTRO HISTORIAL MANUAL) ---
 @app.post("/api/doctores/{id_imss}/historial", response_model=schemas.EstatusHistoricoItem, tags=["Doctores - Historial"])
