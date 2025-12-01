@@ -1423,6 +1423,11 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
   const esEstatusDeSolicitud = estatusActualParaUI === "04 SOL. PERSONAL";
   const esEstatusDeIncapacidad = estatusActualParaUI === "05 INCAPACIDAD";
   const currentProfilePicUrl = profilePicPreviewUrl || doctor.foto_url || null;
+  const huboCambioTurno = editableDoctorData.turno !== doctor.turno;
+  const huboCambioClues = editableDoctorData.clues !== doctor.clues;
+  const huboCambioEstatus = editableDoctorData.estatus !== doctor.estatus;
+  const mostrarFechaCambio = isEditing && (huboCambioTurno || huboCambioClues);
+  const mostrarFechaEstatus = isEditing && (huboCambioEstatus);
 
   return (
     <>
