@@ -26,6 +26,7 @@ class DoctorBase(BaseModel):
     municipio: Optional[str] = Field(None, max_length=100)
     nivel_atencion: Optional[str] = Field(None, max_length=50)
     fecha_estatus: Optional[date] = None
+    fecha_aplicacion_cambio: Optional[date] = None
     despliegue: Optional[str] = Field(None, max_length=255)
     fecha_vuelo: Optional[str] = None
     estrato: Optional[str] = Field(None, max_length=100)
