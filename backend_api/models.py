@@ -30,6 +30,7 @@ class Doctor(Base):
     municipio = Column(String(100), nullable=True)
     nivel_atencion = Column(String(50), nullable=True)
     fecha_estatus = Column(Date, nullable=True)
+    fecha_aplicacion_cambio = Column(Date, nullable=True)
     despliegue = Column(String(255), nullable=True)
     fecha_vuelo = Column(String, nullable=True)
     estrato = Column(String(100), nullable=True)
