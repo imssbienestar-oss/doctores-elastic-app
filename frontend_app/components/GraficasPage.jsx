@@ -468,7 +468,7 @@ useEffect(() => {
   const handleOpenReportModal = () => { setIsReportModalOpen(true); };
   const handleConfirmDownload = async (selectedColumns) => {
     setIsReportModalOpen(false);
-    const body = { entidad: filtroEntidad || null, especialidad: filtroEspecialidad || null, nivel_atencion: filtroNivel || null, nombre_unidad: filtroUnidad || null, estatus: filtroEstatus || null, search: debouncedBusqueda || null, columnas: selectedColumns };
+    const body = { tipo: tipoPersonal, entidad: filtroEntidad || null, especialidad: filtroEspecialidad || null, nivel_atencion: filtroNivel || null, nombre_unidad: filtroUnidad || null, estatus: filtroEstatus || null, search: debouncedBusqueda || null, columnas: selectedColumns };
     try {
       const response = await fetch(`${API_BASE_URL}/api/reporte/dinamico/xlsx`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(body) });
       if (!response.ok) throw new Error("Error descarga");
