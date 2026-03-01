@@ -308,7 +308,7 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
 
   useEffect(() => {
     if (vistaActualProp !== "tabla") return;
-    let shouldFetch = false;
+    let shouldFetch = (isGuestMode && !isAuthenticated) || (isAuthenticated && authToken && currentUser);
     if (isGuestMode && !isAuthenticated) {
       // Modo invitado
       shouldFetch = true;
@@ -332,6 +332,7 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
     currentUser,
     viewMode,
     doctorListRefreshKey,
+    vistaActualProp
   ]);
 
   useEffect(() => {
