@@ -332,123 +332,57 @@ function GraficasPage() {
     return () => clearTimeout(timerId);
   }, [filtroBusqueda]);
 
-  // --- CARGA DE GRAN TOTAL ---
-  useEffect(() => {
-    const fetchGranTotal = async () => {
-        if (!token) return;
-        try {
-            const headers = { Authorization: `Bearer ${token}` };
-            const [resMed, resAdm] = await Promise.all([
-                fetch(`${API_BASE_URL}/api/graficas/conteo_total?tipo=medicos`, { headers }),
-                fetch(`${API_BASE_URL}/api/graficas/conteo_total?tipo=administrativos`, { headers })
-            ]);
-            if(resMed.ok && resAdm.ok) {
-                const dataMed = await resMed.json();
-                const dataAdm = await resAdm.json();
-                setGranTotalGlobal((dataMed.total || 0) + (dataAdm.total || 0));
-            }
-        } catch (e) {
-            console.error(e);
-        }
-    };
-    fetchGranTotal();
-  }, [token]);
 
   // --- CARGA DE DATOS PRINCIPALES ---
-  useEffect(() => {
-    const fetchData = async () => {
+useEffect(() => {
+    const fetchDashboardData = async () => {
       setIsLoading(true);
       setError("");
       try {
-        const headers = { Authorization: `Bearer ${token}` };
-        const query = `?tipo=${tipoPersonal}`;
+        const response = await fetch(
+          `${API_BASE_URL}/api/dashboard/resumen_unificado?tipo=${tipoPersonal}`, 
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
 
-        // 1. CARGAMOS TODO (Médicos y Admins) para poder calcular totales reales
-        const urls = [
-          `${API_BASE_URL}/api/graficas/conteo_total${query}`,
-          `${API_BASE_URL}/api/graficas/doctores_por_estatus${query}`,
-          `${API_BASE_URL}/api/graficas/doctores_por_nivel_atencion${query}`,
-          // Traemos ambos estados para mezclarlos
-          `${API_BASE_URL}/api/graficas/doctores_por_estado?tipo=medicos`,
-          `${API_BASE_URL}/api/graficas/doctores_por_estado?tipo=administrativos`
-        ];
+        if (!response.ok) throw new Error("Error al obtener datos del servidor");
 
-        const responses = await Promise.all(urls.map(url => fetch(url, { headers })));
-        if (responses.some(r => !r.ok)) throw new Error("Error cargando datos.");
+        const data = await response.json();
 
-        const [totalRes, estatusRes, nivelRes, estadoMedRes, estadoAdmRes] = await Promise.all(responses.map(r => r.json()));
+        // 1. Seteamos los totales
+        setTotalGeneral(data.total_general);
+        setGranTotalGlobal(data.universo_total);
 
-        // Procesamos datos
-        setTotalGeneral(totalRes.total);
-        setDataPorEstatus(estatusRes.map((item, idx) => ({
-          id: item.label,
-          label: item.label,
-          value: item.value,
-          color: INSTITUTIONAL_COLORS[idx % INSTITUTIONAL_COLORS.length]
-        })));
-        setDataPorNivel(nivelRes.map((item, idx) => ({
-          id: item.label,
-          label: item.label,
-          value: item.value,
+        // 2. Procesar Estatus
+        setDataPorEstatus(data.data_estatus.map((item, idx) => ({
+          ...item,
           color: INSTITUTIONAL_COLORS[idx % INSTITUTIONAL_COLORS.length]
         })));
 
-        // --- FUSIÓN DE DATOS PARA BARRAS ---
-        // Creamos un mapa con todos los estados
-        const mapEstados = new Map();
+        // 3. Procesar Niveles
+        setDataPorNivel(data.data_nivel.map((item, idx) => ({
+          ...item,
+          id: item.label,
+          color: INSTITUTIONAL_COLORS[idx % INSTITUTIONAL_COLORS.length]
+        })));
 
-        // Agregamos Médicos
-        estadoMedRes.forEach(item => {
-            mapEstados.set(item.label, {
-                id: item.label,
-                label: item.label,
-                medCount: item.value,
-                admCount: 0,
-                minimo: item.minimo,
-                maximo: item.maximo
-            });
-        });
+        // 4. CORRECCIÓN DE LA GRÁFICA DE BARRAS (ESTADOS) ✅
+        const estadosMapeados = data.data_estados.map(item => ({
+          ...item,
+          id: item.label // <-- ESTO arregla el error de 'undefined'
+        })).sort((a, b) => a.value - b.value);
 
-        // Agregamos/Actualizamos Administrativos
-        estadoAdmRes.forEach(item => {
-            const existing = mapEstados.get(item.label);
-            if (existing) {
-                existing.admCount = item.value;
-            } else {
-                mapEstados.set(item.label, {
-                    id: item.label,
-                    label: item.label,
-                    medCount: 0,
-                    admCount: item.value,
-                    minimo: item.minimo,
-                    maximo: item.maximo
-                });
-            }
-        });
-
-        // Convertimos a array y calculamos valores finales según el switch
-        const combinedData = Array.from(mapEstados.values()).map(item => ({
-            ...item,
-            // El valor que pinta la barra depende del switch
-            value: tipoPersonal === 'medicos' ? item.medCount : item.admCount,
-            // El total real es siempre la suma
-            totalReal: item.medCount + item.admCount
-        }));
-
-        // Ordenamos por valor visualizado (mayor a menor)
-        combinedData.sort((a, b) => a.value - b.value); // Nivo dibuja de abajo hacia arriba en horizontal
-
-        setDataPorEstado(combinedData);
+        setDataPorEstado(estadosMapeados);
 
       } catch (err) {
         console.error(err);
-        setError("Error al cargar datos.");
+        setError("No se pudo conectar con el servidor.");
       } finally {
         setIsLoading(false);
       }
     };
-    if (token) fetchData();
-  }, [token, tipoPersonal]); // Se ejecuta al cambiar el switch
+
+    if (token) fetchDashboardData();
+  }, [token, tipoPersonal]);
 
   // Carga Filtros
   useEffect(() => {
@@ -481,7 +415,7 @@ function GraficasPage() {
   useEffect(() => {
     const fetchEstadisticaData = async () => {
       const skip = currentPageEstadistica * ITEMS_PER_PAGE_ESTADISTICA;
-      const params = new URLSearchParams({ skip, limit: ITEMS_PER_PAGE_ESTADISTICA });
+      const params = new URLSearchParams({ skip, limit: ITEMS_PER_PAGE_ESTADISTICA, tipo: tipoPersonal });
       if (filtroEntidad) params.append("entidad", filtroEntidad);
       if (filtroUnidad) params.append("nombre_unidad", filtroUnidad);
       if (filtroEspecialidad) params.append("especialidad", filtroEspecialidad);
@@ -499,7 +433,7 @@ function GraficasPage() {
       } catch (err) { console.error(err); }
     };
     if (token) fetchEstadisticaData();
-  }, [currentPageEstadistica, filtroEntidad, filtroUnidad, filtroEspecialidad, filtroNivel, debouncedBusqueda, filtroEstatus, token]);
+  }, [currentPageEstadistica, filtroEntidad, filtroUnidad, filtroEspecialidad, filtroNivel, debouncedBusqueda, filtroEstatus, token, tipoPersonal]);
 
   const handleEntidadChange = (e) => { setFiltroEntidad(e.target.value); setCurrentPageEstadistica(0); };
   const handleUnidadChange = (e) => { setFiltroUnidad(e.target.value); setCurrentPageEstadistica(0); };
@@ -515,7 +449,7 @@ function GraficasPage() {
 
   const handleVisualizarClick = async () => {
     setIsLoadingModal(true); setIsModalOpen(true);
-    const params = new URLSearchParams();
+    const params = new URLSearchParams({ tipo: tipoPersonal });
     if (filtroEntidad) params.append("entidad", filtroEntidad);
     if (filtroUnidad) params.append("nombre_unidad", filtroUnidad);
     if (filtroEspecialidad) params.append("especialidad", filtroEspecialidad);
