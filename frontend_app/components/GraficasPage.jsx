@@ -1,5 +1,4 @@
-// src/components/GraficasPage.jsx
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../src/contexts/AuthContext";
 import { ResponsiveBar } from "@nivo/bar";
 import { ResponsivePie } from "@nivo/pie";
@@ -7,198 +6,301 @@ import DoctoresModal from "./DoctoresModal";
 import { useNavigate } from "react-router-dom";
 import ColumnSelectorModal from "./ColumnSelectorModal";
 
-// --- ESTILOS (Sin cambios) ---
-const styles = {
-  pageContainerStyle: { padding: "20px" },
-  headerTitle: {
-    textAlign: "center",
-    marginBottom: "30px",
-    fontSize: "45px",
-    color: "#333",
-    fontWeight: "600",
-  },
-  sectionTitle: {
-    textAlign: "center",
-    marginTop: "50px",
-    marginBottom: "25px",
-    fontSize: "24px",
-    color: "#333",
-    fontWeight: "600",
-    borderTop: "1px solid #eee",
-    paddingTop: "30px",
-  },
-  chartsGridContainer: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1.5fr",
-    gap: "25px",
-    width: "100%",
-    maxWidth: "1200px",
-    margin: "0 auto 40px auto",
-  },
-  pieChartsColumn: { display: "flex", flexDirection: "column", gap: "25px" },
-  chartWrapper: {
-    height: "450px",
-    width: "100%",
-    background: "#f9f9f9",
-    padding: "20px",
-    borderRadius: "8px",
-    boxSizing: "border-box",
-    display: "flex",
-    flexDirection: "column",
-  },
-  chartTitle: {
-    textAlign: "center",
-    color: "#333",
-    fontSize: "18px",
-    fontWeight: "500",
-    marginBottom: "5px",
-    flexShrink: 0,
-  },
-  tableContainer: {
-    width: "100%",
-    maxWidth: "1000px",
-    margin: "0 auto",
-    background: "#f9f9f9",
-    padding: "20px",
-    borderRadius: "8px",
-    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-  },
-  dataTable: { width: "100%", borderCollapse: "collapse", fontSize: "0.9em" },
-  dataTableTh: {
-    backgroundColor: "#006657",
-    color: "white",
-    padding: "10px 12px",
-    textAlign: "center",
-    border: "1px solid #005c4e",
-  },
-  dataTableTd: {
-    padding: "10px 12px",
-    border: "1px solid #ddd",
-    color: "#333",
-    textAlign: "center",
-  },
-  dataTableTrEven: { backgroundColor: "#f2f2f2" },
-  statisticFiltersContainer: {
-    display: "flex",
-    gap: "15px",
-    marginBottom: "20px",
-    padding: "15px",
-    backgroundColor: "#e9ecef",
-    borderRadius: "6px",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    alignItems: "flex-end",
-  },
-  filterGroup: { display: "flex", flexDirection: "column" },
-  filterLabel: {
-    fontSize: "0.85em",
-    color: "#495057",
-    marginBottom: "5px",
-    fontWeight: "500",
-  },
-  filterSelect: {
-    padding: "8px 10px",
-    fontSize: "0.9em",
-    border: "1px solid #ced4da",
-    borderRadius: "4px",
-    minWidth: "180px",
-    backgroundColor: "white",
-  },
-  loadingOrErrorStyle: {
-    textAlign: "center",
-    marginTop: "50px",
-    fontSize: "1.2em",
-  },
-  errorStyle: { color: "red" },
-  message: {
-    textAlign: "center",
-    padding: "20px",
-    fontSize: "1.1em",
-    color: "#777",
-  },
-  paginationControls: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: "20px",
-    padding: "10px",
-    backgroundColor: "#f0f0f0",
-    borderRadius: "4px",
-  },
-  button: {
-    padding: "8px 15px",
-    fontSize: "0.9em",
-    cursor: "pointer",
-    backgroundColor: "#007bff",
-    color: "white",
-    border: "none",
-    borderRadius: "4px",
-    transition: "background-color 0.2s ease",
-  },
-  buttonDisabled: { backgroundColor: "#ccc", cursor: "not-allowed" },
+// ==========================================
+// 1. CONFIGURACIONES ESTÁTICAS
+// ==========================================
+
+const COLORS = {
+  primary: "#006657",
+  secondary: "#B08D55",
+  bg: "#F4F7F6",
+  cardBg: "#FFFFFF",
+  textMain: "#333333",
+  textLight: "#666666",
 };
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
-const ITEMS_PER_PAGE_ESTADISTICA = 10;
+const INSTITUTIONAL_COLORS = ["#10312B", "#691C32", "#BC955C", "#DDC9A3"];
+
+// --- CONSTANTES BLINDADAS ---
+const BAR_KEYS = ["value"];
+const BAR_MARGIN = { top: 10, right: 50, bottom: 30, left: 140 };
+const BAR_VALUE_SCALE = { type: "linear" };
+const BAR_INDEX_SCALE = { type: "band", round: true };
+const BAR_BORDER_COLOR = { from: "color", modifiers: [["darker", 1.6]] };
+const BAR_AXIS_BOTTOM = { tickSize: 0, tickPadding: 10, tickRotation: 0, legend: "", legendOffset: 36 };
+const BAR_AXIS_LEFT = { tickSize: 0, tickPadding: 10, tickRotation: 0 };
+const BAR_LABEL_TEXT_COLOR = { from: "color", modifiers: [["brighter", 3]] };
+
+const PIE_MARGIN = { top: 20, right: 80, bottom: 40, left: 80 };
+const PIE_BORDER_COLOR = { from: "color", modifiers: [["darker", 0.2]] };
+const PIE_ARC_LINK_COLOR = { from: 'color' };
+
+const CHART_THEME = {
+  background: "#ffffff",
+  axis: {
+    ticks: { text: { fontSize: 11, fill: "#666", fontFamily: "Segoe UI, sans-serif" } },
+  },
+  labels: { text: { fontSize: 11, fontWeight: 600, fontFamily: "Segoe UI, sans-serif" } },
+  tooltip: { 
+    container: { 
+      fontSize: "12px", color: "#333", boxShadow: "0 4px 8px rgba(0,0,0,0.2)", borderRadius: "4px", zIndex: 9999
+    } 
+  }
+};
+
+// --- LOGICA DE COLORES INTELIGENTE ---
+// Ahora revisa el 'totalReal' (suma de medicos + admin) contra el maximo
+const getBarColorWrapper = (barItem) => {
+  const { totalReal, maximo, minimo } = barItem.data;
+  
+  // Si la suma total excede el cupo -> ROJO
+  if (totalReal > maximo) return "#dc3545"; 
+  // Si la suma total es menor al minimo -> VERDE (Faltan doctores)
+  if (totalReal < minimo) return "#28a745";  
+  
+  return "#BC955C"; // Dorado (En rango)
+};
+
+// --- TOOLTIPS CON CONTEXTO COMPLETO ---
+const BarTooltip = ({ value, data }) => (
+  <div style={{ padding: '10px', background: '#fff', border: '1px solid #ccc', borderRadius: 4, minWidth: '180px' }}>
+    <strong style={{ color: COLORS.primary, fontSize: '1.1em' }}>{data.label}</strong>
+    <div style={{ marginTop: '5px', fontSize: '0.9em', color: '#333' }}>
+      Viendo: <strong>{value}</strong>
+    </div>
+    <div style={{ fontSize: '0.85em', color: '#666', borderTop: '1px solid #eee', marginTop: '5px', paddingTop: '5px' }}>
+      Médicos: {data.medCount}<br/>
+      Admin: {data.admCount}<br/>
+      <strong>Total Real: {data.totalReal}</strong>
+    </div>
+    <div style={{ fontSize: '0.85em', color: data.totalReal > data.maximo ? '#dc3545' : '#666', fontWeight: '600' }}>
+      Cupo Max: {data.maximo}
+    </div>
+  </div>
+);
+
+const PieTooltip = ({ datum }) => (
+  <div style={{ padding: '8px 12px', background: '#fff', border: '1px solid #eee', borderRadius: 4, display: 'flex', alignItems: 'center', gap: '6px' }}>
+    <div style={{ width: 10, height: 10, backgroundColor: datum.color, borderRadius: '50%' }}></div>
+    <strong>{datum.label}:</strong> {datum.value}
+  </div>
+);
+
+const CenteredMetric = ({ dataWithArc, centerX, centerY }) => {
+    let total = 0;
+    dataWithArc.forEach(datum => { total += datum.value; });
+    return (
+        <text
+            x={centerX} y={centerY}
+            textAnchor="middle" dominantBaseline="central"
+            style={{ fontSize: '24px', fontWeight: '800', fill: '#333', pointerEvents: 'none' }}
+        >
+            {total.toLocaleString()}
+        </text>
+    );
+};
 
 const CupoMaximoLayer = ({ bars, fullData }) => (
   <g>
     {bars.map((bar) => {
-      // Usamos el índice de la barra para encontrar el objeto de datos original
-      // en el array 'fullData' que le pasamos.
       const originalData = fullData[bar.index];
-
-      // Ahora la condición funcionará, porque originalData SÍ tiene la propiedad 'maximo'.
-      const hasMaximo =
-        originalData &&
-        originalData.maximo !== undefined &&
-        originalData.maximo !== null;
-
+      if (!originalData?.maximo) return null;
       return (
-        hasMaximo && (
-          <text
-            key={bar.key}
-            x={bar.x + bar.width + 5}
-            y={bar.y + bar.height / 2}
-            textAnchor="start"
-            dominantBaseline="central"
-            style={{
-              fill: "#666",
-              fontSize: 11,
-              fontWeight: "600",
-            }}
-          >
-            /{" "}
-            <tspan style={{ fontWeight: "bold" }}>{originalData.maximo}</tspan>
-          </text>
-        )
+        <text
+          key={bar.key}
+          x={bar.x + bar.width + 6} y={bar.y + bar.height / 2}
+          textAnchor="start" dominantBaseline="central"
+          style={{ fill: "#999", fontSize: 10, fontWeight: "600", pointerEvents: "none" }}
+        >
+          / {originalData.maximo}
+        </text>
       );
     })}
   </g>
 );
 
-const ESTATUS_OPTIONS_FILTRO = [
-  { value: "", label: "Todos los Estatus" },
-  { value: "01 ACTIVO", label: "01 ACTIVO" },
-  { value: "02 RETIRO TEMP. (CUBA)", label: "02 RETIRO TEMPORAL (CUBA)" },
-  { value: "03 RETIRO TEMP. (MEXICO)", label: "03 RETIRO TEMPORAL (MEXICO)" },
-  { value: "04 SOL. PERSONAL", label: "04 SOLICITUD PERSONAL" },
-  { value: "05 INCAPACIDAD", label: "05 INCAPACIDAD" },
-  { value: "06 BAJA", label: "06 BAJA" },
-];
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+const ITEMS_PER_PAGE_ESTADISTICA = 10;
+
+// Estilos CSS
+const styles = {
+  pageContainer: { padding: "20px", backgroundColor: COLORS.bg, minHeight: "100vh", fontFamily: "Segoe UI, sans-serif" },
+  
+  headerRow: { 
+    display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", marginBottom: "30px", paddingBottom: "15px", borderBottom: "1px solid #e0e0e0", gap: "20px"
+  },
+  headerCenter: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" },
+  headerRight: { display: "flex", justifyContent: "flex-end" },
+  
+  title: { color: COLORS.primary, fontSize: "30px", fontWeight: "700", textTransform: "uppercase", margin: "20px", lineHeight: 1.2, textAlign: "center" },
+  subtitle: { color: "#666", fontSize: "14px", margin: 0, textAlign: "center", marginBottom: "10px" },
+  
+  toggleContainer: { display: "flex", backgroundColor: "#e0e0e0", borderRadius: "30px", padding: "3px", cursor: "pointer", marginTop: "20px", width: "fit-content" },
+  getToggleButtonStyle: (isActive) => ({
+    padding: "6px 20px", borderRadius: "25px", border: "none", fontSize: "12px", fontWeight: "600", cursor: "pointer",
+    backgroundColor: isActive ? COLORS.primary : "transparent", color: isActive ? "#fff" : COLORS.textLight, outline: "none", transition: "0.3s"
+  }),
+
+  universeCard: {
+    backgroundColor: "#fff", border: `1px solid ${COLORS.secondary}`, borderLeft: `5px solid ${COLORS.secondary}`,
+    borderRadius: "6px", padding: "8px 20px", display: "flex", flexDirection: "column", alignItems: "flex-end",
+    minWidth: "140px", boxShadow: "0 2px 6px rgba(0,0,0,0.05)"
+  },
+  universeLabel: { fontSize: "11px", fontWeight: "600", color: "#888", textTransform: "uppercase", letterSpacing: "0.5px" },
+  universeValue: { fontSize: "24px", fontWeight: "800", color: COLORS.secondary, lineHeight: 1 },
+
+  kpiWrapper: { textAlign: "center", marginBottom: "30px" },
+  kpiCard: { 
+    backgroundColor: COLORS.cardBg, borderRadius: "10px", padding: "15px 40px", textAlign: "center", 
+    boxShadow: "0 4px 10px rgba(0,0,0,0.05)", borderBottom: `4px solid ${COLORS.primary}`, display: "inline-block" 
+  },
+  kpiNumber: { fontSize: "42px", fontWeight: "800", color: COLORS.primary, lineHeight: 1, display: "block" },
+  kpiLabel: { fontSize: "12px", color: COLORS.textLight, textTransform: "uppercase", fontWeight: "600", marginTop: "5px", display: "block" },
+
+  mainGrid: { display: "grid", gridTemplateColumns: "1fr 1.8fr", gap: "25px", marginBottom: "40px", alignItems: "start", maxWidth: "1600px", margin: "0 auto 40px auto" },
+  leftColumn: { display: "flex", flexDirection: "column", gap: "25px" },
+  rightColumn: { display: "flex", flexDirection: "column" },
+
+  chartCard: { 
+    backgroundColor: COLORS.cardBg, borderRadius: "10px", padding: "15px", boxShadow: "0 2px 8px rgba(0,0,0,0.05)", border: "1px solid #eee",
+    display: "flex", flexDirection: "column" 
+  },
+  chartTitle: { fontSize: "15px", fontWeight: "600", color: COLORS.primary, marginBottom: "15px", textAlign: "center", borderBottom: "1px solid #f0f0f0", paddingBottom: "8px" },
+  
+  pieContainer: { height: 300, width: '100%' },
+  barContainer: { height: 720, width: '100%' },
+
+  sectionTitle: { 
+    textAlign: "left", // Alineado a la izquierda se ve más técnico
+    marginLeft: "20px",
+    marginTop: "40px", 
+    marginBottom: "15px", 
+    fontSize: "18px", 
+    color: "#333", 
+    fontWeight: "700",
+    borderLeft: `5px solid ${COLORS.secondary}`, // Detalle dorado institucional
+    paddingLeft: "15px"
+  },
+
+  // Contenedor de Filtros (Estilo Card Blanca Limpia)
+  statisticFiltersContainer: { 
+    display: "grid", 
+    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", // Grid responsivo automático
+    gap: "20px", 
+    marginBottom: "25px", 
+    padding: "25px", 
+    backgroundColor: "#fff", // Fondo blanco
+    borderRadius: "8px", 
+    boxShadow: "0 2px 8px rgba(0,0,0,0.05)", // Sombra suave
+    border: "1px solid #eee",
+    alignItems: "end"
+  },
+
+  filterGroup: { display: "flex", flexDirection: "column" },
+  
+  filterLabel: { 
+    fontSize: "0.85em", 
+    color: "#555", 
+    marginBottom: "6px", 
+    fontWeight: "600" 
+  },
+  
+  filterSelect: { 
+    padding: "10px 12px", 
+    fontSize: "0.9em", 
+    border: "1px solid #e0e0e0", 
+    borderRadius: "6px", 
+    backgroundColor: "#fcfcfc",
+    outline: "none",
+    transition: "border-color 0.2s",
+    width: "100%",
+    boxSizing: "border-box" // Asegura que no se salga del grid
+  },
+
+  // Contenedor de la Tabla (Estilo Card)
+  tableContainer: { 
+    width: "100%", 
+    margin: "0 auto", 
+    background: "#fff", 
+    borderRadius: "8px", 
+    boxShadow: "0 4px 12px rgba(0,0,0,0.08)", 
+    overflow: "hidden" // Para que los bordes redondeados corten la tabla
+  },
+  
+  dataTable: { 
+    width: "100%", 
+    borderCollapse: "collapse", 
+    fontSize: "0.9em",
+    fontFamily: "Segoe UI, sans-serif"
+  },
+  
+  // Encabezado de Tabla (Verde Institucional Solido)
+  dataTableTh: { 
+    backgroundColor: COLORS.primary, 
+    color: "white", 
+    padding: "15px", 
+    textAlign: "left", // Alineado izquierda es más legible
+    fontWeight: "600",
+    textTransform: "uppercase",
+    fontSize: "0.85em",
+    letterSpacing: "0.5px",
+    borderBottom: `3px solid ${COLORS.secondary}` // Línea dorada debajo del header
+  },
+  
+  // Celdas (Sin bordes verticales, solo líneas horizontales)
+  dataTableTd: { 
+    padding: "12px 15px", 
+    borderBottom: "1px solid #f0f0f0", // Solo borde inferior suave
+    color: "#333", 
+    textAlign: "left" 
+  },
+  
+  dataTableTrEven: { backgroundColor: "#fbfbfb" }, // Zebra muy sutil
+
+  // Botones
+  button: { 
+    padding: "10px 20px", 
+    fontSize: "0.9em", 
+    fontWeight: "600",
+    cursor: "pointer", 
+    backgroundColor: COLORS.primary, 
+    color: "white", 
+    border: "none", 
+    borderRadius: "6px", 
+    transition: "all 0.2s ease",
+    boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
+  },
+  
+  buttonDisabled: { backgroundColor: "#ccc", cursor: "not-allowed", boxShadow: "none" },
+  buttonSmall: { fontSize: "0.85em", padding: "8px 16px" },
+
+  // Paginación
+  paginationControls: { 
+    display: "flex", 
+    justifyContent: "space-between", // ESTO ES CLAVE: Separa los elementos a los extremos
+    alignItems: "center", 
+    marginTop: "0", // Quitamos margen top porque ya está dentro del contenedor
+    padding: "15px 20px", 
+    backgroundColor: "#f9f9f9", // Fondo gris muy suave para diferenciar del blanco de la tabla
+    borderTop: "1px solid #eee", // Línea separadora sutil
+    borderBottomLeftRadius: "8px", // Redondeamos las esquinas de abajo
+    borderBottomRightRadius: "8px"
+  }
+};
 
 function GraficasPage() {
   const { token } = useAuth();
   const navigate = useNavigate();
 
-  // --- Estados para los datos de las gráficas y tablas ---
+  const [tipoPersonal, setTipoPersonal] = useState("medicos");
+  const [totalGeneral, setTotalGeneral] = useState(0); 
+  const [granTotalGlobal, setGranTotalGlobal] = useState(0); 
+
   const [dataPorEstado, setDataPorEstado] = useState([]);
   const [dataPorEstatus, setDataPorEstatus] = useState([]);
-  const [dataPorNivelAtencion, setDataPorNivelAtencion] = useState([]);
+  const [dataPorNivel, setDataPorNivel] = useState([]);
+  
   const [dataEstadistica, setDataEstadistica] = useState([]);
-
-  // --- Estados para los valores seleccionados en los filtros ---
   const [filtroEntidad, setFiltroEntidad] = useState("");
   const [filtroUnidad, setFiltroUnidad] = useState("");
   const [filtroEspecialidad, setFiltroEspecialidad] = useState("");
@@ -207,104 +309,148 @@ function GraficasPage() {
   const [filtroEstatus, setFiltroEstatus] = useState("");
   const [debouncedBusqueda, setDebouncedBusqueda] = useState("");
 
-  // --- Estados para las OPCIONES de los filtros ---
   const [opcionesEstatus, setOpcionesEstatus] = useState([]);
   const [opcionesEntidad, setOpcionesEntidad] = useState([]);
   const [opcionesUnidad, setOpcionesUnidad] = useState([]);
   const [opcionesEspecialidad, setOpcionesEspecialidad] = useState([]);
   const [opcionesNivel, setOpcionesNivel] = useState([]);
 
-  // --- Estados de Carga y Error ---
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [isLoadingFiltros, setIsLoadingFiltros] = useState(false);
-
-  // --- Estados de Paginación ---
   const [currentPageEstadistica, setCurrentPageEstadistica] = useState(0);
   const [totalGroupsEstadistica, setTotalGroupsEstadistica] = useState(0);
   const [totalDoctorsInGroups, setTotalDoctorsInGroups] = useState(0);
-
-  // --- Estados para el Modal de Visualización ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [doctoresEnModal, setDoctoresEnModal] = useState([]);
   const [isLoadingModal, setIsLoadingModal] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
-  const misColoresPastel = [
-    "#235B5E",
-    "#BC955C",
-    "#691C32",
-    "#DDC9A3",
-    "#669BBC",
-  ];
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingFiltros, setIsLoadingFiltros] = useState(false);
+  const [error, setError] = useState("");
 
-  // --- LÓGICA DE CARGA DE DATOS ---
   useEffect(() => {
-    const timerId = setTimeout(() => {
-      setDebouncedBusqueda(filtroBusqueda);
-    }, 500); // Espera 500ms antes de actualizar
+    const timerId = setTimeout(() => { setDebouncedBusqueda(filtroBusqueda); }, 500);
     return () => clearTimeout(timerId);
   }, [filtroBusqueda]);
 
-  // Carga los datos iniciales para las gráficas
+  // --- CARGA DE GRAN TOTAL ---
   useEffect(() => {
-    const fetchInitialData = async () => {
+    const fetchGranTotal = async () => {
+        if (!token) return;
+        try {
+            const headers = { Authorization: `Bearer ${token}` };
+            const [resMed, resAdm] = await Promise.all([
+                fetch(`${API_BASE_URL}/api/graficas/conteo_total?tipo=medicos`, { headers }),
+                fetch(`${API_BASE_URL}/api/graficas/conteo_total?tipo=administrativos`, { headers })
+            ]);
+            if(resMed.ok && resAdm.ok) {
+                const dataMed = await resMed.json();
+                const dataAdm = await resAdm.json();
+                setGranTotalGlobal((dataMed.total || 0) + (dataAdm.total || 0));
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    };
+    fetchGranTotal();
+  }, [token]);
+
+  // --- CARGA DE DATOS PRINCIPALES ---
+  useEffect(() => {
+    const fetchData = async () => {
       setIsLoading(true);
       setError("");
       try {
         const headers = { Authorization: `Bearer ${token}` };
+        const query = `?tipo=${tipoPersonal}`;
+
+        // 1. CARGAMOS TODO (Médicos y Admins) para poder calcular totales reales
         const urls = [
-          `${API_BASE_URL}/api/graficas/doctores_por_estado`,
-          `${API_BASE_URL}/api/graficas/doctores_por_estatus`,
-          `${API_BASE_URL}/api/graficas/doctores_por_nivel_atencion`,
+          `${API_BASE_URL}/api/graficas/conteo_total${query}`,
+          `${API_BASE_URL}/api/graficas/doctores_por_estatus${query}`,
+          `${API_BASE_URL}/api/graficas/doctores_por_nivel_atencion${query}`,
+          // Traemos ambos estados para mezclarlos
+          `${API_BASE_URL}/api/graficas/doctores_por_estado?tipo=medicos`,
+          `${API_BASE_URL}/api/graficas/doctores_por_estado?tipo=administrativos`
         ];
-        const responses = await Promise.all(
-          urls.map((url) => fetch(url, { headers }))
-        );
-        const [estadoRes, estatusRes, nivelRes] = responses;
 
-        if (!estadoRes.ok || !estatusRes.ok || !nivelRes.ok)
-          throw new Error("Error al cargar datos iniciales.");
+        const responses = await Promise.all(urls.map(url => fetch(url, { headers })));
+        if (responses.some(r => !r.ok)) throw new Error("Error cargando datos.");
 
-        const estadoData = await estadoRes.json();
-        const estatusData = await estatusRes.json();
-        const nivelData = await nivelRes.json();
+        const [totalRes, estatusRes, nivelRes, estadoMedRes, estadoAdmRes] = await Promise.all(responses.map(r => r.json()));
 
-        setDataPorEstado(
-          estadoData
-            .map((item) => ({
-              id: item.label,
-              label: item.label,
-              value: item.value,
-              minimo: item.minimo,
-              maximo: item.maximo,
-            }))
-            .reverse()
-        );
-        setDataPorEstatus(
-          estatusData.map((item) => ({
-            id: item.label,
-            label: item.label,
-            value: item.value,
-          }))
-        );
-        setDataPorNivelAtencion(
-          nivelData.map((item) => ({
-            id: item.label,
-            label: item.label,
-            value: item.value,
-          }))
-        );
+        // Procesamos datos
+        setTotalGeneral(totalRes.total);
+        setDataPorEstatus(estatusRes.map((item, idx) => ({
+          id: item.label,
+          label: item.label,
+          value: item.value,
+          color: INSTITUTIONAL_COLORS[idx % INSTITUTIONAL_COLORS.length]
+        })));
+        setDataPorNivel(nivelRes.map((item, idx) => ({
+          id: item.label,
+          label: item.label,
+          value: item.value,
+          color: INSTITUTIONAL_COLORS[idx % INSTITUTIONAL_COLORS.length]
+        })));
+
+        // --- FUSIÓN DE DATOS PARA BARRAS ---
+        // Creamos un mapa con todos los estados
+        const mapEstados = new Map();
+
+        // Agregamos Médicos
+        estadoMedRes.forEach(item => {
+            mapEstados.set(item.label, {
+                id: item.label,
+                label: item.label,
+                medCount: item.value,
+                admCount: 0,
+                minimo: item.minimo,
+                maximo: item.maximo
+            });
+        });
+
+        // Agregamos/Actualizamos Administrativos
+        estadoAdmRes.forEach(item => {
+            const existing = mapEstados.get(item.label);
+            if (existing) {
+                existing.admCount = item.value;
+            } else {
+                mapEstados.set(item.label, {
+                    id: item.label,
+                    label: item.label,
+                    medCount: 0,
+                    admCount: item.value,
+                    minimo: item.minimo,
+                    maximo: item.maximo
+                });
+            }
+        });
+
+        // Convertimos a array y calculamos valores finales según el switch
+        const combinedData = Array.from(mapEstados.values()).map(item => ({
+            ...item,
+            // El valor que pinta la barra depende del switch
+            value: tipoPersonal === 'medicos' ? item.medCount : item.admCount,
+            // El total real es siempre la suma
+            totalReal: item.medCount + item.admCount
+        }));
+
+        // Ordenamos por valor visualizado (mayor a menor)
+        combinedData.sort((a, b) => a.value - b.value); // Nivo dibuja de abajo hacia arriba en horizontal
+
+        setDataPorEstado(combinedData);
+
       } catch (err) {
-        setError(err.message);
+        console.error(err);
+        setError("Error al cargar datos.");
       } finally {
         setIsLoading(false);
       }
     };
-    if (token) fetchInitialData();
-  }, [token]);
+    if (token) fetchData();
+  }, [token, tipoPersonal]); // Se ejecuta al cambiar el switch
 
-  // Carga y actualiza las opciones de TODOS los filtros cada vez que un filtro cambia
+  // Carga Filtros
   useEffect(() => {
     const fetchFilterOptions = async () => {
       setIsLoadingFiltros(true);
@@ -317,46 +463,25 @@ function GraficasPage() {
       if (debouncedBusqueda) params.append("search", debouncedBusqueda);
 
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/api/opciones/filtros-dinamicos?${params.toString()}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        if (!response.ok) throw new Error("Error al cargar opciones de filtro");
+        const response = await fetch(`${API_BASE_URL}/api/opciones/filtros-dinamicos?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
+        if (!response.ok) throw new Error("Error filtros");
         const data = await response.json();
-
         setOpcionesEstatus(data.estatus);
         setOpcionesEntidad(data.entidades);
         setOpcionesUnidad(data.unidades);
         setOpcionesEspecialidad(data.especialidades);
         setOpcionesNivel(data.niveles_atencion);
-      } catch (error) {
-        console.error("Error al cargar opciones de filtro:", error);
-      } finally {
-        setIsLoadingFiltros(false);
-      }
+      } catch (error) { console.error(error); } 
+      finally { setIsLoadingFiltros(false); }
     };
     if (token) fetchFilterOptions();
-  }, [
-    filtroEstatus,
-    filtroEntidad,
-    filtroUnidad,
-    filtroEspecialidad,
-    filtroNivel,
-    debouncedBusqueda,
-    token,
-  ]);
+  }, [filtroEstatus, filtroEntidad, filtroUnidad, filtroEspecialidad, filtroNivel, debouncedBusqueda, token]);
 
-  // Carga los datos de la tabla de estadísticas cuando cambian los filtros o la página
+  // Carga Tabla
   useEffect(() => {
     const fetchEstadisticaData = async () => {
-      setIsLoading(true);
       const skip = currentPageEstadistica * ITEMS_PER_PAGE_ESTADISTICA;
-      const params = new URLSearchParams({
-        skip,
-        limit: ITEMS_PER_PAGE_ESTADISTICA,
-      });
+      const params = new URLSearchParams({ skip, limit: ITEMS_PER_PAGE_ESTADISTICA });
       if (filtroEntidad) params.append("entidad", filtroEntidad);
       if (filtroUnidad) params.append("nombre_unidad", filtroUnidad);
       if (filtroEspecialidad) params.append("especialidad", filtroEspecialidad);
@@ -365,71 +490,31 @@ function GraficasPage() {
       if (filtroEstatus) params.append("estatus", filtroEstatus);
 
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/api/graficas/estadistica_doctores_agrupados?${params.toString()}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        if (!response.ok) throw new Error("Error al cargar la estadística.");
+        const response = await fetch(`${API_BASE_URL}/api/graficas/estadistica_doctores_agrupados?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
+        if (!response.ok) throw new Error("Error estadistica");
         const data = await response.json();
         setDataEstadistica(data.items || []);
         setTotalGroupsEstadistica(data.total_groups || 0);
         setTotalDoctorsInGroups(data.total_doctors_in_groups || 0);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setIsLoading(false);
-      }
+      } catch (err) { console.error(err); }
     };
     if (token) fetchEstadisticaData();
-  }, [
-    currentPageEstadistica,
-    filtroEntidad,
-    filtroUnidad,
-    filtroEspecialidad,
-    filtroNivel,
-    debouncedBusqueda,
-    filtroEstatus,
-    token,
-  ]);
+  }, [currentPageEstadistica, filtroEntidad, filtroUnidad, filtroEspecialidad, filtroNivel, debouncedBusqueda, filtroEstatus, token]);
 
-  // --- MANEJADORES DE EVENTOS ---
-  const handleEntidadChange = (e) => {
-    setFiltroEntidad(e.target.value);
-    setCurrentPageEstadistica(0);
-  };
-  const handleUnidadChange = (e) => {
-    setFiltroUnidad(e.target.value);
-    setCurrentPageEstadistica(0);
-  };
-  const handleEspecialidadChange = (e) => {
-    setFiltroEspecialidad(e.target.value);
-    setCurrentPageEstadistica(0);
-  };
-  const handleNivelChange = (e) => {
-    setFiltroNivel(e.target.value);
-    setCurrentPageEstadistica(0);
-  };
-  const handleEstatusChange = (e) => {
-    setFiltroEstatus(e.target.value);
-    setCurrentPageEstadistica(0);
-  };
-
+  const handleEntidadChange = (e) => { setFiltroEntidad(e.target.value); setCurrentPageEstadistica(0); };
+  const handleUnidadChange = (e) => { setFiltroUnidad(e.target.value); setCurrentPageEstadistica(0); };
+  const handleEspecialidadChange = (e) => { setFiltroEspecialidad(e.target.value); setCurrentPageEstadistica(0); };
+  const handleNivelChange = (e) => { setFiltroNivel(e.target.value); setCurrentPageEstadistica(0); };
+  const handleEstatusChange = (e) => { setFiltroEstatus(e.target.value); setCurrentPageEstadistica(0); };
+  
   const handleClearStatisticFilters = () => {
-    setFiltroEntidad("");
-    setFiltroUnidad("");
-    setFiltroEspecialidad("");
-    setFiltroNivel("");
-    setFiltroEstatus("");
-    setFiltroBusqueda("");
-    setDebouncedBusqueda("");
-    setCurrentPageEstadistica(0);
+    setFiltroEntidad(""); setFiltroUnidad(""); setFiltroEspecialidad("");
+    setFiltroNivel(""); setFiltroEstatus(""); setFiltroBusqueda("");
+    setDebouncedBusqueda(""); setCurrentPageEstadistica(0);
   };
 
   const handleVisualizarClick = async () => {
-    setIsLoadingModal(true);
-    setIsModalOpen(true);
+    setIsLoadingModal(true); setIsModalOpen(true);
     const params = new URLSearchParams();
     if (filtroEntidad) params.append("entidad", filtroEntidad);
     if (filtroUnidad) params.append("nombre_unidad", filtroUnidad);
@@ -438,427 +523,230 @@ function GraficasPage() {
     if (debouncedBusqueda) params.append("search", debouncedBusqueda);
     if (filtroEstatus) params.append("estatus", filtroEstatus);
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/doctores/detalles_filtrados?${params.toString()}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      if (!response.ok) throw new Error("Error al obtener los detalles");
+      const response = await fetch(`${API_BASE_URL}/api/doctores/detalles_filtrados?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!response.ok) throw new Error("Error detalles");
       const data = await response.json();
       setDoctoresEnModal(data);
-    } catch (error) {
-      console.error("Error:", error);
-    } finally {
-      setIsLoadingModal(false);
-    }
+    } catch (error) { console.error(error); } finally { setIsLoadingModal(false); }
   };
 
-  const handleViewProfile = (doctor) => {
-    setIsModalOpen(false);
-    navigate(`/?profile=${doctor.id_imss}`);
-  };
-
-  const handleOpenReportModal = () => {
-    setIsReportModalOpen(true);
-  };
-
+  const handleViewProfile = (doctor) => { setIsModalOpen(false); navigate(`/?profile=${doctor.id_imss}`); };
+  const handleOpenReportModal = () => { setIsReportModalOpen(true); };
   const handleConfirmDownload = async (selectedColumns) => {
-    setIsReportModalOpen(false); // Cierra el modal de selección
-
-    // Prepara el cuerpo de la petición con los filtros actuales y las columnas seleccionadas
-    const body = {
-      entidad: filtroEntidad || null,
-      especialidad: filtroEspecialidad || null,
-      nivel_atencion: filtroNivel || null,
-      nombre_unidad: filtroUnidad || null,
-      estatus: filtroEstatus || null,
-      search: debouncedBusqueda || null,
-      columnas: selectedColumns,
-    };
-
+    setIsReportModalOpen(false);
+    const body = { entidad: filtroEntidad || null, especialidad: filtroEspecialidad || null, nivel_atencion: filtroNivel || null, nombre_unidad: filtroUnidad || null, estatus: filtroEstatus || null, search: debouncedBusqueda || null, columnas: selectedColumns };
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/reporte/dinamico/xlsx`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(body),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response
-          .json()
-          .catch(() => ({ detail: "Error al generar el reporte." }));
-        throw new Error(errorData.detail || `Error ${response.status}`);
-      }
-
-      // Procesa el archivo para la descarga
+      const response = await fetch(`${API_BASE_URL}/api/reporte/dinamico/xlsx`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(body) });
+      if (!response.ok) throw new Error("Error descarga");
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "reporte_filtrado.xlsx";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error("Error al descargar el archivo:", error);
-      alert(`No se pudo descargar el archivo: ${error.message}`);
-    }
+      const a = document.createElement("a"); a.href = url; a.download = "reporte_filtrado.xlsx";
+      document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url);
+    } catch (error) { alert(`Error: ${error.message}`); }
   };
 
-  const totalPagesEstadistica = Math.ceil(
-    totalGroupsEstadistica / ITEMS_PER_PAGE_ESTADISTICA
-  );
-  const handlePreviousPageEstadistica = () =>
-    setCurrentPageEstadistica((p) => Math.max(0, p - 1));
-  const handleNextPageEstadistica = () =>
-    setCurrentPageEstadistica((p) =>
-      Math.min(totalPagesEstadistica - 1, p + 1)
-    );
+  const totalPagesEstadistica = Math.ceil(totalGroupsEstadistica / ITEMS_PER_PAGE_ESTADISTICA);
+  const handlePreviousPageEstadistica = () => setCurrentPageEstadistica((p) => Math.max(0, p - 1));
+  const handleNextPageEstadistica = () => setCurrentPageEstadistica((p) => Math.min(totalPagesEstadistica - 1, p + 1));
 
-  // --- RENDERIZADO ---
-  if (isLoading && dataPorEstado.length === 0) {
-    return <p style={styles.loadingOrErrorStyle}>Cargando datos...</p>;
-  }
-  if (error) {
-    return (
-      <p style={{ ...styles.loadingOrErrorStyle, ...styles.errorStyle }}>
-        {error}
-      </p>
-    );
-  }
+  const barLayers = useMemo(() => [
+    "grid", "axes", "bars", "markers", "legends",
+    (props) => <CupoMaximoLayer {...props} fullData={dataPorEstado} />
+  ], [dataPorEstado]);
 
   return (
-    <div style={styles.pageContainerStyle}>
-      <h1 style={styles.headerTitle}>Gráficas</h1>
+    <div style={styles.pageContainer}>
+      
+      {/* HEADER GRID: 3 COLUMNAS */}
+      <div style={styles.headerRow}>
+        <div></div> {/* Espacio vacío izquierda */}
 
-      <div style={styles.chartsGridContainer}>
-        <div style={styles.pieChartsColumn}>
-          <div style={styles.chartWrapper}>
-            <h2 style={styles.chartTitle}>
-              Médicos 'TOTALES' por Estatus de Cooperación
-            </h2>
-            <ResponsivePie
-              data={dataPorEstatus}
-              margin={{ top: 40, right: 160, bottom: 120, left: 20 }}
-              innerRadius={0.6}
-              padAngle={3}
-              cornerRadius={3}
-              activeOuterRadiusOffset={8}
-              colors={misColoresPastel}
-              borderWidth={1}
-              borderColor={{ from: "color", modifiers: [["darker", 0.2]] }}
-              enableArcLinkLabels={false}
-              arcLabelsSkipAngle={10}
-              arcLabelsTextColor="#ffffff"
-              legends={[
-                {
-                  anchor: "right",
-                  direction: "column",
-                  justify: false,
-                  translateX: 140,
-                  translateY: 0,
-                  itemsSpacing: 5,
-                  itemWidth: 100,
-                  itemHeight: 20,
-                  itemTextColor: "#333",
-                  itemDirection: "left-to-right",
-                  itemOpacity: 1,
-                  symbolSize: 20,
-                  symbolShape: "circle",
-                },
-              ]}
-            />
-          </div>
-          <div style={styles.chartWrapper}>
-            <h2 style={styles.chartTitle}>
-              Médicos 'ACTIVOS' por Nivel de Atención
-            </h2>
-            <ResponsivePie
-              data={dataPorNivelAtencion}
-              margin={{ top: 40, right: 160, bottom: 120, left: 20 }}
-              innerRadius={0.6}
-              padAngle={3}
-              cornerRadius={3}
-              activeOuterRadiusOffset={8}
-              colors={misColoresPastel}
-              borderWidth={1}
-              borderColor={{ from: "color", modifiers: [["darker", 0.2]] }}
-              enableArcLinkLabels={false}
-              arcLabelsSkipAngle={10}
-              arcLabelsTextColor="#ffffff"
-              legends={[
-                {
-                  anchor: "right",
-                  direction: "column",
-                  justify: false,
-                  translateX: 140,
-                  translateY: 0,
-                  itemsSpacing: 5,
-                  itemWidth: 100,
-                  itemHeight: 20,
-                  itemTextColor: "#333",
-                  itemDirection: "left-to-right",
-                  itemOpacity: 1,
-                  symbolSize: 20,
-                  symbolShape: "circle",
-                },
-              ]}
-            />
-          </div>
+        {/* CENTRO: Título + Toggle */}
+        <div style={styles.headerCenter}>
+            <h1 style={styles.title}>Tablero de Control</h1>
+            <div style={styles.toggleContainer}>
+                <button style={styles.getToggleButtonStyle(tipoPersonal === "medicos")} onClick={() => setTipoPersonal("medicos")}>PERSONAL MÉDICO</button>
+                <button style={styles.getToggleButtonStyle(tipoPersonal === "administrativos")} onClick={() => setTipoPersonal("administrativos")}>ADMINISTRATIVOS</button>
+            </div>
         </div>
-        <div style={{ ...styles.chartWrapper, height: "925px" }}>
-          <h2 style={styles.chartTitle}>
-            Médicos 'ACTIVOS' por Entidad Federativa
-          </h2>
-          <ResponsiveBar
-            data={dataPorEstado}
-            keys={["value"]}
-            indexBy="id"
-            layout="horizontal"
-            margin={{ top: 10, right: 60, bottom: 100, left: 120 }}
-            padding={0.35}
-            valueScale={{ type: "linear" }}
-            indexScale={{ type: "band", round: true }}
-            borderColor={{ from: "color", modifiers: [["darker", 1.6]] }}
-            axisTop={null}
-            axisRight={null}
-            axisBottom={{
-              tickSize: 5,
-              tickPadding: 5,
-              tickRotation: 0,
-              legend: "Número de Médicos",
-              legendPosition: "middle",
-              legendOffset: 50,
-            }}
-            axisLeft={{
-              tickSize: 5,
-              tickPadding: 5,
-              tickRotation: 0,
-              legend: "Estado",
-              legendPosition: "middle",
-              legendOffset: -90,
-            }}
-            labelSkipHeight={12}
-            animate={true}
-            motionStiffness={90}
-            motionDamping={15}
-            label={(d) => d.value}
-            labelTextColor={{ from: "color", modifiers: [["brighter", 3]] }}
-            labelSkipWidth={10}
-            layers={[
-              "grid",
-              "axes",
-              "bars",
-              "markers",
-              (props) => (
-                <CupoMaximoLayer {...props} fullData={dataPorEstado} />
-              ),
-              "legends",
-            ]}
-            tooltip={({ id, value, data }) => (
-              <div
-                style={{
-                  padding: "12px",
-                  background: "white",
-                  border: "1px solid #ccc",
-                  borderRadius: "4px",
-                  color: "black",
-                }}
-              >
-                <strong>{data.id}</strong>
-                <br />
-                <br />
-                Médicos Actuales: <strong>{value}</strong>
-                <br />
-                Cupo Mínimo: {data.minimo}
-                <br />
-                Cupo Máximo: {data.maximo}
-              </div>
-            )}
-            colors={({ data }) => {
-              if (data.value >= data.maximo) {
-                return "#dc3545"; // Rojo si el cupo está lleno o excedido
-              }
-              if (data.value < data.minimo) {
-                return "#28a745"; // Verde si está por debajo del mínimo
-              }
-              return "#BC955C"; // Color normal
-            }}
-          />
+        
+        {/* DERECHA: Universo Total */}
+        <div style={styles.headerRight}>
+            <div style={styles.universeCard}>
+                <span style={styles.universeLabel}>Universo Total</span>
+                <span style={styles.universeValue}>{granTotalGlobal.toLocaleString()}</span>
+            </div>
         </div>
       </div>
 
+      {error && <div style={{textAlign: 'center', color: 'red', marginBottom: 20}}>{error}</div>}
+
+      <div style={styles.kpiWrapper}>
+        <div style={styles.kpiCard}>
+          <span style={styles.kpiNumber}>{isLoading ? "..." : totalGeneral.toLocaleString()}</span>
+          <span style={styles.kpiLabel}>Total de {tipoPersonal === "medicos" ? "Médicos" : "Administrativos"}</span>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div style={styles.loadingContainer}><p>Cargando datos...</p></div>
+      ) : (
+        <div style={styles.mainGrid}>
+          
+          <div style={styles.leftColumn}>
+            
+            {/* ESTATUS */}
+            <div style={styles.chartCard}>
+              <h3 style={styles.chartTitle}>Distribución por Estatus</h3>
+              <div style={styles.pieContainer}> 
+                <ResponsivePie
+                  data={dataPorEstatus}
+                  margin={PIE_MARGIN}
+                  innerRadius={0.6}
+                  padAngle={0.7}
+                  cornerRadius={3}
+                  colors={({ data }) => data.color}
+                  activeOuterRadiusOffset={8}
+                  borderWidth={1}
+                  borderColor={PIE_BORDER_COLOR}
+                  enableArcLinkLabels={true}
+                  arcLinkLabelsSkipAngle={10}
+                  arcLinkLabelsTextColor="#333"
+                  arcLinkLabelsThickness={2}
+                  arcLinkLabelsColor={PIE_ARC_LINK_COLOR}
+                  arcLabelsSkipAngle={10}
+                  arcLabelsTextColor="#fff"
+                  theme={CHART_THEME}
+                  tooltip={PieTooltip}
+                  animate={true}
+                  motionConfig="stiff"
+                  layers={['arcs', 'arcLabels', 'arcLinkLabels', 'legends', CenteredMetric]}
+                />
+              </div>
+            </div>
+
+            {/* NIVEL ATENCIÓN */}
+            <div style={styles.chartCard}>
+              <h3 style={styles.chartTitle}>Nivel de Atención (ACTIVOS) </h3>
+              <div style={styles.pieContainer}>
+                {dataPorNivel.length > 0 ? (
+                  <ResponsivePie
+                      data={dataPorNivel}
+                      margin={PIE_MARGIN}
+                      innerRadius={0.6}
+                      padAngle={0.7}
+                      cornerRadius={3}
+                      colors={({ data }) => data.color}
+                      activeOuterRadiusOffset={8}
+                      borderWidth={1}
+                      borderColor={PIE_BORDER_COLOR}
+                      enableArcLinkLabels={true}
+                      arcLinkLabelsSkipAngle={10}
+                      arcLinkLabelsTextColor="#333"
+                      arcLabelsSkipAngle={10}
+                      arcLabelsTextColor="#fff"
+                      theme={CHART_THEME}
+                      tooltip={PieTooltip}
+                      animate={true}
+                      motionConfig="stiff"
+                      layers={['arcs', 'arcLabels', 'arcLinkLabels', 'legends', CenteredMetric]}
+                  />
+                ) : (
+                  <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#999', fontSize: '0.9em'}}>
+                      No aplica nivel de atención
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div style={styles.rightColumn}>
+            <div style={styles.chartCard}>
+              <h3 style={styles.chartTitle}>Distribución por Entidad Federativa (ACTIVOS)</h3>
+              <div style={styles.barContainer}>
+                <ResponsiveBar
+                  data={dataPorEstado}
+                  keys={BAR_KEYS} 
+                  indexBy="id"
+                  layout="horizontal"
+                  margin={BAR_MARGIN}
+                  padding={0.25}
+                  valueScale={BAR_VALUE_SCALE}
+                  indexScale={BAR_INDEX_SCALE}
+                  colors={getBarColorWrapper}
+                  borderColor={BAR_BORDER_COLOR}
+                  axisBottom={BAR_AXIS_BOTTOM}
+                  axisLeft={BAR_AXIS_LEFT}
+                  labelSkipWidth={12}
+                  labelTextColor={BAR_LABEL_TEXT_COLOR}
+                  layers={barLayers}
+                  tooltip={BarTooltip}
+                  theme={CHART_THEME}
+                  animate={true}
+                  motionConfig="stiff"
+                />
+              </div>
+            </div>
+          </div>
+
+        </div>
+      )}
+
+
+      {/* SECCIÓN TABLA Y FILTROS */}
       <h2 style={styles.sectionTitle}>Estadística Detallada</h2>
       <div style={styles.statisticFiltersContainer}>
+        {/* FILTROS (Mismo código) */}
         <div style={styles.filterGroup}>
-          <label htmlFor="filtroBusqueda" style={styles.filterLabel}>
-            Buscar (CLUES):
-          </label>
-          <input
-            id="filtroBusqueda"
-            type="search"
-            value={filtroBusqueda}
-            onChange={(e) => setFiltroBusqueda(e.target.value)}
-            style={styles.filterSelect}
-            placeholder="Escriba para buscar..."
-          />
+          <label htmlFor="filtroBusqueda" style={styles.filterLabel}>Buscar (CLUES):</label>
+          <input id="filtroBusqueda" type="search" value={filtroBusqueda} onChange={(e) => setFiltroBusqueda(e.target.value)} style={styles.filterSelect} placeholder="Buscar..." />
         </div>
         <div style={styles.filterGroup}>
-          <label htmlFor="filtroEntidad" style={styles.filterLabel}>
-            Entidad:
-          </label>
-          <select
-            id="filtroEntidad"
-            value={filtroEntidad}
-            onChange={handleEntidadChange}
-            style={styles.filterSelect}
-            disabled={isLoadingFiltros}
-          >
-            <option value="">
-              {isLoadingFiltros ? "Cargando..." : "Todas las Entidades"}
-            </option>
-            {opcionesEntidad.map((entidad) => (
-              <option key={entidad} value={entidad}>
-                {entidad}
-              </option>
-            ))}
+          <label htmlFor="filtroEntidad" style={styles.filterLabel}>Entidad:</label>
+          <select id="filtroEntidad" value={filtroEntidad} onChange={handleEntidadChange} style={styles.filterSelect} disabled={isLoadingFiltros}>
+            <option value="">Todas</option>
+            {opcionesEntidad.map((entidad) => (<option key={entidad} value={entidad}>{entidad}</option>))}
+          </select>
+        </div>
+        <div style={styles.filterGroup}>
+          <label htmlFor="filtroUnidad" style={styles.filterLabel}>Unidad:</label>
+          <select id="filtroUnidad" value={filtroUnidad} onChange={handleUnidadChange} style={styles.filterSelect} disabled={isLoadingFiltros}>
+            <option value="">Todas</option>
+            {opcionesUnidad.map((unidad) => (<option key={unidad} value={unidad}>{unidad}</option>))}
+          </select>
+        </div>
+        <div style={styles.filterGroup}>
+          <label htmlFor="filtroEspecialidad" style={styles.filterLabel}>Especialidad:</label>
+          <select id="filtroEspecialidad" value={filtroEspecialidad} onChange={handleEspecialidadChange} style={styles.filterSelect} disabled={isLoadingFiltros}>
+            <option value="">Todas</option>
+            {opcionesEspecialidad.map((esp) => (<option key={esp} value={esp}>{esp}</option>))}
+          </select>
+        </div>
+        <div style={styles.filterGroup}>
+          <label htmlFor="filtroNivel" style={styles.filterLabel}>Nivel:</label>
+          <select id="filtroNivel" value={filtroNivel} onChange={handleNivelChange} style={styles.filterSelect} disabled={isLoadingFiltros}>
+             <option value="">Todos</option>
+             {opcionesNivel.map((nivel) => (<option key={nivel} value={nivel}>{nivel}</option>))}
+          </select>
+        </div>
+        <div style={styles.filterGroup}>
+          <label htmlFor="filtroEstatus" style={styles.filterLabel}>Estatus:</label>
+          <select id="filtroEstatus" value={filtroEstatus} onChange={handleEstatusChange} style={styles.filterSelect} disabled={isLoadingFiltros}>
+            <option value="">Todos</option>
+            {opcionesEstatus.map((estatus) => (<option key={estatus} value={estatus}>{estatus}</option>))}
           </select>
         </div>
 
-        <div style={styles.filterGroup}>
-          <label htmlFor="filtroUnidad" style={styles.filterLabel}>
-            Unidad:
-          </label>
-          <select
-            id="filtroUnidad"
-            value={filtroUnidad}
-            onChange={handleUnidadChange}
-            style={styles.filterSelect}
-            disabled={isLoadingFiltros}
-          >
-            <option value="">
-              {isLoadingFiltros ? "Cargando..." : "Todas las Unidades"}
-            </option>
-            {opcionesUnidad.map((unidad) => (
-              <option key={unidad} value={unidad}>
-                {unidad}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div style={styles.filterGroup}>
-          <label htmlFor="filtroEspecialidad" style={styles.filterLabel}>
-            Especialidad:
-          </label>
-          <select
-            id="filtroEspecialidad"
-            value={filtroEspecialidad}
-            onChange={handleEspecialidadChange}
-            style={styles.filterSelect}
-            disabled={isLoadingFiltros}
-          >
-            <option value="">
-              {isLoadingFiltros ? "Cargando..." : "Todas las Especialidades"}
-            </option>
-            {opcionesEspecialidad.map((esp) => (
-              <option key={esp} value={esp}>
-                {esp}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div style={styles.filterGroup}>
-          <label htmlFor="filtroNivel" style={styles.filterLabel}>
-            Nivel de Atención:
-          </label>
-          <select
-            id="filtroNivel"
-            value={filtroNivel}
-            onChange={handleNivelChange}
-            style={styles.filterSelect}
-            disabled={isLoadingFiltros}
-          >
-            <option value="">
-              {isLoadingFiltros ? "Cargando..." : "Todos los Niveles"}
-            </option>
-            {opcionesNivel.map((nivel) => (
-              <option key={nivel} value={nivel}>
-                {nivel}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div style={styles.filterGroup}>
-          <label htmlFor="filtroEstatus" style={styles.filterLabel}>
-            Estatus:
-          </label>
-          <select
-            id="filtroEstatus"
-            value={filtroEstatus}
-            onChange={handleEstatusChange}
-            style={styles.filterSelect}
-            disabled={isLoadingFiltros}
-          >
-            <option value="">
-              {isLoadingFiltros ? "Cargando..." : "Todos los Estatus"}
-            </option>
-            {opcionesEstatus.map((estatus) => (
-              <option key={estatus} value={estatus}>
-                {estatus}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {(filtroBusqueda ||
-          filtroEntidad ||
-          filtroEspecialidad ||
-          filtroUnidad ||
-          filtroNivel ||
-          filtroEstatus) && (
-          <>
-            <div style={{ ...styles.filterGroup, justifyContent: "flex-end" }}>
-              <button
-                onClick={handleClearStatisticFilters}
-                style={{
-                  ...styles.button,
-                  ...styles.buttonSmall,
-                  backgroundColor: "#6c757d",
-                }}
-              >
-                Limpiar Filtros
-              </button>
-            </div>
-
-            <div style={{ ...styles.filterGroup, justifyContent: "flex-end" }}>
-              <button
-                onClick={handleVisualizarClick}
-                style={{
-                  ...styles.button,
-                  ...styles.buttonSmall,
-                  backgroundColor: "#006657",
-                }}
-              >
-                Visualizar Registros
-              </button>
-            </div>
-          </>
+        {(filtroBusqueda || filtroEntidad || filtroUnidad || filtroEspecialidad || filtroNivel || filtroEstatus) && (
+          <div style={{ ...styles.filterGroup, justifyContent: "flex-end" }}>
+            <button onClick={handleClearStatisticFilters} style={{ ...styles.button, ...styles.buttonDisabled, backgroundColor: "#6c757d", cursor: "pointer" }}>Limpiar</button>
+          </div>
         )}
         <div style={{ ...styles.filterGroup, justifyContent: "flex-end" }}>
-          <button
-            onClick={handleOpenReportModal}
-            style={{ ...styles.button, backgroundColor: "#006657" }}
-          >
-            Generar Reporte
-          </button>
+          <button onClick={handleVisualizarClick} style={{ ...styles.button, backgroundColor: "#006657" }}>Visualizar</button>
+        </div>
+        <div style={{ ...styles.filterGroup, justifyContent: "flex-end" }}>
+          <button onClick={handleOpenReportModal} style={{ ...styles.button, backgroundColor: "#006657" }}>Reporte</button>
         </div>
       </div>
 
@@ -870,90 +758,70 @@ function GraficasPage() {
               <th style={styles.dataTableTh}>CLUES</th>
               <th style={styles.dataTableTh}>Unidad</th>
               <th style={styles.dataTableTh}>Especialidad</th>
-              <th style={styles.dataTableTh}>Nivel de Atención</th>
-              <th style={{ ...styles.dataTableTh, textAlign: "center" }}>
-                Cantidad Médicos
-              </th>
+              <th style={styles.dataTableTh}>Nivel</th>
+              <th style={{ ...styles.dataTableTh, textAlign: "center" }}>Cant.</th>
             </tr>
           </thead>
           <tbody>
             {dataEstadistica.map((item, index) => (
-              <tr
-                key={`${item.entidad}-${item.unidad}-${item.especialidad}-${item.nivel_atencion}-${index}`}
-                style={index % 2 === 0 ? {} : styles.dataTableTrEven}
+              <tr 
+                key={`${item.entidad}-${item.unidad}-${item.especialidad}-${item.nivel_atencion}-${index}`} 
+                style={{
+                    ...(index % 2 === 0 ? {} : styles.dataTableTrEven),
+                    transition: 'background-color 0.2s'
+                }}
+                // Agregamos un efecto hover simple en línea
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f0fdfa'} // Un verde muy muy claro al pasar mouse
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = index % 2 === 0 ? 'transparent' : '#fbfbfb'}
               >
+                {/* Nota: Alinea el texto a la izquierda en los styles.dataTableTd para que se vea profesional */}
                 <td style={styles.dataTableTd}>{item.entidad}</td>
-                <td style={styles.dataTableTd}>{item.clues}</td>
+                <td style={{...styles.dataTableTd, fontWeight: 'bold', fontSize: '0.85em'}}>{item.clues}</td>
                 <td style={styles.dataTableTd}>{item.nombre_unidad}</td>
                 <td style={styles.dataTableTd}>{item.especialidad}</td>
                 <td style={styles.dataTableTd}>{item.nivel_atencion}</td>
-                <td style={{ ...styles.dataTableTd, textAlign: "center" }}>
-                  {item.cantidad}
+                <td style={{ ...styles.dataTableTd, textAlign: "center", fontWeight: "bold", color: COLORS.primary }}>
+                    {item.cantidad}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-        <div
-          style={{
-            textAlign: "right",
-            marginTop: "10px",
-            fontWeight: "bold",
-            paddingRight: "10px",
-          }}
-        >
-          Total de Médicos (con filtros aplicados): {totalDoctorsInGroups}
+        <div style={styles.paginationControls}>
+            
+            {/* IZQUIERDA: Contador de Resultados */}
+           <div style={{ fontSize: '0.85em', color: '#666' }}>
+    Filas: <strong style={{ color: COLORS.primary }}>{totalGroupsEstadistica}</strong> 
+    | Total Personal: <strong style={{ color: COLORS.secondary, fontSize: '1.1em' }}>{totalDoctorsInGroups}</strong>
+</div>
+
+            {/* DERECHA: Botones de Paginación */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <button 
+                    onClick={handlePreviousPageEstadistica} 
+                    disabled={currentPageEstadistica === 0 || isLoading} 
+                    style={{ ...styles.button, ...(currentPageEstadistica === 0 ? styles.buttonDisabled : {}) }}
+                >
+                    Anterior
+                </button>
+                
+                <span style={{ fontSize: '0.85em', fontWeight: '600', color: '#333' }}>
+                    Pág {totalPagesEstadistica === 0 ? 0 : currentPageEstadistica + 1} de {totalPagesEstadistica}
+                </span>
+                
+                <button 
+                    onClick={handleNextPageEstadistica} 
+                    disabled={currentPageEstadistica >= totalPagesEstadistica - 1 || isLoading} 
+                    style={{ ...styles.button, ...(currentPageEstadistica >= totalPagesEstadistica - 1 ? styles.buttonDisabled : {}) }}
+                >
+                    Siguiente
+                </button>
+            </div>
         </div>
-        {totalPagesEstadistica > 1 && (
-          <div style={styles.paginationControls}>
-            <button
-              onClick={handlePreviousPageEstadistica}
-              disabled={currentPageEstadistica === 0 || isLoading}
-              style={{
-                ...styles.button,
-                ...(currentPageEstadistica === 0 || isLoading
-                  ? styles.buttonDisabled
-                  : {}),
-              }}
-            >
-              Anterior
-            </button>
-            <span>
-              Página {currentPageEstadistica + 1} de {totalPagesEstadistica}{" "}
-              (Total Grupos: {totalGroupsEstadistica})
-            </span>
-            <button
-              onClick={handleNextPageEstadistica}
-              disabled={
-                currentPageEstadistica >= totalPagesEstadistica - 1 || isLoading
-              }
-              style={{
-                ...styles.button,
-                ...(currentPageEstadistica >= totalPagesEstadistica - 1 ||
-                isLoading
-                  ? styles.buttonDisabled
-                  : {}),
-              }}
-            >
-              Siguiente
-            </button>
-          </div>
-        )}
       </div>
 
-      <DoctoresModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        doctores={doctoresEnModal}
-        isLoading={isLoadingModal}
-        onViewProfile={handleViewProfile}
-      />
-
-      <ColumnSelectorModal
-        isOpen={isReportModalOpen}
-        onClose={() => setIsReportModalOpen(false)}
-        onConfirmDownload={handleConfirmDownload}
-      />
+      <DoctoresModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} doctores={doctoresEnModal} isLoading={isLoadingModal} onViewProfile={handleViewProfile} />
+      <ColumnSelectorModal isOpen={isReportModalOpen} onClose={() => setIsReportModalOpen(false)} onConfirmDownload={handleConfirmDownload} />
     </div>
   );
 }
