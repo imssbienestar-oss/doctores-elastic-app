@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import text, func, or_, and_  # Importar func para server_default
 import sqlalchemy.exc
 import pytz
+from io import BytesIO
 from io import BytesIO as GlobalBytesIO
 from sqlalchemy.exc import IntegrityError
 from typing import List, Optional, Any
@@ -1723,63 +1724,83 @@ async def get_clues_data(clues_code: str, db: Session = Depends(get_db_session))
         )
     return clues_info
 
-# --- ENDPOINT (GENERA REPORTE DINAMICO - PENDIENTE) ---
 @app.post("/api/reporte/dinamico/xlsx", tags=["Reportes"])
 async def generar_reporte_dinamico_excel(
     request_data: schemas.ReporteDinamicoRequest,
-    db: Session = Depends(get_db_session)):
-    query = db.query(models.Doctor).filter(
-        models.Doctor.is_deleted == False,
-        models.Doctor.coordinacion == '0'
-    )
+    db: Session = Depends(get_db_session),
+    current_user: models.User = Depends(security.get_current_user) # Seguridad añadida
+):
+    try:
+        # 1. Determinamos el filtro de coordinación dinámicamente ✅
+        # '1' para administrativos, '0' para médicos
+        filtro_coord = '1' if request_data.tipo == "administrativos" else '0'
 
-    if request_data.entidad:
-        query = query.filter(models.Doctor.entidad == request_data.entidad)
-    if request_data.especialidad:
-        query = query.filter(models.Doctor.especialidad == request_data.especialidad)
-    if request_data.nivel_atencion:
-        query = query.filter(models.Doctor.nivel_atencion == request_data.nivel_atencion)
-    if request_data.nombre_unidad:
-        query = query.filter(models.Doctor.nombre_unidad == request_data.nombre_unidad)
-    if request_data.estatus:
-        query = query.filter(models.Doctor.estatus == request_data.estatus)
+        query = db.query(models.Doctor).filter(
+            models.Doctor.is_deleted == False,
+            models.Doctor.coordinacion == filtro_coord
+        )
 
-    if request_data.search and request_data.search.strip():
-        search_words = request_data.search.strip().split()
-        search_conditions = []
-        for word in search_words:
-            word_term = f"%{word}%"
-            search_conditions.append(
-                or_(
-                    models.Doctor.clues.ilike(word_term)
-                )
-            )
-        query = query.filter(and_(*search_conditions))
+        # 2. Aplicamos filtros adicionales del usuario
+        if request_data.entidad:
+            query = query.filter(models.Doctor.entidad == request_data.entidad)
+        if request_data.especialidad:
+            query = query.filter(models.Doctor.especialidad == request_data.especialidad)
+        if request_data.nivel_atencion:
+            query = query.filter(models.Doctor.nivel_atencion == request_data.nivel_atencion)
+        if request_data.nombre_unidad:
+            query = query.filter(models.Doctor.nombre_unidad == request_data.nombre_unidad)
+        if request_data.estatus:
+            query = query.filter(models.Doctor.estatus == request_data.estatus)
 
-    doctores_filtrados = query.all()
+        # 3. Búsqueda por texto (CLUES)
+        if request_data.search and request_data.search.strip():
+            word_term = f"%{request_data.search.strip()}%"
+            query = query.filter(models.Doctor.clues.ilike(word_term))
 
-    if not doctores_filtrados:
-        raise HTTPException(status_code=404, detail="No se encontraron doctores con los filtros especificados.")
+        doctores_filtrados = query.all()
 
-    doctores_data = [doc.__dict__ for doc in doctores_filtrados]
-    
-    df = pd.DataFrame(doctores_data)
+        if not doctores_filtrados:
+            raise HTTPException(status_code=404, detail="No se encontraron registros para exportar.")
 
-    columnas_validas = [col for col in request_data.columnas if col in df.columns]
-    if not columnas_validas:
-        raise HTTPException(status_code=400, detail="Ninguna de las columnas seleccionadas es válida.")
+        # 4. LIMPIEZA DE DATOS (Vital para evitar Error 500 y problemas de CORS) ✅
+        # Usamos model_validate para quitar metadatos internos de SQLAlchemy
+        doctores_limpios = [
+            schemas.Doctor.model_validate(doc).model_dump() 
+            for doc in doctores_filtrados
+        ]
+        
+        df = pd.DataFrame(doctores_limpios)
 
-    df_seleccionado = df[columnas_validas]
+        # 5. Selección de columnas
+        columnas_validas = [col for col in request_data.columnas if col in df.columns]
+        if not columnas_validas:
+            # Fallback a columnas básicas si el usuario no mandó nada válido
+            columnas_validas = ["id_imss", "nombre", "apellido_paterno", "entidad", "estatus"]
 
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df_seleccionado.to_excel(writer, index=False, sheet_name='Registros Filtrados')
-    output.seek(0)
+        df_seleccionado = df[columnas_validas]
 
-    headers = {
-        'Content-Disposition': 'attachment; filename="reporte_filtrado.xlsx"'
-    }
-    return StreamingResponse(output, headers=headers, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        # 6. Generación del archivo en memoria
+        output = BytesIO() # Asegúrate de que 'from io import BytesIO' esté arriba
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df_seleccionado.to_excel(writer, index=False, sheet_name='Registros Filtrados')
+        output.seek(0)
+
+        # 7. Respuesta con encabezados de seguridad corregidos
+        headers = {
+            'Content-Disposition': 'attachment; filename="reporte_personal.xlsx"',
+            'Access-Control-Expose-Headers': 'Content-Disposition'
+        }
+        
+        return StreamingResponse(
+            output, 
+            headers=headers, 
+            media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+
+    except Exception as e:
+        print(f"Error crítico en reporte: {str(e)}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Error interno al generar el reporte.")
 
 # --- ENDPOINT (GENERA REPORTE OPCIONES FILTRO - PENDIENTE) ---
 @app.get("/api/opciones/filtros-dinamicos", response_model=schemas.OpcionesFiltro, tags=["Opciones de Filtro"])
