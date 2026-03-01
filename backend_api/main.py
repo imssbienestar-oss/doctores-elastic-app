@@ -21,11 +21,10 @@ import json
 import logging
 
 # Importaciones locales
-import security
-import models, schemas, database
+from . import security
+from . import models, schemas, database
 import pandas as pd
 from fpdf import FPDF
-from io import BytesIO as GlobalBytesIO
 from fastapi.responses import StreamingResponse
 
 # Credenciales de Firebase
@@ -126,10 +125,8 @@ async def startup_event():
 origins = [
     "http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173",
     "https://doctores-elastic-app.vercel.app",
-    "https://gestion-imssb.vercel.app",
-    "https://doctores-elastic-2khh14iea-imssbienestars-projects.vercel.app"
+    "https://gestion-imssb.vercel.app"
 ]
-
 app.add_middleware(
     CORSMiddleware, allow_origins=origins, allow_credentials=True,
     allow_methods=["*"], allow_headers=["*"],
@@ -1920,3 +1917,56 @@ async def delete_registro_historico(
 
 @app.get("/api/attachments/{attachment_id}/signed-url", response_model=schemas.SignedUrlResponse, tags=["Doctores - Archivos"])
 async def get_signed_url_for_attachment(
+    attachment_id: int,
+    db: Session = Depends(get_db_session)):
+  
+    # 1. Busca el archivo en la base de datos
+    attachment = db.query(models.DoctorAttachment).filter(models.DoctorAttachment.id == attachment_id).first()
+    if not attachment:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Archivo no encontrado")
+
+    object_path: str
+    
+    try:
+        # Accede al bucket de almacenamiento para obtener su nombre, que usaremos en la lógica de extracción.
+        firebase_storage_app_instance = firebase_admin.get_app()
+        firebase_storage_bucket = storage.bucket(app=firebase_storage_app_instance)
+        bucket_name = firebase_storage_bucket.name
+
+        file_url = attachment.file_url
+
+        # Caso 1: URL de descarga (con /o/ y token, ej: https://firebasestorage.googleapis.com/v0/b/.../o/path%2Fto%2Ffile.pdf?alt=media&token=...)
+        if '/o/' in file_url:
+            # Extrae la parte después de '/o/' y antes del '?', que es la ruta codificada del objeto.
+            object_path_encoded = file_url.split('/o/')[1].split('?')[0]
+            object_path = urllib.parse.unquote(object_path_encoded)
+        # Caso 2: URL pública de Cloud Storage (sin /o/ ni token, ej: https://storage.googleapis.com/<bucket_name>/path/to/file.pdf)
+        elif f'https://storage.googleapis.com/{bucket_name}/' in file_url:
+            object_path = file_url.split(f'https://storage.googleapis.com/{bucket_name}/', 1)[1]
+        # Caso 3: Ruta de gs:// (ej: gs://<bucket_name>/path/to/file.pdf)
+        elif file_url.startswith(f'gs://{bucket_name}/'):
+            object_path = file_url.replace(f'gs://{bucket_name}/', '', 1)
+        # Caso 4: Asumimos que file_url es directamente la ruta del objeto (ej: path/to/file.pdf)
+        else:
+            object_path = file_url
+        
+    except IndexError:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                            detail="La URL del archivo en la base de datos es inválida o tiene un formato inesperado.")
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                            detail=f"Error al procesar la URL del archivo: {str(e)}")
+
+    # 3. Usa el SDK de Firebase para generar la nueva URL firmada
+    try:
+        # Ahora que `firebase_storage_bucket` ya está definido, lo usamos directamente.
+        blob = firebase_storage_bucket.blob(object_path)
+
+        # Genera la URL firmada. Será válida por 15 minutos.
+        signed_url = blob.generate_signed_url(expiration=timedelta(minutes=15), method='GET', version="v4")
+        
+        return {"signed_url": signed_url}
+    except Exception as e:
+        print(f"ERROR: No se pudo generar la URL firmada para {object_path}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                            detail=f"No se pudo generar la URL firmada: {str(e)}")
