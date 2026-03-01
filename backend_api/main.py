@@ -223,7 +223,7 @@ async def get_dashboard_unificado(
         "data_estados": data_estados
     }
 
-#--- TABLA DE ESTADISTICAS ---
+# --- TABLA DE ESTADISTICAS (VERSIÓN ESTABLE) ---
 @app.get("/api/graficas/estadistica_doctores_agrupados", response_model=schemas.EstadisticaPaginada, tags=["Graficas y Estadísticas"])
 async def obtener_estadistica_doctores_agrupados(
     db: Session = Depends(get_db_session),
@@ -238,9 +238,14 @@ async def obtener_estadistica_doctores_agrupados(
     search: Optional[str] = None):
     try:
         filtro_coord = '1' if tipo == "administrativos" else '0'
-        base_query = db.query(models.Doctor).filter(models.Doctor.is_deleted == False, models.Doctor.coordinacion == filtro_coord)
+        
+        # 1. Base de la consulta
+        base_query = db.query(models.Doctor).filter(
+            models.Doctor.is_deleted == False, 
+            models.Doctor.coordinacion == filtro_coord
+        )
 
-        # Aplicar filtros dinámicos
+        # 2. Aplicación de filtros
         if entidad: base_query = base_query.filter(models.Doctor.entidad == entidad)
         if especialidad: base_query = base_query.filter(models.Doctor.especialidad == especialidad)
         if nivel_atencion: base_query = base_query.filter(models.Doctor.nivel_atencion == nivel_atencion)
@@ -248,26 +253,51 @@ async def obtener_estadistica_doctores_agrupados(
         if estatus: base_query = base_query.filter(models.Doctor.estatus == estatus)
         if search: base_query = base_query.filter(models.Doctor.clues.ilike(f"%{search}%"))
 
-        # Totales (Solo se calculan una vez)
-        total_doctors = base_query.count()
+        # 3. CONTEO TOTAL DE PERSONAL (Suma de humanos filtrados)
+        total_personal = base_query.count()
 
-        # Agrupación y Paginación
-        grouped_items = base_query.with_entities(
-            models.Doctor.entidad, models.Doctor.nombre_unidad, models.Doctor.clues,
-            models.Doctor.especialidad, models.Doctor.nivel_atencion, models.Doctor.estatus,
+        # 4. CONTEO DE GRUPOS (Para la paginación)
+        # IMPORTANTE: No incluimos 'estatus' aquí si no está en el schema de la tabla
+        columns_to_group = [
+            models.Doctor.entidad, 
+            models.Doctor.nombre_unidad, 
+            models.Doctor.clues,
+            models.Doctor.especialidad, 
+            models.Doctor.nivel_atencion
+        ]
+        
+        total_grupos = db.query(func.count()).select_from(
+            base_query.with_entities(*columns_to_group).distinct().subquery()
+        ).scalar() or 0
+
+        # 5. OBTENER ITEMS PAGINADOS
+        query_result = base_query.with_entities(
+            *columns_to_group,
             func.count(models.Doctor.id_imss).label("cantidad")
-        ).group_by(
-            models.Doctor.entidad, models.Doctor.nombre_unidad, models.Doctor.clues,
-            models.Doctor.especialidad, models.Doctor.nivel_atencion, models.Doctor.estatus
-        ).order_by(models.Doctor.entidad.asc()).offset(skip).limit(limit).all()
+        ).group_by(*columns_to_group).order_by(models.Doctor.entidad.asc()).offset(skip).limit(limit).all()
+
+        # 6. MAPEO MANUAL (Evita errores de validación 500) ✅
+        items_list = []
+        for row in query_result:
+            items_list.append({
+                "entidad": row.entidad or "N/A",
+                "nombre_unidad": row.nombre_unidad or "N/A",
+                "clues": row.clues or "N/A",
+                "especialidad": row.especialidad or "N/A",
+                "nivel_atencion": row.nivel_atencion or "N/A",
+                "cantidad": row.cantidad
+            })
 
         return {
-            "total_groups": len(grouped_items), # Esto debería ser una subquery en un entorno real masivo
-            "total_doctors_in_groups": total_doctors,
-            "items": grouped_items
+            "total_groups": total_grupos,
+            "total_doctors_in_groups": total_personal,
+            "items": items_list
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Esto te imprimirá el error real en tu consola de VS Code/Terminal
+        print(f"ERROR DETECTADO: {str(e)}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Error interno en la consulta de estadísticas")
 
 # --- SUBIR ARCHIVOS FIREBASE ---
 async def upload_to_firebase(file: UploadFile, destination_path: str, optimize_image: bool = False) -> Optional[str]:
