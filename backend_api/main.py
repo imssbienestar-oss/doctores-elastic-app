@@ -24,8 +24,8 @@ import pytz
 import logging
 
 # Importaciones locales
-import security
-import models, schemas, database
+from . import security
+from . import models, schemas, database
 import pandas as pd
 from fpdf import FPDF
 from io import BytesIO as GlobalBytesIO
@@ -299,8 +299,7 @@ async def obtener_detalles_doctores_filtrados(
     especialidad: Optional[str] = Query(None),
     nivel_atencion: Optional[str] = Query(None),
     estatus: Optional[str] = Query(None),
-    search: Optional[str] = Query(None)
-):
+    search: Optional[str] = Query(None)):
     query = db.query(models.Doctor).filter(
         models.Doctor.is_deleted == False,
         models.Doctor.coordinacion == '0'
@@ -464,8 +463,7 @@ async def leer_doctor_por_id(
 async def crear_doctor(
     doctor_data: schemas.DoctorCreate, 
     db: Session = Depends(get_db_session),
-    current_user: models.User = Depends(security.get_current_user)
-):
+    current_user: models.User = Depends(security.get_current_user)):
     try:
         doctor_dict = doctor_data.model_dump()
         
@@ -473,9 +471,7 @@ async def crear_doctor(
             doctor_dict['fecha_vuelo'] = doctor_dict['fecha_estatus']
 
         if 'coordinacion' not in doctor_dict or doctor_dict['coordinacion'] is None:
-            doctor_dict['coordinacion'] = '0'
-        
-# --- Validación de CURP duplicado ANTES de crear ---
+            doctor_dict['coordinacion'] = '0'     
         if doctor_dict.get('curp'): # Solo si se proporciona CURP
             existing_doctor_curp = db.query(models.Doctor).filter(
                 models.Doctor.curp == doctor_dict['curp']
@@ -599,8 +595,6 @@ async def crear_doctor(
         db.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error inesperado en el servidor: {str(e)}")
 
-
-
 # --- ENDPOINT (ELIMINAR REGISTRO) ---
 @app.delete("/api/doctores/{id_imss}", status_code=status.HTTP_204_NO_CONTENT, tags=["Doctores"])
 async def eliminar_doctor(
@@ -630,8 +624,7 @@ async def eliminar_doctor(
 @app.post("/api/doctores/{id_imss}/profile-picture", response_model=schemas.Doctor, tags=["Doctores - Archivos"])
 async def subir_foto_perfil_doctor(
     id_imss: str, file: UploadFile = File(...), db: Session = Depends(get_db_session),
-    current_user: models.User = Depends(security.get_current_user)
-):
+    current_user: models.User = Depends(security.get_current_user)):
     db_doctor = db.query(models.Doctor).filter(models.Doctor.id_imss == id_imss).first()
     if not db_doctor:
         raise HTTPException(status_code=404, detail="Doctor no encontrado")
@@ -664,8 +657,7 @@ async def subir_foto_perfil_doctor(
 @app.post("/api/doctores/{id_imss}/attachments", response_model=schemas.DoctorAttachment, tags=["Doctores - Archivos"])
 async def subir_expediente_doctor(
     id_imss: str, file: UploadFile = File(...), documento_tipo: str = Form(...), db: Session = Depends(get_db_session),
-    current_user: models.User = Depends(security.get_current_user)
-):
+    current_user: models.User = Depends(security.get_current_user)):
     db_doctor = db.query(models.Doctor).filter(models.Doctor.id_imss == id_imss).first()
     if not db_doctor:
         raise HTTPException(status_code=404, detail="Doctor no encontrado para adjuntar expediente.")
@@ -714,8 +706,7 @@ async def listar_expedientes_doctor(
 @app.delete("/api/doctores/{id_imss}/attachments/{attachment_id}", status_code=status.HTTP_200_OK, tags=["Doctores - Archivos"])
 async def eliminar_expediente_doctor(
     id_imss: str, attachment_id: int, db: Session = Depends(get_db_session),
-    current_user: models.User = Depends(security.get_current_user)
-):
+    current_user: models.User = Depends(security.get_current_user)):
     db_attachment = db.query(models.DoctorAttachment).filter(
         models.DoctorAttachment.id == attachment_id,
         models.DoctorAttachment.doctor_id == id_imss
@@ -742,8 +733,7 @@ async def actualizar_doctor_perfil_completo(
     id_imss: str,
     doctor_update_data: schemas.DoctorProfileUpdateSchema = Body(...), 
     db: Session = Depends(get_db_session),
-    current_user: models.User = Depends(security.get_current_user)
-):
+    current_user: models.User = Depends(security.get_current_user)):
   
     if current_user.role == 'consulta':
         raise HTTPException(
@@ -906,8 +896,7 @@ async def crear_registro_historial(
     id_imss: str,
     historial_data: schemas.EstatusHistoricoCreate,
     db: Session = Depends(get_db_session),
-    current_user: models.User = Depends(security.get_current_user)
-):
+    current_user: models.User = Depends(security.get_current_user)):
     db_doctor = db.query(models.Doctor).filter(models.Doctor.id_imss == id_imss).first()
     if not db_doctor:
         raise HTTPException(status_code=404, detail="Doctor no encontrado")
@@ -931,8 +920,7 @@ async def crear_registro_historial(
 @app.post("/api/token", response_model=schemas.Token, tags=["Autenticación"])
 async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(), 
-    db: Session = Depends(get_db_session)
-):
+    db: Session = Depends(get_db_session)):
     
     print("--- INTENTO DE LOGIN RECIBIDO ---")
     print(f"Buscando usuario con el nombre: '{form_data.username}'")
@@ -975,8 +963,7 @@ async def login_for_access_token(
 async def user_change_own_password(
     payload: schemas.UserChangePassword,
     db: Session = Depends(get_db_session),
-    current_user: models.User = Depends(security.get_current_user) 
-):
+    current_user: models.User = Depends(security.get_current_user)):
     if not payload.new_password or len(payload.new_password) < 8:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1004,8 +991,7 @@ async def user_change_own_password(
 @app.get("/api/admin/users", response_model=List[schemas.UserAdminView], tags=["Admin - Usuarios"])
 async def admin_leer_usuarios(
     db: Session = Depends(get_db_session), current_admin: models.User = Depends(get_current_admin_user),
-    current_user: models.User = Depends(security.get_current_user)
-):
+    current_user: models.User = Depends(security.get_current_user)):
     if current_user.role == 'consulta':
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -1021,8 +1007,7 @@ async def admin_crear_usuario(
     user_data: schemas.UserCreateAdmin, 
     db: Session = Depends(get_db_session),
     current_admin: models.User = Depends(get_current_admin_user),
-    current_user: models.User = Depends(security.get_current_user)
-):
+    current_user: models.User = Depends(security.get_current_user)):
  
     existing_user = db.query(models.User).filter(models.User.username == user_data.username).first()
     if existing_user: raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Nombre de usuario ya existe.")
@@ -1041,8 +1026,7 @@ async def admin_crear_usuario(
 async def admin_eliminar_usuario(
     user_id: int, db: Session = Depends(get_db_session),
     current_admin: models.User = Depends(get_current_admin_user),
-    current_user: models.User = Depends(security.get_current_user)
-):
+    current_user: models.User = Depends(security.get_current_user)):
     if current_user.role == 'consulta':
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -1063,8 +1047,7 @@ async def admin_eliminar_usuario(
 async def admin_reset_password(
     user_id: int,
     db: Session = Depends(get_db_session), current_admin: models.User = Depends(get_current_admin_user),
-    current_user: models.User = Depends(security.get_current_user)
-):
+    current_user: models.User = Depends(security.get_current_user)):
     if current_user.role == 'consulta':
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -1088,8 +1071,7 @@ async def admin_reset_password(
 @app.get("/api/reporte/xlsx", tags=["Reportes"])
 async def generar_reporte_excel(
     db: Session = Depends(get_db_session),
-    current_user: models.User = Depends(security.get_current_user)
-):
+    current_user: models.User = Depends(security.get_current_user)):
     if current_user.role == 'consulta':
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -1198,8 +1180,7 @@ async def generar_reporte_excel(
 @app.get("/api/reporte/pdf", tags=["Reportes"])
 async def generar_reporte_resumen_pdf(
     db: Session = Depends(get_db_session),
-    current_user: models.User = Depends(security.get_current_user)
-):
+    current_user: models.User = Depends(security.get_current_user)):
     if current_user.role == 'consulta':
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -1236,19 +1217,24 @@ async def generar_reporte_resumen_pdf(
 # --- ENDPOINT (GRAFICAS BARRAS) ---
 @app.get("/api/graficas/doctores_por_estado", response_model=List[schemas.DataGraficaConCupos], tags=["Gráficas"])
 async def get_data_grafica_doctores_por_estado(
-    db: Session = Depends(get_db_session)
-):
-    #Contamos cuantos doctores Activos tenemos 
+    tipo: str = Query("medicos", enum=["medicos", "administrativos"]), # Parámetro nuevo
+    db: Session = Depends(get_db_session)):
+    # Definir el filtro de coordinación
+    filtro_coordinacion = models.Doctor.coordinacion != '1'
+    if tipo == "administrativos":
+        filtro_coordinacion = models.Doctor.coordinacion == '1'
+
+    # Contamos (usando el filtro dinámico)
     conteo_actual_subquery = db.query(
         models.Doctor.entidad,
         func.count(models.Doctor.id_imss).label("conteo_actual")
     ).filter(
         models.Doctor.is_deleted == False,
         models.Doctor.estatus == '01 ACTIVO',
-        models.Doctor.coordinacion != '1'
+        filtro_coordinacion 
     ).group_by(models.Doctor.entidad).subquery()
 
-    #Unimos los cupos con el conteo total
+    # Unimos con los cupos (Los cupos son fijos por estado, no cambian por tipo de personal)
     resultados = db.query(
         models.EntidadCupos.entidad,
         models.EntidadCupos.minimo,
@@ -1268,23 +1254,46 @@ async def get_data_grafica_doctores_por_estado(
         } for r in resultados
     ]
 
+@app.get("/api/graficas/doctores_por_estatus", response_model=List[schemas.DataGraficaItem], tags=["Gráficas"])
+async def get_data_grafica_doctores_por_estatus(
+    tipo: str = Query("medicos", enum=["medicos", "administrativos"]),
+    db: Session = Depends(get_db_session)):
+    estatus_map = { '01': '01 ACTIVO', '02': '02 RETIRO TEMP. (CUBA)', '03': '03 RETIRO TEMP. (MEXICO)', '04': '04 SOL. PERSONAL', '05': '05 INCAPACIDAD', '06': '06 BAJA' }
+
+    # Condición SQL dinámica
+    condicion_coord = "AND coordinacion != '1'"
+    if tipo == "administrativos":
+        condicion_coord = "AND coordinacion = '1'"
+
+    query = text(f"""
+        SELECT SUBSTRING(estatus FROM 1 FOR 2) as estatus_code, COUNT(*) as value 
+        FROM doctores 
+        WHERE estatus IS NOT NULL AND estatus != '' {condicion_coord}
+        GROUP BY estatus_code ORDER BY value DESC;
+    """)
+    
+    result = db.execute(query)
+    
+    data_items = []
+    total = 0
+    for row in result:
+        label = estatus_map.get(row.estatus_code, row.estatus_code)
+        data_items.append({"id": label, "label": label, "value": row.value})
+        
+    return data_items
+
 # --- ENDPOINT (GRAFICAS PASTEL ESPECIALIDAD) ---
 @app.get("/api/graficas/doctores_por_especialidad", response_model=List[schemas.DataGraficaItem], tags=["Gráficas"])
 async def get_data_grafica_doctores_por_especialidad(
-    db: Session = Depends(get_db_session)
-):
+    db: Session = Depends(get_db_session)):
     query = text("SELECT especialidad as label, COUNT(*) as value FROM doctores WHERE especialidad IS NOT NULL AND especialidad != '' GROUP BY especialidad ORDER BY value DESC;")
     result = db.execute(query); return [{"label": row.label, "value": row.value} for row in result]
 
 # --- ENDPOINT (GRAFICAS PASTEL ESTATUS) ---
-@app.get("/api/graficas/doctores_por_estatus", response_model=List[schemas.DataGraficaItem], tags=["Gráficas"])
-async def get_data_grafica_doctores_por_estatus(
-    db: Session = Depends(get_db_session)
-):
-    """
-    Obtiene el número de doctores agrupados por el tipo principal de estatus,
-    ignorando las variaciones en el texto.
-    """
+@app.get("/api/graficas/desglose_personal", response_model=schemas.DesglosePersonalResponse, tags=["Gráficas"])
+async def get_desglose_personal(db: Session = Depends(get_db_session)):
+    
+    # Mapa para limpiar los nombres de los estatus
     estatus_map = {
         '01': '01 ACTIVO',
         '02': '02 RETIRO TEMP. (CUBA)',
@@ -1294,51 +1303,90 @@ async def get_data_grafica_doctores_por_estatus(
         '06': '06 BAJA'
     }
 
-    # La consulta ahora extrae los primeros 2 caracteres del estatus para agrupar.
-    query = text("""
-        SELECT 
-            SUBSTRING(estatus FROM 1 FOR 2) as estatus_code, 
-            COUNT(*) as value 
+    # --- 1. CONSULTA PARA ATENCIÓN MÉDICA (coordinacion != '1') ---
+    query_medicos = text("""
+        SELECT SUBSTRING(estatus FROM 1 FOR 2) as code, COUNT(*) as value 
         FROM doctores 
-        WHERE estatus IS NOT NULL AND estatus != '' AND coordinacion != '1'
-        GROUP BY estatus_code 
-        ORDER BY value DESC;
+        WHERE estatus IS NOT NULL AND estatus != '' 
+        AND (coordinacion != '1' OR coordinacion IS NULL)
+        GROUP BY code ORDER BY value DESC;
     """)
+    res_medicos = db.execute(query_medicos)
     
-    result = db.execute(query)
+    lista_medicos = []
+    total_medicos = 0
+    for row in res_medicos:
+        label = estatus_map.get(row.code, row.code) # Traducir codigo a texto
+        lista_medicos.append({"id": label, "label": label, "value": row.value})
+        total_medicos += row.value
+
+    # --- 2. CONSULTA PARA ADMINISTRATIVOS (coordinacion == '1') ---
+    query_admin = text("""
+        SELECT SUBSTRING(estatus FROM 1 FOR 2) as code, COUNT(*) as value 
+        FROM doctores 
+        WHERE estatus IS NOT NULL AND estatus != '' 
+        AND coordinacion = '1'
+        GROUP BY code ORDER BY value DESC;
+    """)
+    res_admin = db.execute(query_admin)
     
-    # Transformamos el resultado para usar las etiquetas limpias del mapa.
-    data_items = []
-    for row in result:
-        # Usamos el mapa para obtener la etiqueta correcta, o el código si no se encuentra.
-        label = estatus_map.get(row.estatus_code, row.estatus_code)
-        data_items.append({"id": label, "label": label, "value": row.value})
-        
-    return data_items
+    lista_admin = []
+    total_admin = 0
+    for row in res_admin:
+        label = estatus_map.get(row.code, row.code)
+        lista_admin.append({"id": label, "label": label, "value": row.value})
+        total_admin += row.value
+
+    # --- 3. RETORNAR ESTRUCTURA COMPLETA ---
+    return {
+        "total_general": total_medicos + total_admin,
+        "medicos": lista_medicos,
+        "administrativos": lista_admin
+    }
 
 # --- ENDPOINT (GRAFICAS PASTEL NIVEL ATENCION) ---
 @app.get("/api/graficas/doctores_por_nivel_atencion", response_model=List[schemas.DataGraficaItem], tags=["Gráficas"])
 async def get_data_grafica_doctores_por_nivel_atencion(
-    db: Session = Depends(get_db_session)
-):
-    query = text("""
-        SELECT 
-            COALESCE(nivel_atencion, 'SD') as label,  -- Asigna 'SD' si es NULL o vacío
-            COUNT(*) as value 
+    tipo: str = Query("medicos", enum=["medicos", "administrativos"]),
+    db: Session = Depends(get_db_session)):
+    condicion_coord = "AND coordinacion != '1'"
+    if tipo == "administrativos":
+        condicion_coord = "AND coordinacion = '1'"
+
+    query = text(f"""
+        SELECT nivel_atencion as label, COUNT(*) as value 
         FROM doctores 
-            WHERE 
-            estatus = '01 ACTIVO' AND coordinacion = '0'  
-        GROUP BY label 
-        ORDER BY value DESC;
+        WHERE nivel_atencion IS NOT NULL AND nivel_atencion != '' 
+        AND estatus = '01 ACTIVO'
+        {condicion_coord}
+        GROUP BY nivel_atencion ORDER BY value DESC;
     """)
-    
     result = db.execute(query)
+    return [{"label": row.label, "value": row.value} for row in result]
+
+@app.get("/api/graficas/conteo_total", tags=["Gráficas"])
+async def get_conteo_total(
+    tipo: str = Query("medicos", enum=["medicos", "administrativos"]),
+    db: Session = Depends(get_db_session)):
+    query = db.query(func.count(models.Doctor.id_imss))
+    if tipo == "administrativos":
+        query = query.filter(models.Doctor.coordinacion == '1')
+    else:
+        query = query.filter(models.Doctor.coordinacion != '1')
     
-    data_items = []
-    for row in result:
-        data_items.append({"id": row.label, "label": row.label, "value": row.value})
-        
-    return data_items
+    return {"total": query.scalar()}
+
+
+
+
+
+
+
+
+
+
+
+
 
 # --- ENDPOINT (AUDITORIA MOSTRAR) ---
 @app.get("/api/admin/audit-logs", response_model=schemas.AuditLogsPaginados, tags=["Admin - Auditoría"])
@@ -1351,8 +1399,7 @@ async def leer_logs_auditoria(
     end_date: Optional[date] = Query(None, description="Fecha de fin (YYYY-MM-DD) en zona horaria local del usuario"),
     username: Optional[str] = Query(None, description="Filtrar por nombre de usuario exacto"),
     action_type: Optional[str] = Query(None, description="Filtrar por tipo de acción exacto"),
-    current_user: models.User = Depends(security.get_current_user)
-):
+    current_user: models.User = Depends(security.get_current_user)):
     if current_user.role == 'consulta':
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -1397,8 +1444,7 @@ async def leer_doctores_eliminados(
     limit: int = Query(100, ge=1, le=200),
     db: Session = Depends(get_db_session),
     current_admin: models.User = Depends(security.get_current_admin_user),
-    current_user: models.User = Depends(security.get_current_user)
-):
+    current_user: models.User = Depends(security.get_current_user)):
     if current_user.role == 'consulta':
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -1429,8 +1475,7 @@ async def restaurar_doctor(
      id_imss: str,
      db: Session = Depends(get_db_session),
      current_admin: models.User = Depends(security.get_current_admin_user),
-     current_user: models.User = Depends(security.get_current_user)
- ):
+     current_user: models.User = Depends(security.get_current_user)):
     if current_user.role == 'consulta':
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -1462,8 +1507,7 @@ async def restaurar_doctor(
 async def eliminar_logs_auditoria_en_lote(
     request_data: schemas.AuditLogBulkDeleteRequest, 
     db: Session = Depends(get_db_session),
-    current_admin: models.User = Depends(security.get_current_admin_user) 
-):
+    current_admin: models.User = Depends(security.get_current_admin_user)):
     
     if not SUPER_ADMIN_PIN_HASH:
         logging.error("Intento de eliminación de logs sin SUPER_ADMIN_PIN_HASH configurado en el servidor.")
@@ -1505,8 +1549,7 @@ async def eliminar_logs_auditoria_en_lote(
 @app.get("/api/doctores/check-curp/{curp_valor}", response_model=schemas.CurpCheckResponse, tags=["Doctores"])
 async def verificar_curp_existente(
     curp_valor: str, 
-    db: Session = Depends(get_db_session),
-):
+    db: Session = Depends(get_db_session)):
     if not curp_valor or len(curp_valor) != 18:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Formato de CURP inválido.")
 
@@ -1531,8 +1574,7 @@ async def obtener_estadistica_doctores_agrupados(
     especialidad: Optional[str] = Query(None),
     nivel_atencion: Optional[str] = Query(None),
     nombre_unidad: Optional[str] = Query(None),
-    estatus: Optional[str] = Query(None) 
-):
+    estatus: Optional[str] = Query(None) ):
     try:
         base_filtered_query = db.query(models.Doctor).filter(
             models.Doctor.is_deleted == False,
@@ -1661,8 +1703,7 @@ async def obtener_especialidades_agrupadas(db: Session = Depends(get_db_session)
 @app.get("/api/graficas/doctores_por_nivel_atencion", response_model=List[schemas.NivelAtencionItem], tags=["Graficas y Estadísticas"])
 async def obtener_doctores_por_nivel_atencion(
     db: Session = Depends(get_db_session),
-    current_user: models.User = Depends(security.get_current_user)
-):
+    current_user: models.User = Depends(security.get_current_user)):
     try:
         niveles_predefinidos_raw = ["PRIMER NIVEL", "SEGUNDO NIVEL", "TERCER NIVEL", "OTRO", "NO APLICA"]
         niveles_predefinidos_normalizados = [
@@ -1723,8 +1764,7 @@ async def obtener_doctores_por_nivel_atencion(
 async def eliminar_doctor_permanentemente(
     id_imss: str,
     db: Session = Depends(get_db_session),
-    current_user: models.User = Depends(security.get_current_user)
-):
+    current_user: models.User = Depends(security.get_current_user)):
     try:
         # Verifica si el doctor existe y está marcado como eliminado
         doctor = db.query(models.Doctor).filter(
@@ -1759,8 +1799,7 @@ async def eliminar_doctor_permanentemente(
 async def admin_eliminar_doctores_permanentemente_bulk(
     request_data: schemas.DoctorPermanentDeleteRequest, 
     db: Session = Depends(get_db_session),
-    current_admin: models.User = Depends(security.get_current_admin_user) 
-):
+    current_admin: models.User = Depends(security.get_current_admin_user)):
     if not SUPER_ADMIN_PIN_HASH:
         logging.error("Intento de eliminación permanente de doctores sin SUPER_ADMIN_PIN_HASH configurado.")
         raise HTTPException(
@@ -1831,8 +1870,7 @@ async def admin_eliminar_doctores_permanentemente_bulk(
 @app.get("/api/admin/audit-log-options/users", response_model=List[str], tags=["Admin - Auditoría Opciones"])
 async def leer_usuarios_unicos_auditoria(
     db: Session = Depends(get_db_session), 
-    current_admin: models.User = Depends(security.get_current_admin_user) 
-):
+    current_admin: models.User = Depends(security.get_current_admin_user)):
     try:
         query_result = db.query(distinct(models.AuditLog.username)).all()
     
@@ -1845,8 +1883,7 @@ async def leer_usuarios_unicos_auditoria(
 @app.get("/api/admin/audit-log-options/actions", response_model=List[str], tags=["Admin - Auditoría Opciones"])
 async def leer_acciones_unicas_auditoria(
     db: Session = Depends(get_db_session), 
-    current_admin: models.User = Depends(security.get_current_admin_user)
-):
+    current_admin: models.User = Depends(security.get_current_admin_user)):
     try:
         query_result = db.query(distinct(models.AuditLog.action_type)).all()
         unique_actions = [item[0] for item in query_result if item[0] is not None]
@@ -1871,8 +1908,7 @@ async def get_clues_data(clues_code: str, db: Session = Depends(get_db_session))
 @app.post("/api/reporte/dinamico/xlsx", tags=["Reportes"])
 async def generar_reporte_dinamico_excel(
     request_data: schemas.ReporteDinamicoRequest,
-    db: Session = Depends(get_db_session)
-):
+    db: Session = Depends(get_db_session)):
     query = db.query(models.Doctor).filter(
         models.Doctor.is_deleted == False,
         models.Doctor.coordinacion == '0'
@@ -1935,8 +1971,7 @@ async def get_opciones_dinamicas(
     nivel_atencion: Optional[str] = Query(None),
     estatus: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
-    db: Session = Depends(get_db_session)
-):
+    db: Session = Depends(get_db_session)):
     """
     Obtiene las listas de opciones disponibles para TODOS los filtros, 
     basadas en los filtros ya aplicados.
@@ -2073,8 +2108,7 @@ async def get_clues_data_with_capacity(clues_code: str, db: Session = Depends(ge
 async def delete_registro_historico(
     historico_id: int,
     db: Session = Depends(get_db_session),
-    admin_user: models.User = Depends(get_current_admin_user)
-):
+    admin_user: models.User = Depends(get_current_admin_user)):
     """
     Elimina un registro específico del histórico de movimientos.
     Solo es accesible para usuarios con el rol de 'admin'.
@@ -2095,8 +2129,7 @@ async def delete_registro_historico(
 @app.get("/api/attachments/{attachment_id}/signed-url", response_model=schemas.SignedUrlResponse, tags=["Doctores - Archivos"])
 async def get_signed_url_for_attachment(
     attachment_id: int,
-    db: Session = Depends(get_db_session)
-):
+    db: Session = Depends(get_db_session)):
   
     # 1. Busca el archivo en la base de datos
     attachment = db.query(models.DoctorAttachment).filter(models.DoctorAttachment.id == attachment_id).first()
