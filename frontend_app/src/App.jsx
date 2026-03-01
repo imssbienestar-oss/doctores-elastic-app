@@ -307,6 +307,7 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
   ]);
 
   useEffect(() => {
+    if (vistaActualProp !== "tabla") return;
     let shouldFetch = false;
     if (isGuestMode && !isAuthenticated) {
       // Modo invitado
@@ -536,7 +537,7 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
               </label>
               <input
                 type="search"
-                id_imss="search-nombre"
+                id="search-nombre"
                 placeholder="Escribe un nombre o ID..."
                 value={searchTermInput}
                 onChange={handleSearchInputChange}
