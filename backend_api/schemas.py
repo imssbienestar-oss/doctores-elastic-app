@@ -1,829 +1,419 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { useAuth } from "../src/contexts/AuthContext";
-import { ResponsiveBar } from "@nivo/bar";
-import { ResponsivePie } from "@nivo/pie";
-import DoctoresModal from "./DoctoresModal";
-import { useNavigate } from "react-router-dom";
-import ColumnSelectorModal from "./ColumnSelectorModal";
+from pydantic import BaseModel, EmailStr, Field, model_validator
+from typing import List, Optional, Union
+from datetime import date, datetime
 
-// ==========================================
-// 1. CONFIGURACIONES ESTÁTICAS
-// ==========================================
+# --- SCHEMA DATOS DOCTOR
+class DoctorBase(BaseModel):
+    id_imss: str = Field(..., max_length=100)
+    nombre: Optional[str] = Field(None, max_length=255)
+    apellido_paterno: Optional[str] = Field(None, max_length=255)
+    apellido_materno: Optional[str] = Field(None, max_length=255)
+    estatus: Optional[str] = Field(None, max_length=50)
+    matrimonio_id: Optional[str] = Field(None, max_length=100)
+    curp: Optional[str] = Field(None, max_length=50) 
+    cedula_esp: Optional[str] = Field(None, max_length=100)
+    cedula_lic: Optional[str] = Field(None, max_length=100)
+    especialidad: Optional[str] = Field(None, max_length=255)
+    entidad: Optional[str] = Field(None, max_length=100) 
+    clues: Optional[str] = Field(None, max_length=100)
+    forma_notificacion: Optional[str] = None 
+    motivo_baja: Optional[str] = Field(None, max_length=100)
+    fecha_extraccion: Optional[str] = Field(None, max_length=100) 
+    fecha_notificacion: Optional[str] = None
+    sexo: Optional[str] = Field(None, max_length=15)
+    turno: Optional[str] = Field(None, max_length=50)
+    nombre_unidad: Optional[str] = Field(None, max_length=255)
+    municipio: Optional[str] = Field(None, max_length=100)
+    nivel_atencion: Optional[str] = Field(None, max_length=50)
+    fecha_estatus: Optional[date] = None
+    fecha_aplicacion_cambio: Optional[date] = None
+    despliegue: Optional[str] = Field(None, max_length=255)
+    fecha_vuelo: Optional[str] = None
+    estrato: Optional[str] = Field(None, max_length=100)
+    acuerdo: Optional[str] = Field(None, max_length=255)
+    foto_url: Optional[str] = Field(None, max_length=1024) 
+    correo: Optional[str] = Field(None, max_length=255)
+    telefono: Optional[str] = Field(None, max_length=50)
+    comentarios_estatus:  Optional[str] = Field(None, max_length=255)
+    fecha_fallecimiento:  Optional[date] = None
+    fecha_nacimiento: Optional[date] = None
+    edad: Optional[str] = Field(None, max_length=25)
+    pasaporte: Optional[str] = Field(None, max_length=255)
+    fecha_emision: Optional[str] = None
+    fecha_expiracion: Optional[str] = None
+    domicilio: Optional[str] = Field(None, max_length=255)
+    licenciatura: Optional[str] = Field(None, max_length=255)
+    tipo_establecimiento: Optional[str] = Field(None, max_length=255)
+    subtipo_establecimiento: Optional[str] = Field(None, max_length=255)
+    direccion_unidad: Optional[str] = Field(None, max_length=255)
+    region: Optional[str] = Field(None, max_length=255)
+    is_deleted: Optional[bool] = Field(default=False)
+    deleted_at: Optional[datetime] = None
+    deleted_by_user_id: Optional[int] = None
+    fecha_inicio: Optional[date] = None
+    fecha_fin: Optional[date] = None
+    motivo: Optional[str] = Field(None, max_length=255)
+    tipo_incapacidad: Optional[str] = Field(None, max_length=255)
+    coordinacion: Optional[str] = Field(None, max_length=100)
 
-const COLORS = {
-  primary: "#006657",
-  secondary: "#B08D55",
-  bg: "#F4F7F6",
-  cardBg: "#FFFFFF",
-  textMain: "#333333",
-  textLight: "#666666",
-};
+# --- SCHEMA DATOS USUARIO
+class UserSimple(BaseModel): 
+    id: int
+    username: str
+    class Config:
+        from_attributes = True
 
-const INSTITUTIONAL_COLORS = ["#10312B", "#691C32", "#BC955C", "#DDC9A3"];
+# --- SCHEMA LEER DOCTOR
+class Doctor(DoctorBase):
+    is_deleted: Optional[bool] = None 
+    deleted_at: Optional[datetime] = None
+    deleted_by_user_id: Optional[int] = None 
+    deleted_by_username: Optional[str] = None 
+    class Config:
+        from_attributes = True
 
-// --- CONSTANTES BLINDADAS ---
-const BAR_KEYS = ["value"];
-const BAR_MARGIN = { top: 10, right: 50, bottom: 30, left: 140 };
-const BAR_VALUE_SCALE = { type: "linear" };
-const BAR_INDEX_SCALE = { type: "band", round: true };
-const BAR_BORDER_COLOR = { from: "color", modifiers: [["darker", 1.6]] };
-const BAR_AXIS_BOTTOM = { tickSize: 0, tickPadding: 10, tickRotation: 0, legend: "", legendOffset: 36 };
-const BAR_AXIS_LEFT = { tickSize: 0, tickPadding: 10, tickRotation: 0 };
-const BAR_LABEL_TEXT_COLOR = { from: "color", modifiers: [["brighter", 3]] };
+# --- SCHEMA CREAR DOCTOR
+class DoctorCreate(BaseModel): 
+    id_imss: str = Field(..., min_length=1, max_length=100)
+    nombre: str = Field(..., min_length=1, max_length=255)
+    apellido_paterno: str = Field(..., min_length=1, max_length=255)
+    apellido_materno: str = Field(..., min_length=1, max_length=255)
+    estatus: str = Field(..., min_length=1, max_length=50)
+    curp: Optional[str] = Field(None, pattern=r'^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$|^$', max_length=25)
+    especialidad: str = Field(..., min_length=1, max_length=255)
+    turno: Optional[str] = None 
+    fecha_estatus: Optional[date] = None
+    clues: Optional[str] = None
+    nombre_unidad: Optional[str] = None
+    nivel_atencion: Optional[str] = None
+    estrato: Optional[str] = None
+    tipo_establecimiento: Optional[str] = None
+    subtipo_establecimiento: Optional[str] = None
+    entidad: Optional[str] = None
+    municipio: Optional[str] = None
+    direccion_unidad: Optional[str] = None
+    fecha_nacimiento: Optional[date] = None
+    sexo: Optional[str] = None
+    edad: Optional[int] = None
 
-const PIE_MARGIN = { top: 20, right: 80, bottom: 40, left: 80 };
-const PIE_BORDER_COLOR = { from: "color", modifiers: [["darker", 0.2]] };
-const PIE_ARC_LINK_COLOR = { from: 'color' };
+# --- SCHEMA ACTUALIZA EXPEDIENTE
+class DoctorProfileUpdateSchema(DoctorBase): 
+    @model_validator(mode='after')
+    def validar_fecha_fin_segun_estatus(self):
+       
+        # Obtenemos los valores de la instancia del modelo
+        estatus = self.estatus
+        fecha_fin = self.fecha_fin
 
-const CHART_THEME = {
-  background: "#ffffff",
-  axis: {
-    ticks: { text: { fontSize: 11, fill: "#666", fontFamily: "Segoe UI, sans-serif" } },
-  },
-  labels: { text: { fontSize: 11, fontWeight: 600, fontFamily: "Segoe UI, sans-serif" } },
-  tooltip: { 
-    container: { 
-      fontSize: "12px", color: "#333", boxShadow: "0 4px 8px rgba(0,0,0,0.2)", borderRadius: "4px", zIndex: 9999
-    } 
-  }
-};
+        ESTATUS_REQUIEREN_FECHA_FIN = [
+            '02 RETIRO TEMP. (CUBA)',
+            '03 RETIRO TEMP. (MEXICO)',
+            '04 SOL. PERSONAL',
+            '05 INCAPACIDAD'
+        ]
 
-// --- LOGICA DE COLORES INTELIGENTE ---
-// Ahora revisa el 'totalReal' (suma de medicos + admin) contra el maximo
-const getBarColorWrapper = (barItem) => {
-  const { totalReal, maximo, minimo } = barItem.data;
-  
-  // Si la suma total excede el cupo -> ROJO
-  if (totalReal > maximo) return "#dc3545"; 
-  // Si la suma total es menor al minimo -> VERDE (Faltan doctores)
-  if (totalReal < minimo) return "#28a745";  
-  
-  return "#BC955C"; // Dorado (En rango)
-};
+        # --- REGLA 1: Validar si la fecha es obligatoria ---
+        if estatus in ESTATUS_REQUIEREN_FECHA_FIN and not fecha_fin:
+            # Si el estatus es de retiro Y la fecha_fin está vacía (None), lanza un error.
+            raise ValueError(
+                "La 'Fecha de Fin' es obligatoria para el estatus seleccionado."
+            )
 
-// --- TOOLTIPS CON CONTEXTO COMPLETO ---
-const BarTooltip = ({ value, data }) => (
-  <div style={{ padding: '10px', background: '#fff', border: '1px solid #ccc', borderRadius: 4, minWidth: '180px' }}>
-    <strong style={{ color: COLORS.primary, fontSize: '1.1em' }}>{data.label}</strong>
-    <div style={{ marginTop: '5px', fontSize: '0.9em', color: '#333' }}>
-      Viendo: <strong>{value}</strong>
-    </div>
-    <div style={{ fontSize: '0.85em', color: '#666', borderTop: '1px solid #eee', marginTop: '5px', paddingTop: '5px' }}>
-      Médicos: {data.medCount}<br/>
-      Admin: {data.admCount}<br/>
-      <strong>Total Real: {data.totalReal}</strong>
-    </div>
-    <div style={{ fontSize: '0.85em', color: data.totalReal > data.maximo ? '#dc3545' : '#666', fontWeight: '600' }}>
-      Cupo Max: {data.maximo}
-    </div>
-  </div>
-);
+        # --- REGLA 2: Limpieza de datos (igual que en el frontend) ---
+        if estatus and (estatus not in ESTATUS_REQUIEREN_FECHA_FIN):
+            self.fecha_fin = None # Limpiamos la fecha
+        return self
+    class Config:
+        from_attributes = True
 
-const PieTooltip = ({ datum }) => (
-  <div style={{ padding: '8px 12px', background: '#fff', border: '1px solid #eee', borderRadius: 4, display: 'flex', alignItems: 'center', gap: '6px' }}>
-    <div style={{ width: 10, height: 10, backgroundColor: datum.color, borderRadius: '50%' }}></div>
-    <strong>{datum.label}:</strong> {datum.value}
-  </div>
-);
+# --- SCHEMA DOCUMENTOS ADJUNTOS
+class DoctorAttachmentBase(BaseModel):
+    file_name: str
+    file_url: str 
+    file_type: Optional[str] = None
+    documento_tipo: str
 
-const CenteredMetric = ({ dataWithArc, centerX, centerY }) => {
-    let total = 0;
-    dataWithArc.forEach(datum => { total += datum.value; });
-    return (
-        <text
-            x={centerX} y={centerY}
-            textAnchor="middle" dominantBaseline="central"
-            style={{ fontSize: '24px', fontWeight: '800', fill: '#333', pointerEvents: 'none' }}
-        >
-            {total.toLocaleString()}
-        </text>
-    );
-};
+# --- SCHEMA SUBIR DOCUMENTO
+class DoctorAttachmentCreate(DoctorAttachmentBase):
+    doctor_id: str
+    documento_tipo: str
+    pass
 
-const CupoMaximoLayer = ({ bars, fullData }) => (
-  <g>
-    {bars.map((bar) => {
-      const originalData = fullData[bar.index];
-      if (!originalData?.maximo) return null;
-      return (
-        <text
-          key={bar.key}
-          x={bar.x + bar.width + 6} y={bar.y + bar.height / 2}
-          textAnchor="start" dominantBaseline="central"
-          style={{ fill: "#999", fontSize: 10, fontWeight: "600", pointerEvents: "none" }}
-        >
-          / {originalData.maximo}
-        </text>
-      );
-    })}
-  </g>
-);
+# --- SCHEMA REGISTRAR DOCUMENTO
+class DoctorAttachment(DoctorAttachmentBase):
+    id: int
+    doctor_id: str 
+    uploaded_at: datetime
+    documento_tipo: str
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
-const ITEMS_PER_PAGE_ESTADISTICA = 10;
+    class Config:
+        from_attributes = True
 
-// Estilos CSS
-const styles = {
-  pageContainer: { padding: "20px", backgroundColor: COLORS.bg, minHeight: "100vh", fontFamily: "Segoe UI, sans-serif" },
-  
-  headerRow: { 
-    display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", marginBottom: "30px", paddingBottom: "15px", borderBottom: "1px solid #e0e0e0", gap: "20px"
-  },
-  headerCenter: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" },
-  headerRight: { display: "flex", justifyContent: "flex-end" },
-  
-  title: { color: COLORS.primary, fontSize: "30px", fontWeight: "700", textTransform: "uppercase", margin: "20px", lineHeight: 1.2, textAlign: "center" },
-  subtitle: { color: "#666", fontSize: "14px", margin: 0, textAlign: "center", marginBottom: "10px" },
-  
-  toggleContainer: { display: "flex", backgroundColor: "#e0e0e0", borderRadius: "30px", padding: "3px", cursor: "pointer", marginTop: "20px", width: "fit-content" },
-  getToggleButtonStyle: (isActive) => ({
-    padding: "6px 20px", borderRadius: "25px", border: "none", fontSize: "12px", fontWeight: "600", cursor: "pointer",
-    backgroundColor: isActive ? COLORS.primary : "transparent", color: isActive ? "#fff" : COLORS.textLight, outline: "none", transition: "0.3s"
-  }),
+# --- SCHEMA ESTATUS HISTORICO
+class EstatusHistoricoBase(BaseModel):
+    tipo_cambio: str
+    estatus: str
+    fecha_inicio: date
+    fecha_fin: Optional[date] = None
+    clues: Optional[str] = None
+    entidad: Optional[str] = None
+    nombre_unidad: Optional[str] = None
+    turno: Optional[str] = None
+    comentarios: Optional[str] = None
 
-  universeCard: {
-    backgroundColor: "#fff", border: `1px solid ${COLORS.secondary}`, borderLeft: `5px solid ${COLORS.secondary}`,
-    borderRadius: "6px", padding: "8px 20px", display: "flex", flexDirection: "column", alignItems: "flex-end",
-    minWidth: "140px", boxShadow: "0 2px 6px rgba(0,0,0,0.05)"
-  },
-  universeLabel: { fontSize: "11px", fontWeight: "600", color: "#888", textTransform: "uppercase", letterSpacing: "0.5px" },
-  universeValue: { fontSize: "24px", fontWeight: "800", color: COLORS.secondary, lineHeight: 1 },
+# --- SCHEMA ESTATUS HISTORICO MANUAL
+class EstatusHistoricoCreate(EstatusHistoricoBase):
+    pass
 
-  kpiWrapper: { textAlign: "center", marginBottom: "30px" },
-  kpiCard: { 
-    backgroundColor: COLORS.cardBg, borderRadius: "10px", padding: "15px 40px", textAlign: "center", 
-    boxShadow: "0 4px 10px rgba(0,0,0,0.05)", borderBottom: `4px solid ${COLORS.primary}`, display: "inline-block" 
-  },
-  kpiNumber: { fontSize: "42px", fontWeight: "800", color: COLORS.primary, lineHeight: 1, display: "block" },
-  kpiLabel: { fontSize: "12px", color: COLORS.textLight, textTransform: "uppercase", fontWeight: "600", marginTop: "5px", display: "block" },
-
-  mainGrid: { display: "grid", gridTemplateColumns: "1fr 1.8fr", gap: "25px", marginBottom: "40px", alignItems: "start", maxWidth: "1600px", margin: "0 auto 40px auto" },
-  leftColumn: { display: "flex", flexDirection: "column", gap: "25px" },
-  rightColumn: { display: "flex", flexDirection: "column" },
-
-  chartCard: { 
-    backgroundColor: COLORS.cardBg, borderRadius: "10px", padding: "15px", boxShadow: "0 2px 8px rgba(0,0,0,0.05)", border: "1px solid #eee",
-    display: "flex", flexDirection: "column" 
-  },
-  chartTitle: { fontSize: "15px", fontWeight: "600", color: COLORS.primary, marginBottom: "15px", textAlign: "center", borderBottom: "1px solid #f0f0f0", paddingBottom: "8px" },
-  
-  pieContainer: { height: 300, width: '100%' },
-  barContainer: { height: 720, width: '100%' },
-
-  sectionTitle: { 
-    textAlign: "left", // Alineado a la izquierda se ve más técnico
-    marginLeft: "20px",
-    marginTop: "40px", 
-    marginBottom: "15px", 
-    fontSize: "18px", 
-    color: "#333", 
-    fontWeight: "700",
-    borderLeft: `5px solid ${COLORS.secondary}`, // Detalle dorado institucional
-    paddingLeft: "15px"
-  },
-
-  // Contenedor de Filtros (Estilo Card Blanca Limpia)
-  statisticFiltersContainer: { 
-    display: "grid", 
-    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", // Grid responsivo automático
-    gap: "20px", 
-    marginBottom: "25px", 
-    padding: "25px", 
-    backgroundColor: "#fff", // Fondo blanco
-    borderRadius: "8px", 
-    boxShadow: "0 2px 8px rgba(0,0,0,0.05)", // Sombra suave
-    border: "1px solid #eee",
-    alignItems: "end"
-  },
-
-  filterGroup: { display: "flex", flexDirection: "column" },
-  
-  filterLabel: { 
-    fontSize: "0.85em", 
-    color: "#555", 
-    marginBottom: "6px", 
-    fontWeight: "600" 
-  },
-  
-  filterSelect: { 
-    padding: "10px 12px", 
-    fontSize: "0.9em", 
-    border: "1px solid #e0e0e0", 
-    borderRadius: "6px", 
-    backgroundColor: "#fcfcfc",
-    outline: "none",
-    transition: "border-color 0.2s",
-    width: "100%",
-    boxSizing: "border-box" // Asegura que no se salga del grid
-  },
-
-  // Contenedor de la Tabla (Estilo Card)
-  tableContainer: { 
-    width: "100%", 
-    margin: "0 auto", 
-    background: "#fff", 
-    borderRadius: "8px", 
-    boxShadow: "0 4px 12px rgba(0,0,0,0.08)", 
-    overflow: "hidden" // Para que los bordes redondeados corten la tabla
-  },
-  
-  dataTable: { 
-    width: "100%", 
-    borderCollapse: "collapse", 
-    fontSize: "0.9em",
-    fontFamily: "Segoe UI, sans-serif"
-  },
-  
-  // Encabezado de Tabla (Verde Institucional Solido)
-  dataTableTh: { 
-    backgroundColor: COLORS.primary, 
-    color: "white", 
-    padding: "15px", 
-    textAlign: "left", // Alineado izquierda es más legible
-    fontWeight: "600",
-    textTransform: "uppercase",
-    fontSize: "0.85em",
-    letterSpacing: "0.5px",
-    borderBottom: `3px solid ${COLORS.secondary}` // Línea dorada debajo del header
-  },
-  
-  // Celdas (Sin bordes verticales, solo líneas horizontales)
-  dataTableTd: { 
-    padding: "12px 15px", 
-    borderBottom: "1px solid #f0f0f0", // Solo borde inferior suave
-    color: "#333", 
-    textAlign: "left" 
-  },
-  
-  dataTableTrEven: { backgroundColor: "#fbfbfb" }, // Zebra muy sutil
-
-  // Botones
-  button: { 
-    padding: "10px 20px", 
-    fontSize: "0.9em", 
-    fontWeight: "600",
-    cursor: "pointer", 
-    backgroundColor: COLORS.primary, 
-    color: "white", 
-    border: "none", 
-    borderRadius: "6px", 
-    transition: "all 0.2s ease",
-    boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
-  },
-  
-  buttonDisabled: { backgroundColor: "#ccc", cursor: "not-allowed", boxShadow: "none" },
-  buttonSmall: { fontSize: "0.85em", padding: "8px 16px" },
-
-  // Paginación
-  paginationControls: { 
-    display: "flex", 
-    justifyContent: "space-between", // ESTO ES CLAVE: Separa los elementos a los extremos
-    alignItems: "center", 
-    marginTop: "0", // Quitamos margen top porque ya está dentro del contenedor
-    padding: "15px 20px", 
-    backgroundColor: "#f9f9f9", // Fondo gris muy suave para diferenciar del blanco de la tabla
-    borderTop: "1px solid #eee", // Línea separadora sutil
-    borderBottomLeftRadius: "8px", // Redondeamos las esquinas de abajo
-    borderBottomRightRadius: "8px"
-  }
-};
-
-function GraficasPage() {
-  const { token } = useAuth();
-  const navigate = useNavigate();
-
-  const [tipoPersonal, setTipoPersonal] = useState("medicos");
-  const [totalGeneral, setTotalGeneral] = useState(0); 
-  const [granTotalGlobal, setGranTotalGlobal] = useState(0); 
-
-  const [dataPorEstado, setDataPorEstado] = useState([]);
-  const [dataPorEstatus, setDataPorEstatus] = useState([]);
-  const [dataPorNivel, setDataPorNivel] = useState([]);
-  
-  const [dataEstadistica, setDataEstadistica] = useState([]);
-  const [filtroEntidad, setFiltroEntidad] = useState("");
-  const [filtroUnidad, setFiltroUnidad] = useState("");
-  const [filtroEspecialidad, setFiltroEspecialidad] = useState("");
-  const [filtroNivel, setFiltroNivel] = useState("");
-  const [filtroBusqueda, setFiltroBusqueda] = useState("");
-  const [filtroEstatus, setFiltroEstatus] = useState("");
-  const [debouncedBusqueda, setDebouncedBusqueda] = useState("");
-
-  const [opcionesEstatus, setOpcionesEstatus] = useState([]);
-  const [opcionesEntidad, setOpcionesEntidad] = useState([]);
-  const [opcionesUnidad, setOpcionesUnidad] = useState([]);
-  const [opcionesEspecialidad, setOpcionesEspecialidad] = useState([]);
-  const [opcionesNivel, setOpcionesNivel] = useState([]);
-
-  const [currentPageEstadistica, setCurrentPageEstadistica] = useState(0);
-  const [totalGroupsEstadistica, setTotalGroupsEstadistica] = useState(0);
-  const [totalDoctorsInGroups, setTotalDoctorsInGroups] = useState(0);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [doctoresEnModal, setDoctoresEnModal] = useState([]);
-  const [isLoadingModal, setIsLoadingModal] = useState(false);
-  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingFiltros, setIsLoadingFiltros] = useState(false);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    const timerId = setTimeout(() => { setDebouncedBusqueda(filtroBusqueda); }, 500);
-    return () => clearTimeout(timerId);
-  }, [filtroBusqueda]);
-
-  // --- CARGA DE GRAN TOTAL ---
-  useEffect(() => {
-    const fetchGranTotal = async () => {
-        if (!token) return;
-        try {
-            const headers = { Authorization: `Bearer ${token}` };
-            const [resMed, resAdm] = await Promise.all([
-                fetch(`${API_BASE_URL}/api/graficas/conteo_total?tipo=medicos`, { headers }),
-                fetch(`${API_BASE_URL}/api/graficas/conteo_total?tipo=administrativos`, { headers })
-            ]);
-            if(resMed.ok && resAdm.ok) {
-                const dataMed = await resMed.json();
-                const dataAdm = await resAdm.json();
-                setGranTotalGlobal((dataMed.total || 0) + (dataAdm.total || 0));
-            }
-        } catch (e) {
-            console.error(e);
-        }
-    };
-    fetchGranTotal();
-  }, [token]);
-
-  // --- CARGA DE DATOS PRINCIPALES ---
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      setError("");
-      try {
-        const headers = { Authorization: `Bearer ${token}` };
-        const query = `?tipo=${tipoPersonal}`;
-
-        // 1. CARGAMOS TODO (Médicos y Admins) para poder calcular totales reales
-        const urls = [
-          `${API_BASE_URL}/api/graficas/conteo_total${query}`,
-          `${API_BASE_URL}/api/graficas/doctores_por_estatus${query}`,
-          `${API_BASE_URL}/api/graficas/doctores_por_nivel_atencion${query}`,
-          // Traemos ambos estados para mezclarlos
-          `${API_BASE_URL}/api/graficas/doctores_por_estado?tipo=medicos`,
-          `${API_BASE_URL}/api/graficas/doctores_por_estado?tipo=administrativos`
-        ];
-
-        const responses = await Promise.all(urls.map(url => fetch(url, { headers })));
-        if (responses.some(r => !r.ok)) throw new Error("Error cargando datos.");
-
-        const [totalRes, estatusRes, nivelRes, estadoMedRes, estadoAdmRes] = await Promise.all(responses.map(r => r.json()));
-
-        // Procesamos datos
-        setTotalGeneral(totalRes.total);
-        setDataPorEstatus(estatusRes.map((item, idx) => ({
-          id: item.label,
-          label: item.label,
-          value: item.value,
-          color: INSTITUTIONAL_COLORS[idx % INSTITUTIONAL_COLORS.length]
-        })));
-        setDataPorNivel(nivelRes.map((item, idx) => ({
-          id: item.label,
-          label: item.label,
-          value: item.value,
-          color: INSTITUTIONAL_COLORS[idx % INSTITUTIONAL_COLORS.length]
-        })));
-
-        // --- FUSIÓN DE DATOS PARA BARRAS ---
-        // Creamos un mapa con todos los estados
-        const mapEstados = new Map();
-
-        // Agregamos Médicos
-        estadoMedRes.forEach(item => {
-            mapEstados.set(item.label, {
-                id: item.label,
-                label: item.label,
-                medCount: item.value,
-                admCount: 0,
-                minimo: item.minimo,
-                maximo: item.maximo
-            });
-        });
-
-        // Agregamos/Actualizamos Administrativos
-        estadoAdmRes.forEach(item => {
-            const existing = mapEstados.get(item.label);
-            if (existing) {
-                existing.admCount = item.value;
-            } else {
-                mapEstados.set(item.label, {
-                    id: item.label,
-                    label: item.label,
-                    medCount: 0,
-                    admCount: item.value,
-                    minimo: item.minimo,
-                    maximo: item.maximo
-                });
-            }
-        });
-
-        // Convertimos a array y calculamos valores finales según el switch
-        const combinedData = Array.from(mapEstados.values()).map(item => ({
-            ...item,
-            // El valor que pinta la barra depende del switch
-            value: tipoPersonal === 'medicos' ? item.medCount : item.admCount,
-            // El total real es siempre la suma
-            totalReal: item.medCount + item.admCount
-        }));
-
-        // Ordenamos por valor visualizado (mayor a menor)
-        combinedData.sort((a, b) => a.value - b.value); // Nivo dibuja de abajo hacia arriba en horizontal
-
-        setDataPorEstado(combinedData);
-
-      } catch (err) {
-        console.error(err);
-        setError("Error al cargar datos.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    if (token) fetchData();
-  }, [token, tipoPersonal]); // Se ejecuta al cambiar el switch
-
-  // Carga Filtros
-  useEffect(() => {
-    const fetchFilterOptions = async () => {
-      setIsLoadingFiltros(true);
-      const params = new URLSearchParams();
-      if (filtroEstatus) params.append("estatus", filtroEstatus);
-      if (filtroEntidad) params.append("entidad", filtroEntidad);
-      if (filtroUnidad) params.append("nombre_unidad", filtroUnidad);
-      if (filtroEspecialidad) params.append("especialidad", filtroEspecialidad);
-      if (filtroNivel) params.append("nivel_atencion", filtroNivel);
-      if (debouncedBusqueda) params.append("search", debouncedBusqueda);
-
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/opciones/filtros-dinamicos?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
-        if (!response.ok) throw new Error("Error filtros");
-        const data = await response.json();
-        setOpcionesEstatus(data.estatus);
-        setOpcionesEntidad(data.entidades);
-        setOpcionesUnidad(data.unidades);
-        setOpcionesEspecialidad(data.especialidades);
-        setOpcionesNivel(data.niveles_atencion);
-      } catch (error) { console.error(error); } 
-      finally { setIsLoadingFiltros(false); }
-    };
-    if (token) fetchFilterOptions();
-  }, [filtroEstatus, filtroEntidad, filtroUnidad, filtroEspecialidad, filtroNivel, debouncedBusqueda, token]);
-
-  // Carga Tabla
-  useEffect(() => {
-    const fetchEstadisticaData = async () => {
-      const skip = currentPageEstadistica * ITEMS_PER_PAGE_ESTADISTICA;
-      const params = new URLSearchParams({ skip, limit: ITEMS_PER_PAGE_ESTADISTICA });
-      if (filtroEntidad) params.append("entidad", filtroEntidad);
-      if (filtroUnidad) params.append("nombre_unidad", filtroUnidad);
-      if (filtroEspecialidad) params.append("especialidad", filtroEspecialidad);
-      if (filtroNivel) params.append("nivel_atencion", filtroNivel);
-      if (debouncedBusqueda) params.append("search", debouncedBusqueda);
-      if (filtroEstatus) params.append("estatus", filtroEstatus);
-
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/graficas/estadistica_doctores_agrupados?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
-        if (!response.ok) throw new Error("Error estadistica");
-        const data = await response.json();
-        setDataEstadistica(data.items || []);
-        setTotalGroupsEstadistica(data.total_groups || 0);
-        setTotalDoctorsInGroups(data.total_doctors_in_groups || 0);
-      } catch (err) { console.error(err); }
-    };
-    if (token) fetchEstadisticaData();
-  }, [currentPageEstadistica, filtroEntidad, filtroUnidad, filtroEspecialidad, filtroNivel, debouncedBusqueda, filtroEstatus, token]);
-
-  const handleEntidadChange = (e) => { setFiltroEntidad(e.target.value); setCurrentPageEstadistica(0); };
-  const handleUnidadChange = (e) => { setFiltroUnidad(e.target.value); setCurrentPageEstadistica(0); };
-  const handleEspecialidadChange = (e) => { setFiltroEspecialidad(e.target.value); setCurrentPageEstadistica(0); };
-  const handleNivelChange = (e) => { setFiltroNivel(e.target.value); setCurrentPageEstadistica(0); };
-  const handleEstatusChange = (e) => { setFiltroEstatus(e.target.value); setCurrentPageEstadistica(0); };
-  
-  const handleClearStatisticFilters = () => {
-    setFiltroEntidad(""); setFiltroUnidad(""); setFiltroEspecialidad("");
-    setFiltroNivel(""); setFiltroEstatus(""); setFiltroBusqueda("");
-    setDebouncedBusqueda(""); setCurrentPageEstadistica(0);
-  };
-
-  const handleVisualizarClick = async () => {
-    setIsLoadingModal(true); setIsModalOpen(true);
-    const params = new URLSearchParams();
-    if (filtroEntidad) params.append("entidad", filtroEntidad);
-    if (filtroUnidad) params.append("nombre_unidad", filtroUnidad);
-    if (filtroEspecialidad) params.append("especialidad", filtroEspecialidad);
-    if (filtroNivel) params.append("nivel_atencion", filtroNivel);
-    if (debouncedBusqueda) params.append("search", debouncedBusqueda);
-    if (filtroEstatus) params.append("estatus", filtroEstatus);
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/doctores/detalles_filtrados?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
-      if (!response.ok) throw new Error("Error detalles");
-      const data = await response.json();
-      setDoctoresEnModal(data);
-    } catch (error) { console.error(error); } finally { setIsLoadingModal(false); }
-  };
-
-  const handleViewProfile = (doctor) => { setIsModalOpen(false); navigate(`/?profile=${doctor.id_imss}`); };
-  const handleOpenReportModal = () => { setIsReportModalOpen(true); };
-  const handleConfirmDownload = async (selectedColumns) => {
-    setIsReportModalOpen(false);
-    const body = { entidad: filtroEntidad || null, especialidad: filtroEspecialidad || null, nivel_atencion: filtroNivel || null, nombre_unidad: filtroUnidad || null, estatus: filtroEstatus || null, search: debouncedBusqueda || null, columnas: selectedColumns };
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/reporte/dinamico/xlsx`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(body) });
-      if (!response.ok) throw new Error("Error descarga");
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a"); a.href = url; a.download = "reporte_filtrado.xlsx";
-      document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url);
-    } catch (error) { alert(`Error: ${error.message}`); }
-  };
-
-  const totalPagesEstadistica = Math.ceil(totalGroupsEstadistica / ITEMS_PER_PAGE_ESTADISTICA);
-  const handlePreviousPageEstadistica = () => setCurrentPageEstadistica((p) => Math.max(0, p - 1));
-  const handleNextPageEstadistica = () => setCurrentPageEstadistica((p) => Math.min(totalPagesEstadistica - 1, p + 1));
-
-  const barLayers = useMemo(() => [
-    "grid", "axes", "bars", "markers", "legends",
-    (props) => <CupoMaximoLayer {...props} fullData={dataPorEstado} />
-  ], [dataPorEstado]);
-
-  return (
-    <div style={styles.pageContainer}>
-      
-      {/* HEADER GRID: 3 COLUMNAS */}
-      <div style={styles.headerRow}>
-        <div></div> {/* Espacio vacío izquierda */}
-
-        {/* CENTRO: Título + Toggle */}
-        <div style={styles.headerCenter}>
-            <h1 style={styles.title}>Tablero de Control</h1>
-            <div style={styles.toggleContainer}>
-                <button style={styles.getToggleButtonStyle(tipoPersonal === "medicos")} onClick={() => setTipoPersonal("medicos")}>PERSONAL MÉDICO</button>
-                <button style={styles.getToggleButtonStyle(tipoPersonal === "administrativos")} onClick={() => setTipoPersonal("administrativos")}>ADMINISTRATIVOS</button>
-            </div>
-        </div>
+# --- SCHEMA ESTATUS HISTORICO AUTOMATICO
+class EstatusHistoricoItem(EstatusHistoricoBase):
+    id: int
+    nombre_unidad: Optional[str] = None
+    clues: Optional[str] = None
+    fecha_registro: datetime
+    username: Optional[str] = None
+    class Config:
+        from_attributes = True
         
-        {/* DERECHA: Universo Total */}
-        <div style={styles.headerRight}>
-            <div style={styles.universeCard}>
-                <span style={styles.universeLabel}>Universo Total</span>
-                <span style={styles.universeValue}>{granTotalGlobal.toLocaleString()}</span>
-            </div>
-        </div>
-      </div>
+# --- SCHEMA DETALLES REGISTRO
+class DoctorDetail(Doctor): 
+    attachments: List[DoctorAttachment] = []
+    historial: List[EstatusHistoricoItem] = []
+    class Config:
+        from_attributes = True
 
-      {error && <div style={{textAlign: 'center', color: 'red', marginBottom: 20}}>{error}</div>}
+# --- SCHEMA AUTENTICACION
+class UserBase(BaseModel): 
+    username: str = Field(..., min_length=3)
+    role: str = Field(default="user", pattern=r'^(admin|user|consulta)$') 
 
-      <div style={styles.kpiWrapper}>
-        <div style={styles.kpiCard}>
-          <span style={styles.kpiNumber}>{isLoading ? "..." : totalGeneral.toLocaleString()}</span>
-          <span style={styles.kpiLabel}>Total de {tipoPersonal === "medicos" ? "Médicos" : "Administrativos"}</span>
-        </div>
-      </div>
+# --- SCHEMA USUARIOS BD
+class User(UserBase): 
+    id: int
+    class Config:
+        from_attributes = True
 
-      {isLoading ? (
-        <div style={styles.loadingContainer}><p>Cargando datos...</p></div>
-      ) : (
-        <div style={styles.mainGrid}>
-          
-          <div style={styles.leftColumn}>
-            
-            {/* ESTATUS */}
-            <div style={styles.chartCard}>
-              <h3 style={styles.chartTitle}>Distribución por Estatus</h3>
-              <div style={styles.pieContainer}> 
-                <ResponsivePie
-                  data={dataPorEstatus}
-                  margin={PIE_MARGIN}
-                  innerRadius={0.6}
-                  padAngle={0.7}
-                  cornerRadius={3}
-                  colors={({ data }) => data.color}
-                  activeOuterRadiusOffset={8}
-                  borderWidth={1}
-                  borderColor={PIE_BORDER_COLOR}
-                  enableArcLinkLabels={true}
-                  arcLinkLabelsSkipAngle={10}
-                  arcLinkLabelsTextColor="#333"
-                  arcLinkLabelsThickness={2}
-                  arcLinkLabelsColor={PIE_ARC_LINK_COLOR}
-                  arcLabelsSkipAngle={10}
-                  arcLabelsTextColor="#fff"
-                  theme={CHART_THEME}
-                  tooltip={PieTooltip}
-                  animate={true}
-                  motionConfig="stiff"
-                  layers={['arcs', 'arcLabels', 'arcLinkLabels', 'legends', CenteredMetric]}
-                />
-              </div>
-            </div>
+# --- SCHEMA CREAR USUARIOS
+class UserCreateAdmin(BaseModel): 
+    username: str = Field(..., min_length=3)
+    role: str = Field(default="user", pattern=r'^(admin|user|consulta)$')
 
-            {/* NIVEL ATENCIÓN */}
-            <div style={styles.chartCard}>
-              <h3 style={styles.chartTitle}>Nivel de Atención (ACTIVOS) </h3>
-              <div style={styles.pieContainer}>
-                {dataPorNivel.length > 0 ? (
-                  <ResponsivePie
-                      data={dataPorNivel}
-                      margin={PIE_MARGIN}
-                      innerRadius={0.6}
-                      padAngle={0.7}
-                      cornerRadius={3}
-                      colors={({ data }) => data.color}
-                      activeOuterRadiusOffset={8}
-                      borderWidth={1}
-                      borderColor={PIE_BORDER_COLOR}
-                      enableArcLinkLabels={true}
-                      arcLinkLabelsSkipAngle={10}
-                      arcLinkLabelsTextColor="#333"
-                      arcLabelsSkipAngle={10}
-                      arcLabelsTextColor="#fff"
-                      theme={CHART_THEME}
-                      tooltip={PieTooltip}
-                      animate={true}
-                      motionConfig="stiff"
-                      layers={['arcs', 'arcLabels', 'arcLinkLabels', 'legends', CenteredMetric]}
-                  />
-                ) : (
-                  <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#999', fontSize: '0.9em'}}>
-                      No aplica nivel de atención
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+# --- SCHEMA VISUALIZAR 
+class UserAdminView(UserBase): 
+    id: int
+    username: str
+    role: str
+    must_change_password: bool 
 
-          <div style={styles.rightColumn}>
-            <div style={styles.chartCard}>
-              <h3 style={styles.chartTitle}>Distribución por Entidad Federativa (ACTIVOS)</h3>
-              <div style={styles.barContainer}>
-                <ResponsiveBar
-                  data={dataPorEstado}
-                  keys={BAR_KEYS} 
-                  indexBy="id"
-                  layout="horizontal"
-                  margin={BAR_MARGIN}
-                  padding={0.25}
-                  valueScale={BAR_VALUE_SCALE}
-                  indexScale={BAR_INDEX_SCALE}
-                  colors={getBarColorWrapper}
-                  borderColor={BAR_BORDER_COLOR}
-                  axisBottom={BAR_AXIS_BOTTOM}
-                  axisLeft={BAR_AXIS_LEFT}
-                  labelSkipWidth={12}
-                  labelTextColor={BAR_LABEL_TEXT_COLOR}
-                  layers={barLayers}
-                  tooltip={BarTooltip}
-                  theme={CHART_THEME}
-                  animate={true}
-                  motionConfig="stiff"
-                />
-              </div>
-            </div>
-          </div>
+    class Config:
+        from_attributes = True
 
-        </div>
-      )}
+# --- SCHEMA TOKEN AUTENTICACION
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+# --- SCHEMA TOKEN
+class TokenData(BaseModel):
+    username: Optional[str] = None
+
+# --- SCHEMA ACTUALIZAR CONTRASEÑA
+class UserResetPasswordPayload(BaseModel):
+    new_password: str = Field(..., min_length=8)
+
+# --- SCHEMA PAGINACION
+class DoctoresPaginados(BaseModel):
+    total_count: int
+    doctores: List[Doctor]
+
+# --- SCHEMA GRAFICAS
+class DataGraficaItem(BaseModel):
+
+    label: str
+    value: Union[int, float]
+
+# --- SCHEMA GRAFICAS DESGLOSE (MÉDICOS VS ADMIN)
+class DesglosePersonalResponse(BaseModel):
+    total_general: int
+    medicos: List[DataGraficaItem]
+    administrativos: List[DataGraficaItem]
+
+# --- SCHEMA PARA AUDITLOG ---
+class AuditLogBase(BaseModel):
+    timestamp: datetime
+    username: Optional[str] = None
+    action_type: str
+    target_entity: Optional[str] = None
+    target_id_str: Optional[str] = None
+    details: Optional[str] = None
+
+# --- SCHEMA PARA AUDITLOG VER
+class AuditLogView(AuditLogBase):
+    id: int
+    class Config:
+        from_attributes = True
+
+class AuditLogsPaginados(BaseModel):
+    total_count: int
+    audit_logs: List[AuditLogView]
+
+class AuditLogBulkDeleteRequest(BaseModel): 
+    ids: List[int]
+    pin: str 
+
+class CurpCheckResponse(BaseModel): 
+    exists: bool
+    message: Optional[str] = None
+
+# --- SCHEMA ESTADISTICA
+class EstadisticaAgrupadaItem(BaseModel):
+    entidad: Optional[str] = "N/A"
+    nombre_unidad: str
+    clues: str 
+    especialidad: Optional[str] = "N/A"
+    nivel_atencion: Optional[str] = "N/A"
+    cantidad: int
+
+    class Config:
+        from_attributes = True 
 
 
-      {/* SECCIÓN TABLA Y FILTROS */}
-      <h2 style={styles.sectionTitle}>Estadística Detallada</h2>
-      <div style={styles.statisticFiltersContainer}>
-        {/* FILTROS (Mismo código) */}
-        <div style={styles.filterGroup}>
-          <label htmlFor="filtroBusqueda" style={styles.filterLabel}>Buscar (CLUES):</label>
-          <input id="filtroBusqueda" type="search" value={filtroBusqueda} onChange={(e) => setFiltroBusqueda(e.target.value)} style={styles.filterSelect} placeholder="Buscar..." />
-        </div>
-        <div style={styles.filterGroup}>
-          <label htmlFor="filtroEntidad" style={styles.filterLabel}>Entidad:</label>
-          <select id="filtroEntidad" value={filtroEntidad} onChange={handleEntidadChange} style={styles.filterSelect} disabled={isLoadingFiltros}>
-            <option value="">Todas</option>
-            {opcionesEntidad.map((entidad) => (<option key={entidad} value={entidad}>{entidad}</option>))}
-          </select>
-        </div>
-        <div style={styles.filterGroup}>
-          <label htmlFor="filtroUnidad" style={styles.filterLabel}>Unidad:</label>
-          <select id="filtroUnidad" value={filtroUnidad} onChange={handleUnidadChange} style={styles.filterSelect} disabled={isLoadingFiltros}>
-            <option value="">Todas</option>
-            {opcionesUnidad.map((unidad) => (<option key={unidad} value={unidad}>{unidad}</option>))}
-          </select>
-        </div>
-        <div style={styles.filterGroup}>
-          <label htmlFor="filtroEspecialidad" style={styles.filterLabel}>Especialidad:</label>
-          <select id="filtroEspecialidad" value={filtroEspecialidad} onChange={handleEspecialidadChange} style={styles.filterSelect} disabled={isLoadingFiltros}>
-            <option value="">Todas</option>
-            {opcionesEspecialidad.map((esp) => (<option key={esp} value={esp}>{esp}</option>))}
-          </select>
-        </div>
-        <div style={styles.filterGroup}>
-          <label htmlFor="filtroNivel" style={styles.filterLabel}>Nivel:</label>
-          <select id="filtroNivel" value={filtroNivel} onChange={handleNivelChange} style={styles.filterSelect} disabled={isLoadingFiltros}>
-             <option value="">Todos</option>
-             {opcionesNivel.map((nivel) => (<option key={nivel} value={nivel}>{nivel}</option>))}
-          </select>
-        </div>
-        <div style={styles.filterGroup}>
-          <label htmlFor="filtroEstatus" style={styles.filterLabel}>Estatus:</label>
-          <select id="filtroEstatus" value={filtroEstatus} onChange={handleEstatusChange} style={styles.filterSelect} disabled={isLoadingFiltros}>
-            <option value="">Todos</option>
-            {opcionesEstatus.map((estatus) => (<option key={estatus} value={estatus}>{estatus}</option>))}
-          </select>
-        </div>
+class EstadisticaPaginada(BaseModel):
+    total_groups: int # Para la paginación de la tabla de grupos
+    total_doctors_in_groups: int # Suma de 'cantidad' de todos los grupos filtrado
+    items: List[EstadisticaAgrupadaItem]
+    
+    class Config: # Añadir Config si no la tiene, aunque para este schema simple puede no ser estrictamente necesaria
+        from_attributes = True
 
-        {(filtroBusqueda || filtroEntidad || filtroUnidad || filtroEspecialidad || filtroNivel || filtroEstatus) && (
-          <div style={{ ...styles.filterGroup, justifyContent: "flex-end" }}>
-            <button onClick={handleClearStatisticFilters} style={{ ...styles.button, ...styles.buttonDisabled, backgroundColor: "#6c757d", cursor: "pointer" }}>Limpiar</button>
-          </div>
-        )}
-        <div style={{ ...styles.filterGroup, justifyContent: "flex-end" }}>
-          <button onClick={handleVisualizarClick} style={{ ...styles.button, backgroundColor: "#006657" }}>Visualizar</button>
-        </div>
-        <div style={{ ...styles.filterGroup, justifyContent: "flex-end" }}>
-          <button onClick={handleOpenReportModal} style={{ ...styles.button, backgroundColor: "#006657" }}>Reporte</button>
-        </div>
-      </div>
+# --- SCHEMA ESPECIALIDAD
+class EspecialidadItem(BaseModel):
+    nombre: str
+    total_doctores: int
 
-      <div style={styles.tableContainer}>
-        <table style={styles.dataTable}>
-          <thead>
-            <tr>
-              <th style={styles.dataTableTh}>Entidad</th>
-              <th style={styles.dataTableTh}>CLUES</th>
-              <th style={styles.dataTableTh}>Unidad</th>
-              <th style={styles.dataTableTh}>Especialidad</th>
-              <th style={styles.dataTableTh}>Nivel</th>
-              <th style={{ ...styles.dataTableTh, textAlign: "center" }}>Cant.</th>
-            </tr>
-          </thead>
-          <tbody>
-            {dataEstadistica.map((item, index) => (
-              <tr 
-                key={`${item.entidad}-${item.unidad}-${item.especialidad}-${item.nivel_atencion}-${index}`} 
-                style={{
-                    ...(index % 2 === 0 ? {} : styles.dataTableTrEven),
-                    transition: 'background-color 0.2s'
-                }}
-                // Agregamos un efecto hover simple en línea
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f0fdfa'} // Un verde muy muy claro al pasar mouse
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = index % 2 === 0 ? 'transparent' : '#fbfbfb'}
-              >
-                {/* Nota: Alinea el texto a la izquierda en los styles.dataTableTd para que se vea profesional */}
-                <td style={styles.dataTableTd}>{item.entidad}</td>
-                <td style={{...styles.dataTableTd, fontWeight: 'bold', fontSize: '0.85em'}}>{item.clues}</td>
-                <td style={styles.dataTableTd}>{item.nombre_unidad}</td>
-                <td style={styles.dataTableTd}>{item.especialidad}</td>
-                <td style={styles.dataTableTd}>{item.nivel_atencion}</td>
-                <td style={{ ...styles.dataTableTd, textAlign: "center", fontWeight: "bold", color: COLORS.primary }}>
-                    {item.cantidad}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div style={styles.paginationControls}>
-            
-            {/* IZQUIERDA: Contador de Resultados */}
-           <div style={{ fontSize: '0.85em', color: '#666' }}>
-    Filas: <strong style={{ color: COLORS.primary }}>{totalGroupsEstadistica}</strong> 
-    | Total Personal: <strong style={{ color: COLORS.secondary, fontSize: '1.1em' }}>{totalDoctorsInGroups}</strong>
-</div>
+    class Config:
+        from_attributes = True
 
-            {/* DERECHA: Botones de Paginación */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <button 
-                    onClick={handlePreviousPageEstadistica} 
-                    disabled={currentPageEstadistica === 0 || isLoading} 
-                    style={{ ...styles.button, ...(currentPageEstadistica === 0 ? styles.buttonDisabled : {}) }}
-                >
-                    Anterior
-                </button>
-                
-                <span style={{ fontSize: '0.85em', fontWeight: '600', color: '#333' }}>
-                    Pág {totalPagesEstadistica === 0 ? 0 : currentPageEstadistica + 1} de {totalPagesEstadistica}
-                </span>
-                
-                <button 
-                    onClick={handleNextPageEstadistica} 
-                    disabled={currentPageEstadistica >= totalPagesEstadistica - 1 || isLoading} 
-                    style={{ ...styles.button, ...(currentPageEstadistica >= totalPagesEstadistica - 1 ? styles.buttonDisabled : {}) }}
-                >
-                    Siguiente
-                </button>
-            </div>
-        </div>
-      </div>
+class EspecialidadAgrupada(BaseModel):
+    tipo: str  # BASICAS, QUIRURGICAS, MEDICAS
+    especialidades: List[EspecialidadItem]
+    total: int
 
-      <DoctoresModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} doctores={doctoresEnModal} isLoading={isLoadingModal} onViewProfile={handleViewProfile} />
-      <ColumnSelectorModal isOpen={isReportModalOpen} onClose={() => setIsReportModalOpen(false)} onConfirmDownload={handleConfirmDownload} />
-    </div>
-  );
-}
+    class Config:
+        from_attributes = True
 
-export default GraficasPage;
+class NivelAtencionItem(BaseModel):
+    nivel_atencion: str
+    total_doctores: int
+
+    class Config:
+        from_attributes = True
+
+class CedulasCount(BaseModel):
+    con_licenciatura: int
+    sin_licenciatura: int
+    con_especialidad: int
+    sin_especialidad: int
+    total_doctores: int
+
+    class Config:
+        from_attributes = True   
+
+class DoctorPermanentDeleteRequest(BaseModel):
+     ids: List[str]
+     pin: str
+     
+class UserChangePassword(BaseModel):
+    new_password: str
+
+class DoctorDetalleItem(BaseModel):
+    id_imss: str 
+    nombre_completo: str
+    nombre_unidad: str
+    especialidad: Optional[str] = "N/A"
+    nivel_atencion: Optional[str] = "N/A"
+    clues: str
+    entidad: str
+    estatus: Optional[str] = "N/A"
+
+    class Config:
+        from_attributes = True
+
+class CluesData(BaseModel):
+    clues: str
+    nombre_unidad: Optional[str] = None
+    nivel_atencion: Optional[str] = None
+    estrato: Optional[str] = None
+    tipo_establecimiento: Optional[str] = None
+    subtipo_establecimiento: Optional[str] = None
+    entidad: Optional[str] = None
+    municipio: Optional[str] = None
+    codigo_postal: Optional[str] = None
+    direccion_unidad: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+#ACTUALIZAR EN GITHUB
+class ReporteDinamicoRequest(BaseModel):
+    entidad: Optional[str] = None
+    especialidad: Optional[str] = None
+    nivel_atencion: Optional[str] = None
+    nombre_unidad: Optional[str] = None
+    search: Optional[str] = None
+    estatus: Optional[str] = None
+    
+    columnas: List[str]
+
+class OpcionesFiltro(BaseModel):
+    entidades: List[str] 
+    unidades: List[str]
+    especialidades: List[str]
+    niveles_atencion: List[str]
+    estatus: List[str]
+
+class EntidadCapacidad(BaseModel):
+    entidad: str
+    label: str # El nombre completo, ej. "Baja California"
+    minimo: int
+    maximo: int
+    actual: int
+
+class CluesConCapacidad(BaseModel):
+    # Datos de la unidad
+    clues: str
+    nombre_unidad: Optional[str] = None
+    entidad: Optional[str] = None
+    municipio: Optional[str] = None
+    direccion_unidad: Optional[str] = None
+    nivel_atencion: Optional[str] = None
+    tipo_establecimiento: Optional[str] = None
+    subtipo_establecimiento: Optional[str] = None
+    estrato: Optional[str] = None
+    
+    # Datos del cupo de la entidad
+    minimo: int
+    maximo: int
+    actual: int
+
+    class Config:
+        from_attributes = True
+
+class AlertaVencimiento(BaseModel):
+    id_imss: str
+    nombre_completo: str
+    estatus: str
+    entidad: str
+    fecha_fin: date
+
+    class Config:
+        from_attributes = True
+
+class DataGraficaConCupos(BaseModel):
+    label: str
+    value: int  # Conteo actual de médicos
+    minimo: int
+    maximo: int
+
+class SignedUrlResponse(BaseModel):
+    signed_url: str
