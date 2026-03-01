@@ -356,6 +356,7 @@ class CluesData(BaseModel):
 
 #ACTUALIZAR EN GITHUB
 class ReporteDinamicoRequest(BaseModel):
+    tipo: Optional[str] = "medicos"
     entidad: Optional[str] = None
     especialidad: Optional[str] = None
     nivel_atencion: Optional[str] = None
