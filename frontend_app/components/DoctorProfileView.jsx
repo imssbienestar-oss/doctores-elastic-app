@@ -1565,13 +1565,12 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
               />
             </div>
             <div>
-              <FieldRenderer
+             <FieldRenderer
                 label="Edad"
                 fieldName="edad"
+                type="number"
                 isEditing={isEditing}
-                currentValue={
-                  doctor.edad ? `${parseInt(doctor.edad)} años` : ""
-                }
+                currentValue={isEditing ? editableDoctorData.edad : (doctor.edad ? `${parseInt(doctor.edad)} años` : "")}
                 onChange={handleInputChange}
                 isLoading={isLoading}
               />
@@ -1708,6 +1707,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                 label="Fecha de llegada"
                 fieldName="fecha_vuelo"
                 type="date"
+                isEditing={isEditing}
                 currentValue={editableDoctorData.fecha_vuelo}
                 onChange={handleInputChange}
                 isLoading={isLoading}
