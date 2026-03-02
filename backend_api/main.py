@@ -399,13 +399,15 @@ async def leer_doctores(
     limit: int = Query(30, ge=1, le=200),
     search: Optional[str] = Query(None, min_length=1, max_length=100),
     estatus: Optional[str] = Query("01 ACTIVO", min_length=1, max_length=50),
+    coordinacion: Optional[str] = Query("todos", description="0 para médicos, 1 para admin, o 'todos'"),
     db: Session = Depends(get_db_session),
    ):
     # FILTROS (ELIMINADOS Y COORDINACION O)
-    query = db.query(models.Doctor)\
-              .filter(models.Doctor.is_deleted == False)\
-              .filter(models.Doctor.coordinacion == '0')
+    query = db.query(models.Doctor).filter(models.Doctor.is_deleted == False)
 
+    if coordinacion != "todos":
+        query = query.filter(models.Doctor.coordinacion == coordinacion)
+        
     # --- BARRA DE BUSQUEDA ---
     if search and search.strip():
         search_words = search.strip().split()
