@@ -1690,7 +1690,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
           >
             <div>
               <FieldRenderer
-                label="Coordinación"
+                label="Perfil"
                 fieldName="coordinacion"
                 type="select"
                 options={[
