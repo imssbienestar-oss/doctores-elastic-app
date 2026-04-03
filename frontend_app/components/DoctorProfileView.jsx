@@ -968,6 +968,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
         fecha_fin: "",
         motivo: "",
         tipo_incapacidad: "",
+        coordinacion: "",
       };
       setEditableDoctorData({
         ...defaultFormValuesForAllFields,
@@ -1688,6 +1689,28 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
             }}
           >
             <div>
+              <FieldRenderer
+                label="Coordinación"
+                fieldName="coordinacion"
+                type="select"
+                options={[
+                  { value: "0", label: "Atención Médica" },
+                  { value: "1", label: "Administrativo" },
+                ]}
+                isEditing={isEditing}
+                currentValue={
+                  isEditing
+                    ? editableDoctorData.coordinacion
+                    : doctor.coordinacion === "1"
+                      ? "Administrativo"
+                      : doctor.coordinacion === "0"
+                        ? "Atención Médica"
+                        : "No especificado"
+                }
+                onChange={handleInputChange}
+                isLoading={isLoading}
+              />
+
               <FieldRenderer
                 label="Acuerdo"
                 fieldName="acuerdo"
