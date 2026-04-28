@@ -91,6 +91,7 @@ app = FastAPI(title="API de Doctores IMSS Bienestar")
 
 Generic_pass = os.getenv("GENERIC_PASSWORD")
 
+
 # --- LOG ACTION (AUDITORIA) ---
 def log_action(db: Session, user: models.User, action_type: str, target_entity: str = None, target_id_str: str = None, details: str = None):
     log_entry = models.AuditLog(
@@ -158,6 +159,9 @@ async def get_dashboard_unificado(
     db: Session = Depends(get_db_session)):
 
     filtro_coord = '1' if tipo == "administrativos" else '0'
+    condicion_sql = "coordinacion = '1'" if tipo == "administrativos" else "coordinacion != '1'"
+
+    # 1. Conteo Total
     total_q = db.query(func.count(models.Doctor.id_imss)).filter(
         models.Doctor.is_deleted == False,
         models.Doctor.coordinacion == filtro_coord
@@ -167,24 +171,21 @@ async def get_dashboard_unificado(
         models.Doctor.is_deleted == False
     ).scalar()
 
-    """
-    TRAE TODO DE UN SOLO GOLPE:
-    Reduce 5 peticiones a 1, bajando la latencia drásticamente.
-    """
-    # 1. Conteo Total
-    filtro_coord = '1' if tipo == "administrativos" else '0'
-    total_q = db.query(func.count(models.Doctor.id_imss)).filter(
-        models.Doctor.is_deleted == False,
-        models.Doctor.coordinacion == filtro_coord
-    ).scalar()
-
     # 2. Por Estatus
-    estatus_map = {'01': '01 ACTIVO', '02': '02 RETIRO TEMP. (CUBA)', '03': '03 RETIRO TEMP. (MEXICO)', '04': '04 SOL. PERSONAL', '05': '05 INCAPACIDAD', '06': '06 BAJA'}
-    condicion_sql = "coordinacion = '1'" if tipo == "administrativos" else "coordinacion != '1'"
+    estatus_map = {
+        '01': '01 ACTIVO', '02': '02 RETIRO TEMP. (CUBA)',
+        '03': '03 RETIRO TEMP. (MEXICO)', '04': '04 SOL. PERSONAL',
+        '05': '05 INCAPACIDAD', '06': '06 BAJA'
+    }
     query_estatus = text(f"""
-        SELECT SUBSTRING(estatus FROM 1 FOR 2) as code, COUNT(*) as value 
-        FROM doctores WHERE estatus IS NOT NULL AND {condicion_sql} AND is_deleted = false
-        GROUP BY code ORDER BY value DESC
+        SELECT SUBSTRING(TRIM(UPPER(estatus)) FROM 1 FOR 2) as code, COUNT(*) as value 
+        FROM doctores 
+        WHERE estatus IS NOT NULL 
+          AND TRIM(estatus) != '' 
+          AND {condicion_sql} 
+          AND is_deleted = false
+        GROUP BY code 
+        ORDER BY value DESC
     """)
     res_estatus = db.execute(query_estatus).all()
     data_estatus = [{"id": estatus_map.get(r.code, r.code), "label": estatus_map.get(r.code, r.code), "value": r.value} for r in res_estatus]
@@ -213,15 +214,66 @@ async def get_dashboard_unificado(
         models.EntidadCupos.entidad, models.EntidadCupos.minimo, models.EntidadCupos.maximo,
         func.coalesce(conteo_estados_sub.c.conteo, 0).label("value")
     ).outerjoin(conteo_estados_sub, models.EntidadCupos.entidad == conteo_estados_sub.c.entidad).all()
-    
+
     data_estados = [{"label": r.entidad, "value": r.value, "minimo": r.minimo, "maximo": r.maximo} for r in res_estados]
+
+    # ── NUEVO 1: Cédulas de Licenciatura (sin bajas) ──
+    cedulas_licenciatura = db.query(func.count(models.Doctor.id_imss)).filter(
+        models.Doctor.is_deleted == False,
+        models.Doctor.coordinacion == filtro_coord,
+        models.Doctor.estatus != '06 BAJA',
+        models.Doctor.cedula_lic.isnot(None),
+        models.Doctor.cedula_lic != '',
+        models.Doctor.cedula_lic.not_ilike('%NULL%'),
+        models.Doctor.cedula_lic.not_ilike('%BAJA%'),
+        models.Doctor.cedula_lic.not_ilike('%TRAMITE%')
+    ).scalar()
+
+    # ── NUEVO 2: Cédulas de Especialidad (sin bajas) ──
+    cedulas_especialidad = db.query(func.count(models.Doctor.id_imss)).filter(
+        models.Doctor.is_deleted == False,
+        models.Doctor.coordinacion == filtro_coord,
+        models.Doctor.estatus != '06 BAJA',
+        models.Doctor.cedula_esp.isnot(None),
+        models.Doctor.cedula_esp != '',
+        models.Doctor.cedula_esp.not_ilike('%NULL%'),
+        models.Doctor.cedula_esp.not_ilike('%BAJA%'),
+        models.Doctor.cedula_esp.not_ilike('%TRAMITE%')
+    ).scalar()
+
+    # ── NUEVO 3: Total Mujeres y Hombres (sin bajas) ──
+    # y los valores que usa tu BD: 'M'/'H', 'F'/'M', 'FEMENINO'/'MASCULINO', etc.
+    query_genero = text(f"""
+        SELECT sexo, COUNT(*) as total
+        FROM doctores
+        WHERE is_deleted = false
+          AND {condicion_sql}
+          AND estatus != '06 BAJA'
+          AND sexo IS NOT NULL
+        GROUP BY sexo
+    """)
+    res_genero = db.execute(query_genero).all()
+
+    total_mujeres = 0
+    total_hombres = 0
+    for r in res_genero:
+        valor = (r.sexo or '').strip().upper()
+        # Cubre variantes comunes — ajusta si tu BD usa otro valor
+        if valor in ('M', 'MUJER', 'FEMENINO', 'F'):
+            total_mujeres = r.total
+        elif valor in ('H', 'HOMBRE', 'MASCULINO', 'M'):
+            total_hombres = r.total
 
     return {
         "total_general": total_q,
         "universo_total": universo_total,
         "data_estatus": data_estatus,
         "data_nivel": data_nivel,
-        "data_estados": data_estados
+        "data_estados": data_estados,
+        "cedulas_licenciatura": cedulas_licenciatura,
+        "cedulas_especialidad": cedulas_especialidad,
+        "total_mujeres": total_mujeres,
+        "total_hombres": total_hombres,
     }
 
 # --- TABLA DE ESTADISTICAS (VERSIÓN ESTABLE) ---
@@ -925,12 +977,6 @@ async def actualizar_doctor_perfil_completo(
         campos_a_limpiar_si_activo = ["notificacion_baja", "fecha_extraccion", "fecha_notificacion"] 
         for campo in campos_a_limpiar_si_activo:
             if hasattr(db_doctor, campo) and getattr(db_doctor, campo) is not None: 
-                setattr(db_doctor, campo, None)
-
-    elif estatus_final_en_db_obj in ["Baja", "Baja Definitiva", "Defunción"]: 
-        campos_a_limpiar_si_baja = ["nivel_atencion", "turno", "nombre_unidad"]
-        for campo in campos_a_limpiar_si_baja:
-            if hasattr(db_doctor, campo) and getattr(db_doctor, campo) is not None:
                 setattr(db_doctor, campo, None)
     
     ESTATUS_REQUIEREN_FECHA_FIN = [
@@ -1716,7 +1762,6 @@ async def leer_acciones_unicas_auditoria(
 # --- ENDPOINT (CATALOGO CLUES) ---
 @app.get("/api/clues/{clues_code}", response_model=schemas.CluesData, tags=["Catálogos"])
 async def get_clues_data(clues_code: str, db: Session = Depends(get_db_session)):
-
     clues_info = db.query(models.CatalogoClues).filter(models.CatalogoClues.clues == clues_code).first()
     
     if not clues_info:
@@ -2023,3 +2068,50 @@ async def get_signed_url_for_attachment(
         print(f"ERROR: No se pudo generar la URL firmada para {object_path}: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
                             detail=f"No se pudo generar la URL firmada: {str(e)}")
+
+# Histórico de Bajas Mensuales ──
+@app.get("/api/dashboard/historico_bajas", tags=["Gráficas"])
+async def get_historico_bajas(
+    tipo: str = Query("medicos", enum=["medicos", "administrativos"]),
+    db: Session = Depends(get_db_session)):
+    """
+    Devuelve el conteo de bajas agrupadas por mes.
+    """
+
+    condicion_sql = "coordinacion = '1'" if tipo == "administrativos" else "coordinacion = '0'"
+
+    # Ajusta 'fecha_baja' al campo de fecha que registra la baja en tu tabla
+    query_bajas = text(f"""
+        SELECT
+            TO_CHAR(DATE_TRUNC('month', fecha_estatus), 'Mon YYYY') AS mes,
+            DATE_TRUNC('month', fecha_estatus) AS mes_orden,
+            COUNT(*) AS total
+        FROM doctores
+        WHERE is_deleted = false
+          AND {condicion_sql}
+          AND estatus = '06 BAJA'
+          AND fecha_estatus IS NOT NULL
+        GROUP BY mes_orden
+        ORDER BY mes_orden ASC
+    """)
+
+    res = db.execute(query_bajas).all()
+
+    meses_es = {
+        "Jan": "Ene", "Feb": "Feb", "Mar": "Mar", "Apr": "Abr",
+        "May": "May", "Jun": "Jun", "Jul": "Jul", "Aug": "Ago",
+        "Sep": "Sep", "Oct": "Oct", "Nov": "Nov", "Dec": "Dic"
+    }
+    
+    resultado_final = [] # <-- Esta línea ya está alineada correctamente
+    for r in res:
+        mes_traducido = r.mes
+        # Buscamos si hay un mes en inglés y lo reemplazamos
+        for en, es in meses_es.items():
+            if en in mes_traducido:
+                mes_traducido = mes_traducido.replace(en, es)
+                break
+        
+        resultado_final.append({"mes": mes_traducido, "total": r.total})
+
+    return resultado_final

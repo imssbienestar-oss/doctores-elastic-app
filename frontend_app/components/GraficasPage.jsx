@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../src/contexts/AuthContext";
 import { ResponsiveBar } from "@nivo/bar";
 import { ResponsivePie } from "@nivo/pie";
+import { ResponsiveLine } from "@nivo/line";
 import DoctoresModal from "./DoctoresModal";
 import { useNavigate } from "react-router-dom";
 import ColumnSelectorModal from "./ColumnSelectorModal";
@@ -21,7 +22,6 @@ const COLORS = {
 
 const INSTITUTIONAL_COLORS = ["#10312B", "#691C32", "#BC955C", "#DDC9A3"];
 
-// --- CONSTANTES BLINDADAS ---
 const BAR_KEYS = ["value"];
 const BAR_MARGIN = { top: 10, right: 50, bottom: 30, left: 140 };
 const BAR_VALUE_SCALE = { type: "linear" };
@@ -41,27 +41,20 @@ const CHART_THEME = {
     ticks: { text: { fontSize: 11, fill: "#666", fontFamily: "Segoe UI, sans-serif" } },
   },
   labels: { text: { fontSize: 11, fontWeight: 600, fontFamily: "Segoe UI, sans-serif" } },
-  tooltip: { 
-    container: { 
+  tooltip: {
+    container: {
       fontSize: "12px", color: "#333", boxShadow: "0 4px 8px rgba(0,0,0,0.2)", borderRadius: "4px", zIndex: 9999
-    } 
+    }
   }
 };
 
-// --- LOGICA DE COLORES INTELIGENTE ---
-// Ahora revisa el 'totalReal' (suma de medicos + admin) contra el maximo
 const getBarColorWrapper = (barItem) => {
   const { totalReal, maximo, minimo } = barItem.data;
-  
-  // Si la suma total excede el cupo -> ROJO
-  if (totalReal > maximo) return "#dc3545"; 
-  // Si la suma total es menor al minimo -> VERDE (Faltan doctores)
-  if (totalReal < minimo) return "#28a745";  
-  
-  return "#BC955C"; // Dorado (En rango)
+  if (totalReal > maximo) return "#dc3545";
+  if (totalReal < minimo) return "#28a745";
+  return "#BC955C";
 };
 
-// --- TOOLTIPS CON CONTEXTO COMPLETO ---
 const BarTooltip = ({ value, data }) => (
   <div style={{ padding: '10px', background: '#fff', border: '1px solid #ccc', borderRadius: 4, minWidth: '180px' }}>
     <strong style={{ color: COLORS.primary, fontSize: '1.1em' }}>{data.label}</strong>
@@ -122,19 +115,18 @@ const CupoMaximoLayer = ({ bars, fullData }) => (
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 const ITEMS_PER_PAGE_ESTADISTICA = 10;
 
-// Estilos CSS
 const styles = {
   pageContainer: { padding: "20px", backgroundColor: COLORS.bg, minHeight: "100vh", fontFamily: "Segoe UI, sans-serif" },
-  
-  headerRow: { 
+
+  headerRow: {
     display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", marginBottom: "30px", paddingBottom: "15px", borderBottom: "1px solid #e0e0e0", gap: "20px"
   },
   headerCenter: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" },
   headerRight: { display: "flex", justifyContent: "flex-end" },
-  
+
   title: { color: COLORS.primary, fontSize: "30px", fontWeight: "700", textTransform: "uppercase", margin: "20px", lineHeight: 1.2, textAlign: "center" },
   subtitle: { color: "#666", fontSize: "14px", margin: 0, textAlign: "center", marginBottom: "10px" },
-  
+
   toggleContainer: { display: "flex", backgroundColor: "#e0e0e0", borderRadius: "30px", padding: "3px", cursor: "pointer", marginTop: "20px", width: "fit-content" },
   getToggleButtonStyle: (isActive) => ({
     padding: "6px 20px", borderRadius: "25px", border: "none", fontSize: "12px", fontWeight: "600", cursor: "pointer",
@@ -150,141 +142,109 @@ const styles = {
   universeValue: { fontSize: "24px", fontWeight: "800", color: COLORS.secondary, lineHeight: 1 },
 
   kpiWrapper: { textAlign: "center", marginBottom: "30px" },
-  kpiCard: { 
-    backgroundColor: COLORS.cardBg, borderRadius: "10px", padding: "15px 40px", textAlign: "center", 
-    boxShadow: "0 4px 10px rgba(0,0,0,0.05)", borderBottom: `4px solid ${COLORS.primary}`, display: "inline-block" 
+  kpiCard: {
+    backgroundColor: COLORS.cardBg, borderRadius: "10px", padding: "15px 40px", textAlign: "center",
+    boxShadow: "0 4px 10px rgba(0,0,0,0.05)", borderBottom: `4px solid ${COLORS.primary}`, display: "inline-block"
   },
   kpiNumber: { fontSize: "42px", fontWeight: "800", color: COLORS.primary, lineHeight: 1, display: "block" },
   kpiLabel: { fontSize: "12px", color: COLORS.textLight, textTransform: "uppercase", fontWeight: "600", marginTop: "5px", display: "block" },
+
+  // ── NUEVO: fila de mini-KPIs rápidos ──
+  quickStatsRow: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+    gap: "16px",
+    marginBottom: "30px",
+    maxWidth: "1600px",
+    margin: "0 auto 30px auto",
+  },
+  quickStatCard: {
+    backgroundColor: COLORS.cardBg,
+    borderRadius: "10px",
+    padding: "14px 20px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+    borderTop: `4px solid ${COLORS.secondary}`,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "4px",
+  },
+  quickStatValue: { fontSize: "28px", fontWeight: "800", color: COLORS.primary, lineHeight: 1 },
+  quickStatLabel: { fontSize: "11px", color: COLORS.textLight, textTransform: "uppercase", fontWeight: "600", textAlign: "center" },
 
   mainGrid: { display: "grid", gridTemplateColumns: "1fr 1.8fr", gap: "25px", marginBottom: "40px", alignItems: "start", maxWidth: "1600px", margin: "0 auto 40px auto" },
   leftColumn: { display: "flex", flexDirection: "column", gap: "25px" },
   rightColumn: { display: "flex", flexDirection: "column" },
 
-  chartCard: { 
+  chartCard: {
     backgroundColor: COLORS.cardBg, borderRadius: "10px", padding: "15px", boxShadow: "0 2px 8px rgba(0,0,0,0.05)", border: "1px solid #eee",
-    display: "flex", flexDirection: "column" 
+    display: "flex", flexDirection: "column"
   },
   chartTitle: { fontSize: "15px", fontWeight: "600", color: COLORS.primary, marginBottom: "15px", textAlign: "center", borderBottom: "1px solid #f0f0f0", paddingBottom: "8px" },
-  
+
   pieContainer: { height: 300, width: '100%' },
   barContainer: { height: 720, width: '100%' },
+  // ── NUEVO: alto para la línea de bajas ──
+  lineContainer: { height: 280, width: '100%' },
 
-  sectionTitle: { 
-    textAlign: "left", // Alineado a la izquierda se ve más técnico
+  sectionTitle: {
+    textAlign: "left",
     marginLeft: "20px",
-    marginTop: "40px", 
-    marginBottom: "15px", 
-    fontSize: "18px", 
-    color: "#333", 
+    marginTop: "40px",
+    marginBottom: "15px",
+    fontSize: "18px",
+    color: "#333",
     fontWeight: "700",
-    borderLeft: `5px solid ${COLORS.secondary}`, // Detalle dorado institucional
+    borderLeft: `5px solid ${COLORS.secondary}`,
     paddingLeft: "15px"
   },
 
-  // Contenedor de Filtros (Estilo Card Blanca Limpia)
-  statisticFiltersContainer: { 
-    display: "grid", 
-    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", // Grid responsivo automático
-    gap: "20px", 
-    marginBottom: "25px", 
-    padding: "25px", 
-    backgroundColor: "#fff", // Fondo blanco
-    borderRadius: "8px", 
-    boxShadow: "0 2px 8px rgba(0,0,0,0.05)", // Sombra suave
+  statisticFiltersContainer: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+    gap: "20px",
+    marginBottom: "25px",
+    padding: "25px",
+    backgroundColor: "#fff",
+    borderRadius: "8px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
     border: "1px solid #eee",
     alignItems: "end"
   },
 
   filterGroup: { display: "flex", flexDirection: "column" },
-  
-  filterLabel: { 
-    fontSize: "0.85em", 
-    color: "#555", 
-    marginBottom: "6px", 
-    fontWeight: "600" 
-  },
-  
-  filterSelect: { 
-    padding: "10px 12px", 
-    fontSize: "0.9em", 
-    border: "1px solid #e0e0e0", 
-    borderRadius: "6px", 
-    backgroundColor: "#fcfcfc",
-    outline: "none",
-    transition: "border-color 0.2s",
-    width: "100%",
-    boxSizing: "border-box" // Asegura que no se salga del grid
+  filterLabel: { fontSize: "0.85em", color: "#555", marginBottom: "6px", fontWeight: "600" },
+  filterSelect: {
+    padding: "10px 12px", fontSize: "0.9em", border: "1px solid #e0e0e0",
+    borderRadius: "6px", backgroundColor: "#fcfcfc", outline: "none",
+    transition: "border-color 0.2s", width: "100%", boxSizing: "border-box"
   },
 
-  // Contenedor de la Tabla (Estilo Card)
-  tableContainer: { 
-    width: "100%", 
-    margin: "0 auto", 
-    background: "#fff", 
-    borderRadius: "8px", 
-    boxShadow: "0 4px 12px rgba(0,0,0,0.08)", 
-    overflow: "hidden" // Para que los bordes redondeados corten la tabla
+  tableContainer: {
+    width: "100%", margin: "0 auto", background: "#fff",
+    borderRadius: "8px", boxShadow: "0 4px 12px rgba(0,0,0,0.08)", overflow: "hidden"
   },
-  
-  dataTable: { 
-    width: "100%", 
-    borderCollapse: "collapse", 
-    fontSize: "0.9em",
-    fontFamily: "Segoe UI, sans-serif"
+  dataTable: { width: "100%", borderCollapse: "collapse", fontSize: "0.9em", fontFamily: "Segoe UI, sans-serif" },
+  dataTableTh: {
+    backgroundColor: COLORS.primary, color: "white", padding: "15px", textAlign: "left",
+    fontWeight: "600", textTransform: "uppercase", fontSize: "0.85em", letterSpacing: "0.5px",
+    borderBottom: `3px solid ${COLORS.secondary}`
   },
-  
-  // Encabezado de Tabla (Verde Institucional Solido)
-  dataTableTh: { 
-    backgroundColor: COLORS.primary, 
-    color: "white", 
-    padding: "15px", 
-    textAlign: "left", // Alineado izquierda es más legible
-    fontWeight: "600",
-    textTransform: "uppercase",
-    fontSize: "0.85em",
-    letterSpacing: "0.5px",
-    borderBottom: `3px solid ${COLORS.secondary}` // Línea dorada debajo del header
-  },
-  
-  // Celdas (Sin bordes verticales, solo líneas horizontales)
-  dataTableTd: { 
-    padding: "12px 15px", 
-    borderBottom: "1px solid #f0f0f0", // Solo borde inferior suave
-    color: "#333", 
-    textAlign: "left" 
-  },
-  
-  dataTableTrEven: { backgroundColor: "#fbfbfb" }, // Zebra muy sutil
+  dataTableTd: { padding: "12px 15px", borderBottom: "1px solid #f0f0f0", color: "#333", textAlign: "left" },
+  dataTableTrEven: { backgroundColor: "#fbfbfb" },
 
-  // Botones
-  button: { 
-    padding: "10px 20px", 
-    fontSize: "0.9em", 
-    fontWeight: "600",
-    cursor: "pointer", 
-    backgroundColor: COLORS.primary, 
-    color: "white", 
-    border: "none", 
-    borderRadius: "6px", 
-    transition: "all 0.2s ease",
-    boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
+  button: {
+    padding: "10px 20px", fontSize: "0.9em", fontWeight: "600", cursor: "pointer",
+    backgroundColor: COLORS.primary, color: "white", border: "none", borderRadius: "6px",
+    transition: "all 0.2s ease", boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
   },
-  
   buttonDisabled: { backgroundColor: "#ccc", cursor: "not-allowed", boxShadow: "none" },
   buttonSmall: { fontSize: "0.85em", padding: "8px 16px" },
 
-  // Paginación
-  paginationControls: { 
-    display: "flex", 
-    justifyContent: "space-between", // ESTO ES CLAVE: Separa los elementos a los extremos
-    alignItems: "center", 
-    marginTop: "0", // Quitamos margen top porque ya está dentro del contenedor
-    padding: "15px 20px", 
-    backgroundColor: "#f9f9f9", // Fondo gris muy suave para diferenciar del blanco de la tabla
-    borderTop: "1px solid #eee", // Línea separadora sutil
-    borderBottomLeftRadius: "8px", // Redondeamos las esquinas de abajo
-    borderBottomRightRadius: "8px"
+  paginationControls: {
+    display: "flex", justifyContent: "space-between", alignItems: "center",
+    marginTop: "0", padding: "15px 20px", backgroundColor: "#f9f9f9",
+    borderTop: "1px solid #eee", borderBottomLeftRadius: "8px", borderBottomRightRadius: "8px"
   }
 };
 
@@ -293,13 +253,22 @@ function GraficasPage() {
   const navigate = useNavigate();
 
   const [tipoPersonal, setTipoPersonal] = useState("medicos");
-  const [totalGeneral, setTotalGeneral] = useState(0); 
-  const [granTotalGlobal, setGranTotalGlobal] = useState(0); 
+  const [totalGeneral, setTotalGeneral] = useState(0);
+  const [granTotalGlobal, setGranTotalGlobal] = useState(0);
 
   const [dataPorEstado, setDataPorEstado] = useState([]);
   const [dataPorEstatus, setDataPorEstatus] = useState([]);
   const [dataPorNivel, setDataPorNivel] = useState([]);
-  
+
+  // ── NUEVO: estados para datos rápidos y bajas históricas ──
+  const [quickStats, setQuickStats] = useState({
+    cedulasLicenciatura: 0,
+    cedulasEspecialidad: 0,
+    totalMujeres: 0,
+    totalHombres: 0,
+  });
+  const [dataHistoricoBajas, setDataHistoricoBajas] = useState([]);
+
   const [dataEstadistica, setDataEstadistica] = useState([]);
   const [filtroEntidad, setFiltroEntidad] = useState("");
   const [filtroUnidad, setFiltroUnidad] = useState("");
@@ -332,46 +301,49 @@ function GraficasPage() {
     return () => clearTimeout(timerId);
   }, [filtroBusqueda]);
 
-
   // --- CARGA DE DATOS PRINCIPALES ---
-useEffect(() => {
+  useEffect(() => {
     const fetchDashboardData = async () => {
       setIsLoading(true);
       setError("");
       try {
         const response = await fetch(
-          `${API_BASE_URL}/api/dashboard/resumen_unificado?tipo=${tipoPersonal}`, 
+          `${API_BASE_URL}/api/dashboard/resumen_unificado?tipo=${tipoPersonal}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
-
         if (!response.ok) throw new Error("Error al obtener datos del servidor");
-
         const data = await response.json();
 
-        // 1. Seteamos los totales
         setTotalGeneral(data.total_general);
         setGranTotalGlobal(data.universo_total);
 
-        // 2. Procesar Estatus
         setDataPorEstatus(data.data_estatus.map((item, idx) => ({
           ...item,
           color: INSTITUTIONAL_COLORS[idx % INSTITUTIONAL_COLORS.length]
         })));
 
-        // 3. Procesar Niveles
         setDataPorNivel(data.data_nivel.map((item, idx) => ({
           ...item,
           id: item.label,
           color: INSTITUTIONAL_COLORS[idx % INSTITUTIONAL_COLORS.length]
         })));
 
-        // 4. CORRECCIÓN DE LA GRÁFICA DE BARRAS (ESTADOS) ✅
         const estadosMapeados = data.data_estados.map(item => ({
           ...item,
-          id: item.label // <-- ESTO arregla el error de 'undefined'
+          id: item.label
         })).sort((a, b) => a.value - b.value);
-
         setDataPorEstado(estadosMapeados);
+
+        // ── NUEVO: datos rápidos (el backend debe incluirlos en la misma respuesta
+        //    o puedes ajustar el campo según lo que devuelva tu API) ──
+        if (data.cedulas_licenciatura !== undefined) {
+          setQuickStats({
+            cedulasLicenciatura: data.cedulas_licenciatura ?? 0,
+            cedulasEspecialidad: data.cedulas_especialidad ?? 0,
+            totalMujeres: data.total_mujeres ?? 0,
+            totalHombres: data.total_hombres ?? 0,
+          });
+        }
 
       } catch (err) {
         console.error(err);
@@ -380,8 +352,31 @@ useEffect(() => {
         setIsLoading(false);
       }
     };
-
     if (token) fetchDashboardData();
+  }, [token, tipoPersonal]);
+
+  // ── NUEVO: Carga histórico de bajas mensuales ──
+  useEffect(() => {
+    const fetchHistoricoBajas = async () => {
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/api/dashboard/historico_bajas?tipo=${tipoPersonal}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (!response.ok) return;
+        const data = await response.json();
+        setDataHistoricoBajas([
+          {
+            id: "Bajas",
+            color: "#691C32",
+            data: data.map(item => ({ x: item.mes, y: item.total })),
+          },
+        ]);
+      } catch (err) {
+        console.error("Error historico bajas:", err);
+      }
+    };
+    if (token) fetchHistoricoBajas();
   }, [token, tipoPersonal]);
 
   // Carga Filtros
@@ -395,7 +390,6 @@ useEffect(() => {
       if (filtroEspecialidad) params.append("especialidad", filtroEspecialidad);
       if (filtroNivel) params.append("nivel_atencion", filtroNivel);
       if (debouncedBusqueda) params.append("search", debouncedBusqueda);
-
       try {
         const response = await fetch(`${API_BASE_URL}/api/opciones/filtros-dinamicos?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
         if (!response.ok) throw new Error("Error filtros");
@@ -405,7 +399,7 @@ useEffect(() => {
         setOpcionesUnidad(data.unidades);
         setOpcionesEspecialidad(data.especialidades);
         setOpcionesNivel(data.niveles_atencion);
-      } catch (error) { console.error(error); } 
+      } catch (error) { console.error(error); }
       finally { setIsLoadingFiltros(false); }
     };
     if (token) fetchFilterOptions();
@@ -422,7 +416,6 @@ useEffect(() => {
       if (filtroNivel) params.append("nivel_atencion", filtroNivel);
       if (debouncedBusqueda) params.append("search", debouncedBusqueda);
       if (filtroEstatus) params.append("estatus", filtroEstatus);
-
       try {
         const response = await fetch(`${API_BASE_URL}/api/graficas/estadistica_doctores_agrupados?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
         if (!response.ok) throw new Error("Error estadistica");
@@ -440,7 +433,7 @@ useEffect(() => {
   const handleEspecialidadChange = (e) => { setFiltroEspecialidad(e.target.value); setCurrentPageEstadistica(0); };
   const handleNivelChange = (e) => { setFiltroNivel(e.target.value); setCurrentPageEstadistica(0); };
   const handleEstatusChange = (e) => { setFiltroEstatus(e.target.value); setCurrentPageEstadistica(0); };
-  
+
   const handleClearStatisticFilters = () => {
     setFiltroEntidad(""); setFiltroUnidad(""); setFiltroEspecialidad("");
     setFiltroNivel(""); setFiltroEstatus(""); setFiltroBusqueda("");
@@ -490,31 +483,28 @@ useEffect(() => {
 
   return (
     <div style={styles.pageContainer}>
-      
-      {/* HEADER GRID: 3 COLUMNAS */}
-      <div style={styles.headerRow}>
-        <div></div> {/* Espacio vacío izquierda */}
 
-        {/* CENTRO: Título + Toggle */}
+      {/* HEADER */}
+      <div style={styles.headerRow}>
+        <div></div>
         <div style={styles.headerCenter}>
-            <h1 style={styles.title}>Tablero de Control</h1>
-            <div style={styles.toggleContainer}>
-                <button style={styles.getToggleButtonStyle(tipoPersonal === "medicos")} onClick={() => setTipoPersonal("medicos")}>PERSONAL MÉDICO</button>
-                <button style={styles.getToggleButtonStyle(tipoPersonal === "administrativos")} onClick={() => setTipoPersonal("administrativos")}>ADMINISTRATIVOS</button>
-            </div>
+          <h1 style={styles.title}>Tablero de Control</h1>
+          <div style={styles.toggleContainer}>
+            <button style={styles.getToggleButtonStyle(tipoPersonal === "medicos")} onClick={() => setTipoPersonal("medicos")}>PERSONAL MÉDICO</button>
+            <button style={styles.getToggleButtonStyle(tipoPersonal === "administrativos")} onClick={() => setTipoPersonal("administrativos")}>ADMINISTRATIVOS</button>
+          </div>
         </div>
-        
-        {/* DERECHA: Universo Total */}
         <div style={styles.headerRight}>
-            <div style={styles.universeCard}>
-                <span style={styles.universeLabel}>Universo Total</span>
-                <span style={styles.universeValue}>{granTotalGlobal.toLocaleString()}</span>
-            </div>
+          <div style={styles.universeCard}>
+            <span style={styles.universeLabel}>Universo Total</span>
+            <span style={styles.universeValue}>{granTotalGlobal.toLocaleString()}</span>
+          </div>
         </div>
       </div>
 
       {error && <div style={{textAlign: 'center', color: 'red', marginBottom: 20}}>{error}</div>}
 
+      {/* KPI PRINCIPAL */}
       <div style={styles.kpiWrapper}>
         <div style={styles.kpiCard}>
           <span style={styles.kpiNumber}>{isLoading ? "..." : totalGeneral.toLocaleString()}</span>
@@ -522,49 +512,71 @@ useEffect(() => {
         </div>
       </div>
 
-      {isLoading ? (
-        <div style={styles.loadingContainer}><p>Cargando datos...</p></div>
-      ) : (
-        <div style={styles.mainGrid}>
-          
-          <div style={styles.leftColumn}>
-            
-            {/* ESTATUS */}
-            <div style={styles.chartCard}>
-              <h3 style={styles.chartTitle}>Distribución por Estatus</h3>
-              <div style={styles.pieContainer}> 
-                <ResponsivePie
-                  data={dataPorEstatus}
-                  margin={PIE_MARGIN}
-                  innerRadius={0.6}
-                  padAngle={0.7}
-                  cornerRadius={3}
-                  colors={({ data }) => data.color}
-                  activeOuterRadiusOffset={8}
-                  borderWidth={1}
-                  borderColor={PIE_BORDER_COLOR}
-                  enableArcLinkLabels={true}
-                  arcLinkLabelsSkipAngle={10}
-                  arcLinkLabelsTextColor="#333"
-                  arcLinkLabelsThickness={2}
-                  arcLinkLabelsColor={PIE_ARC_LINK_COLOR}
-                  arcLabelsSkipAngle={10}
-                  arcLabelsTextColor="#fff"
-                  theme={CHART_THEME}
-                  tooltip={PieTooltip}
-                  animate={true}
-                  motionConfig="stiff"
-                  layers={['arcs', 'arcLabels', 'arcLinkLabels', 'legends', CenteredMetric]}
-                />
-              </div>
-            </div>
+      {/* ── NUEVO: MINI-KPIs DE CONSULTA RÁPIDA (excluyen bajas) ── */}
+      {!isLoading && (
+        <div style={styles.quickStatsRow}>
+          <div style={styles.quickStatCard}>
+            <span style={styles.quickStatValue}>{quickStats.cedulasLicenciatura.toLocaleString()}</span>
+            <span style={styles.quickStatLabel}>Cédulas Licenciatura</span>
+          </div>
+          <div style={styles.quickStatCard}>
+            <span style={styles.quickStatValue}>{quickStats.cedulasEspecialidad.toLocaleString()}</span>
+            <span style={styles.quickStatLabel}>Cédulas Especialidad</span>
+          </div>
+          <div style={{ ...styles.quickStatCard, borderTopColor: "#10312B" }}>
+            <span style={styles.quickStatValue}>{quickStats.totalMujeres.toLocaleString()}</span>
+            <span style={styles.quickStatLabel}>Mujeres (activas)</span>
+          </div>
+          <div style={{ ...styles.quickStatCard, borderTopColor: "#10312B" }}>
+            <span style={styles.quickStatValue}>{quickStats.totalHombres.toLocaleString()}</span>
+            <span style={styles.quickStatLabel}>Hombres (activos)</span>
+          </div>
+        </div>
+      )}
 
-            {/* NIVEL ATENCIÓN */}
-            <div style={styles.chartCard}>
-              <h3 style={styles.chartTitle}>Nivel de Atención (ACTIVOS) </h3>
-              <div style={styles.pieContainer}>
-                {dataPorNivel.length > 0 ? (
+      {isLoading ? (
+        <div style={{ textAlign: "center", padding: "60px 0", color: "#999" }}>Cargando datos...</div>
+      ) : (
+        <>
+          <div style={styles.mainGrid}>
+            <div style={styles.leftColumn}>
+
+              {/* ESTATUS */}
+              <div style={styles.chartCard}>
+                <h3 style={styles.chartTitle}>Distribución por Estatus</h3>
+                <div style={styles.pieContainer}>
                   <ResponsivePie
+                    data={dataPorEstatus}
+                    margin={PIE_MARGIN}
+                    innerRadius={0.6}
+                    padAngle={0.7}
+                    cornerRadius={3}
+                    colors={({ data }) => data.color}
+                    activeOuterRadiusOffset={8}
+                    borderWidth={1}
+                    borderColor={PIE_BORDER_COLOR}
+                    enableArcLinkLabels={true}
+                    arcLinkLabelsSkipAngle={10}
+                    arcLinkLabelsTextColor="#333"
+                    arcLinkLabelsThickness={2}
+                    arcLinkLabelsColor={PIE_ARC_LINK_COLOR}
+                    arcLabelsSkipAngle={10}
+                    arcLabelsTextColor="#fff"
+                    theme={CHART_THEME}
+                    tooltip={PieTooltip}
+                    animate={true}
+                    motionConfig="stiff"
+                    layers={['arcs', 'arcLabels', 'arcLinkLabels', 'legends', CenteredMetric]}
+                  />
+                </div>
+              </div>
+
+              {/* NIVEL ATENCIÓN */}
+              <div style={styles.chartCard}>
+                <h3 style={styles.chartTitle}>Nivel de Atención (ACTIVOS)</h3>
+                <div style={styles.pieContainer}>
+                  {dataPorNivel.length > 0 ? (
+                    <ResponsivePie
                       data={dataPorNivel}
                       margin={PIE_MARGIN}
                       innerRadius={0.6}
@@ -584,53 +596,103 @@ useEffect(() => {
                       animate={true}
                       motionConfig="stiff"
                       layers={['arcs', 'arcLabels', 'arcLinkLabels', 'legends', CenteredMetric]}
-                  />
-                ) : (
-                  <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#999', fontSize: '0.9em'}}>
+                    />
+                  ) : (
+                    <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#999', fontSize: '0.9em'}}>
                       No aplica nivel de atención
-                  </div>
-                )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ── NUEVO: HISTÓRICO DE BAJAS MENSUALES ── */}
+              <div style={styles.chartCard}>
+                <h3 style={styles.chartTitle}>Registro de Bajas Mensuales</h3>
+                <div style={styles.lineContainer}>
+                  {dataHistoricoBajas.length > 0 && dataHistoricoBajas[0].data.length > 0 ? (
+                    <ResponsiveLine
+                      data={dataHistoricoBajas}
+                      margin={{ top: 20, right: 30, bottom: 60, left: 50 }}
+                      xScale={{ type: 'point' }}
+                      yScale={{ type: 'linear', min: 0, max: 'auto', stacked: false }}
+                      curve="monotoneX"
+                      useMesh={true}
+                      crosshairType="cross"
+                      enablePointLabel={true}
+                      pointLabelYOffset={-12}
+                      colors={["#691C32"]}
+                      lineWidth={2}
+                      pointSize={7}
+                      pointColor="#fff"
+                      pointBorderWidth={2}
+                      pointBorderColor={{ from: 'serieColor' }}
+                      enableArea={true}
+                      areaOpacity={0.1}
+                      axisBottom={{
+                        tickSize: 0,
+                        tickPadding: 10,
+                        tickRotation: -35,
+                      }}
+                      axisLeft={{
+                        tickSize: 0,
+                        tickPadding: 8,
+                      }}
+                      enableGridX={false}
+                      theme={CHART_THEME}
+                      tooltip={({ point }) => (
+                        <div style={{ padding: '8px 12px', background: '#fff', border: '1px solid #eee', borderRadius: 4 }}>
+                          <strong style={{ color: "#691C32" }}>{point.data.xFormatted}</strong>
+                          <div style={{ fontSize: '0.9em', color: '#333' }}>Bajas: <strong>{point.data.yFormatted}</strong></div>
+                        </div>
+                      )}
+                      animate={true}
+                      motionConfig="stiff"
+                    />
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#999', fontSize: '0.9em' }}>
+                      Sin datos de bajas históricas
+                    </div>
+                  )}
+                </div>
+              </div>
+
+            </div>
+
+            <div style={styles.rightColumn}>
+              <div style={styles.chartCard}>
+                <h3 style={styles.chartTitle}>Distribución por Entidad Federativa (ACTIVOS)</h3>
+                <div style={styles.barContainer}>
+                  <ResponsiveBar
+                    data={dataPorEstado}
+                    keys={BAR_KEYS}
+                    indexBy="id"
+                    layout="horizontal"
+                    margin={BAR_MARGIN}
+                    padding={0.25}
+                    valueScale={BAR_VALUE_SCALE}
+                    indexScale={BAR_INDEX_SCALE}
+                    colors={getBarColorWrapper}
+                    borderColor={BAR_BORDER_COLOR}
+                    axisBottom={BAR_AXIS_BOTTOM}
+                    axisLeft={BAR_AXIS_LEFT}
+                    labelSkipWidth={12}
+                    labelTextColor={BAR_LABEL_TEXT_COLOR}
+                    layers={barLayers}
+                    tooltip={BarTooltip}
+                    theme={CHART_THEME}
+                    animate={true}
+                    motionConfig="stiff"
+                  />
+                </div>
               </div>
             </div>
           </div>
-
-          <div style={styles.rightColumn}>
-            <div style={styles.chartCard}>
-              <h3 style={styles.chartTitle}>Distribución por Entidad Federativa (ACTIVOS)</h3>
-              <div style={styles.barContainer}>
-                <ResponsiveBar
-                  data={dataPorEstado}
-                  keys={BAR_KEYS} 
-                  indexBy="id"
-                  layout="horizontal"
-                  margin={BAR_MARGIN}
-                  padding={0.25}
-                  valueScale={BAR_VALUE_SCALE}
-                  indexScale={BAR_INDEX_SCALE}
-                  colors={getBarColorWrapper}
-                  borderColor={BAR_BORDER_COLOR}
-                  axisBottom={BAR_AXIS_BOTTOM}
-                  axisLeft={BAR_AXIS_LEFT}
-                  labelSkipWidth={12}
-                  labelTextColor={BAR_LABEL_TEXT_COLOR}
-                  layers={barLayers}
-                  tooltip={BarTooltip}
-                  theme={CHART_THEME}
-                  animate={true}
-                  motionConfig="stiff"
-                />
-              </div>
-            </div>
-          </div>
-
-        </div>
+        </>
       )}
-
 
       {/* SECCIÓN TABLA Y FILTROS */}
       <h2 style={styles.sectionTitle}>Estadística Detallada</h2>
       <div style={styles.statisticFiltersContainer}>
-        {/* FILTROS (Mismo código) */}
         <div style={styles.filterGroup}>
           <label htmlFor="filtroBusqueda" style={styles.filterLabel}>Buscar (CLUES):</label>
           <input id="filtroBusqueda" type="search" value={filtroBusqueda} onChange={(e) => setFiltroBusqueda(e.target.value)} style={styles.filterSelect} placeholder="Buscar..." />
@@ -659,8 +721,8 @@ useEffect(() => {
         <div style={styles.filterGroup}>
           <label htmlFor="filtroNivel" style={styles.filterLabel}>Nivel:</label>
           <select id="filtroNivel" value={filtroNivel} onChange={handleNivelChange} style={styles.filterSelect} disabled={isLoadingFiltros}>
-             <option value="">Todos</option>
-             {opcionesNivel.map((nivel) => (<option key={nivel} value={nivel}>{nivel}</option>))}
+            <option value="">Todos</option>
+            {opcionesNivel.map((nivel) => (<option key={nivel} value={nivel}>{nivel}</option>))}
           </select>
         </div>
         <div style={styles.filterGroup}>
@@ -670,7 +732,6 @@ useEffect(() => {
             {opcionesEstatus.map((estatus) => (<option key={estatus} value={estatus}>{estatus}</option>))}
           </select>
         </div>
-
         {(filtroBusqueda || filtroEntidad || filtroUnidad || filtroEspecialidad || filtroNivel || filtroEstatus) && (
           <div style={{ ...styles.filterGroup, justifyContent: "flex-end" }}>
             <button onClick={handleClearStatisticFilters} style={{ ...styles.button, ...styles.buttonDisabled, backgroundColor: "#6c757d", cursor: "pointer" }}>Limpiar</button>
@@ -698,59 +759,48 @@ useEffect(() => {
           </thead>
           <tbody>
             {dataEstadistica.map((item, index) => (
-              <tr 
-                key={`${item.entidad}-${item.unidad}-${item.especialidad}-${item.nivel_atencion}-${index}`} 
-                style={{
-                    ...(index % 2 === 0 ? {} : styles.dataTableTrEven),
-                    transition: 'background-color 0.2s'
-                }}
-                // Agregamos un efecto hover simple en línea
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f0fdfa'} // Un verde muy muy claro al pasar mouse
+              <tr
+                key={`${item.entidad}-${item.unidad}-${item.especialidad}-${item.nivel_atencion}-${index}`}
+                style={{ ...(index % 2 === 0 ? {} : styles.dataTableTrEven), transition: 'background-color 0.2s' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f0fdfa'}
                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = index % 2 === 0 ? 'transparent' : '#fbfbfb'}
               >
-                {/* Nota: Alinea el texto a la izquierda en los styles.dataTableTd para que se vea profesional */}
                 <td style={styles.dataTableTd}>{item.entidad}</td>
                 <td style={{...styles.dataTableTd, fontWeight: 'bold', fontSize: '0.85em'}}>{item.clues}</td>
                 <td style={styles.dataTableTd}>{item.nombre_unidad}</td>
                 <td style={styles.dataTableTd}>{item.especialidad}</td>
                 <td style={styles.dataTableTd}>{item.nivel_atencion}</td>
                 <td style={{ ...styles.dataTableTd, textAlign: "center", fontWeight: "bold", color: COLORS.primary }}>
-                    {item.cantidad}
+                  {item.cantidad}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
         <div style={styles.paginationControls}>
-            
-            {/* IZQUIERDA: Contador de Resultados */}
-           <div style={{ fontSize: '0.85em', color: '#666' }}>
-    Filas: <strong style={{ color: COLORS.primary }}>{totalGroupsEstadistica}</strong> 
-    | Total Personal: <strong style={{ color: COLORS.secondary, fontSize: '1.1em' }}>{totalDoctorsInGroups}</strong>
-</div>
-
-            {/* DERECHA: Botones de Paginación */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <button 
-                    onClick={handlePreviousPageEstadistica} 
-                    disabled={currentPageEstadistica === 0 || isLoading} 
-                    style={{ ...styles.button, ...(currentPageEstadistica === 0 ? styles.buttonDisabled : {}) }}
-                >
-                    Anterior
-                </button>
-                
-                <span style={{ fontSize: '0.85em', fontWeight: '600', color: '#333' }}>
-                    Pág {totalPagesEstadistica === 0 ? 0 : currentPageEstadistica + 1} de {totalPagesEstadistica}
-                </span>
-                
-                <button 
-                    onClick={handleNextPageEstadistica} 
-                    disabled={currentPageEstadistica >= totalPagesEstadistica - 1 || isLoading} 
-                    style={{ ...styles.button, ...(currentPageEstadistica >= totalPagesEstadistica - 1 ? styles.buttonDisabled : {}) }}
-                >
-                    Siguiente
-                </button>
-            </div>
+          <div style={{ fontSize: '0.85em', color: '#666' }}>
+            Filas: <strong style={{ color: COLORS.primary }}>{totalGroupsEstadistica}</strong>
+            | Total Personal: <strong style={{ color: COLORS.secondary, fontSize: '1.1em' }}>{totalDoctorsInGroups}</strong>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              onClick={handlePreviousPageEstadistica}
+              disabled={currentPageEstadistica === 0 || isLoading}
+              style={{ ...styles.button, ...(currentPageEstadistica === 0 ? styles.buttonDisabled : {}) }}
+            >
+              Anterior
+            </button>
+            <span style={{ fontSize: '0.85em', fontWeight: '600', color: '#333' }}>
+              Pág {totalPagesEstadistica === 0 ? 0 : currentPageEstadistica + 1} de {totalPagesEstadistica}
+            </span>
+            <button
+              onClick={handleNextPageEstadistica}
+              disabled={currentPageEstadistica >= totalPagesEstadistica - 1 || isLoading}
+              style={{ ...styles.button, ...(currentPageEstadistica >= totalPagesEstadistica - 1 ? styles.buttonDisabled : {}) }}
+            >
+              Siguiente
+            </button>
+          </div>
         </div>
       </div>
 

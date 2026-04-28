@@ -504,8 +504,8 @@ const FieldRenderer = React.memo(
         // Si tiene un valor (como "Sin Datos"), lo muestra tal cual.
         valueForDisplay =
           currentValue === null ||
-          currentValue === undefined ||
-          String(currentValue).trim() === ""
+            currentValue === undefined ||
+            String(currentValue).trim() === ""
             ? "No especificado"
             : String(currentValue);
       }
@@ -989,7 +989,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
     }
   }, [successMessage, error]);
 
- const handleEditToggle = () => {
+  const handleEditToggle = () => {
     if (edicionGeneralBloqueada) {
       setError(
         "Este registro está cerrado por defunción y su rol actual no permite modificarlo."
@@ -1115,15 +1115,25 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
         if (nuevoEstatus !== "Defunción") {
           newData.fecha_fallecimiento = null;
         }
-      const ESTATUS_REQUIEREN_FECHA_FIN = [
-        "02 RETIRO TEMP. (CUBA)",
-        "03 RETIRO TEMP. (MEXICO)",
-        "04 SOL. PERSONAL",
-        "05 INCAPACIDAD",
-      ];
-      if (!ESTATUS_REQUIEREN_FECHA_FIN.includes(nuevoEstatus)) {
-        newData.fecha_fin = null; // o ""
+        const ESTATUS_REQUIEREN_FECHA_FIN = [
+          "02 RETIRO TEMP. (CUBA)",
+          "03 RETIRO TEMP. (MEXICO)",
+          "04 SOL. PERSONAL",
+          "05 INCAPACIDAD",
+        ];
+        if (!ESTATUS_REQUIEREN_FECHA_FIN.includes(nuevoEstatus)) {
+          newData.fecha_fin = null; // o ""
+        }
       }
+
+      if (name === 'turno' || name === 'clues') {
+        const turnoOriginal = doctor.turno;
+        const cluesOriginal = doctor.clues;
+
+        // Si los valores nuevos coinciden con los originales, limpiamos la fecha
+        if (newData.turno === turnoOriginal && newData.clues === cluesOriginal) {
+          newData.fecha_aplicacion_cambio = "";
+        }
       }
 
       return newData;
@@ -1138,24 +1148,26 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
     setIsLoading(true);
     setError("");
     setSuccessMessage("");
-
     const { estatus, fecha_fin } = editableDoctorData;
+
     const ESTATUS_REQUIEREN_FECHA_FIN = [
       "02 RETIRO TEMP. (CUBA)",
       "03 RETIRO TEMP. (MEXICO)",
       "04 SOL. PERSONAL",
       "05 INCAPACIDAD",
     ];
+
     if (ESTATUS_REQUIEREN_FECHA_FIN.includes(estatus)) {
+      // Si el estatus está en la lista Y la fecha_fin está vacía...
       if (!fecha_fin) {
         setError(
-          "Registra la 'Fecha de Fin' para el estatus seleccionado."
+          "La 'Fecha de Fin' es obligatoria para el estatus seleccionado."
         );
-        setIsLoading(false); 
-        return; 
+        setIsLoading(false); // Detenemos el spinner
+        return; // Detenemos la ejecución (no se envía el formulario)
       }
     }
-    
+
     const authToken = localStorage.getItem("authToken");
 
     const { attachments, foto_url, ...dataToUpdate } = editableDoctorData;
@@ -1566,7 +1578,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
               />
             </div>
             <div>
-             <FieldRenderer
+              <FieldRenderer
                 label="Edad"
                 fieldName="edad"
                 type="number"
@@ -1689,8 +1701,9 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
             }}
           >
             <div>
+
               <FieldRenderer
-                label="Perfil"
+                label="Coordinación"
                 fieldName="coordinacion"
                 type="select"
                 options={[
@@ -1761,10 +1774,11 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                 onChange={handleInputChange}
                 isLoading={isLoading}
               />
-  
+
+
               {mostrarFechaEstatus && (
                 <div style={{
-                  backgroundColor: '#fff3e0', 
+                  backgroundColor: '#fff3e0', // Fondo naranja suave para resaltar cambio de estatus
                   padding: '5px',
                   borderRadius: '4px',
                   marginBottom: '10px',
@@ -1785,7 +1799,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
 
                 </div>
               )}
-              
+
               {!esEstatusDeBaja && !esEstatusDeDefuncion && (
                 <>
                   <FieldRenderer
@@ -1828,7 +1842,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                       </small>
                     </div>
                   )}
-                  
+
                   <FieldRenderer
                     label="Despliegue"
                     fieldName="despliegue"
@@ -2061,7 +2075,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
 
               {esEstatusDeIncapacidad && (
                 <>
-                   <FieldRenderer
+                  <FieldRenderer
                     label="Tipo de Incapacidad"
                     fieldName="tipo_incapacidad"
                     type="select"
@@ -2106,9 +2120,11 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                       },
                       {
                         value: "02 DESERCION",
-                        label: "02 DESERCION",
+                        label: "02 DESERCIÓN",
                       },
                       { value: "03 ENFERMEDAD", label: "03 ENFERMEDAD" },
+                      { value: "04 DEFUNCION", label: "04 DEFUNCIÓN" },
+                      { value: "05 FIN DE MISION", label: "05 FIN DE MISIÓN" },
                     ]}
                     isEditing={isEditing}
                     currentValue={editableDoctorData.motivo_baja}
@@ -2166,16 +2182,16 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
               {(isEditing ||
                 (doctor.comentarios_estatus &&
                   doctor.comentarios_estatus.trim() !== "")) && (
-                <FieldRenderer
-                  label="Comentarios Adicionales"
-                  fieldName="comentarios_estatus"
-                  type="textarea"
-                  isEditing={isEditing}
-                  currentValue={editableDoctorData.comentarios_estatus}
-                  onChange={handleInputChange}
-                  isLoading={isLoading}
-                />
-              )}
+                  <FieldRenderer
+                    label="Comentarios Adicionales"
+                    fieldName="comentarios_estatus"
+                    type="textarea"
+                    isEditing={isEditing}
+                    currentValue={editableDoctorData.comentarios_estatus}
+                    onChange={handleInputChange}
+                    isLoading={isLoading}
+                  />
+                )}
             </div>
           </div>
         </div>
@@ -2416,14 +2432,14 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                         ...(["01 ACTIVO", "06 BAJA"].includes(
                           nuevoHistorial.estatus
                         ) ||
-                        nuevoHistorial.tipo_cambio === "Redistribución" ||
-                        nuevoHistorial.tipo_cambio === "Turno"
+                          nuevoHistorial.tipo_cambio === "Redistribución" ||
+                          nuevoHistorial.tipo_cambio === "Turno"
                           ? profileStyles.modalFormInputDisabled
                           : {}),
                       }}
                       disabled={["01 ACTIVO", "06 BAJA"].includes(
                         nuevoHistorial.estatus ||
-                          nuevoHistorial.tipo_cambio === "Turno"
+                        nuevoHistorial.tipo_cambio === "Turno"
                       )}
                     />
                   </div>
@@ -2462,7 +2478,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                     style={{
                       ...profileStyles.modalFormInput,
                       ...(nuevoHistorial.tipo_cambio === "Estatus" ||
-                      nuevoHistorial.tipo_cambio === "Turno"
+                        nuevoHistorial.tipo_cambio === "Turno"
                         ? profileStyles.modalFormInputDisabled
                         : {}),
                     }}
@@ -2569,7 +2585,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                     <td style={profileStyles.dataTableTd}>
                       {renderCommentWithBoldPrefix(item.comentarios)}
                     </td>
-                     <td style={profileStyles.dataTableTd}>
+                    <td style={profileStyles.dataTableTd}>
                       {item.username || "N/A"}{" "}
                       {/* Muestra el username o 'N/A' si no viene */}
                     </td>
@@ -2590,7 +2606,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                 ))
             ) : (
               <tr>
-              <td
+                <td
                   colSpan={
                     currentUser && currentUser.role === "admin" ? 12 : 11
                   } // <-- AJUSTA EL NÚMERO
@@ -2642,7 +2658,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                     style={{
                       ...profileStyles.modalFormInput, // 1. Estilo base
                       ...(nuevoHistorial.tipo_cambio === "Redistribución" ||
-                      nuevoHistorial.tipo_cambio === "Turno" // 2. La misma condición que 'disabled'
+                        nuevoHistorial.tipo_cambio === "Turno" // 2. La misma condición que 'disabled'
                         ? profileStyles.modalFormInputDisabled // 3. Si es verdad, aplica el estilo gris
                         : {}), // 4. Si no, no hagas nada
                     }}
@@ -2696,8 +2712,8 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                         ...(["01 ACTIVO", "06 BAJA"].includes(
                           nuevoHistorial.estatus
                         ) ||
-                        nuevoHistorial.tipo_cambio === "Redistribución" ||
-                        nuevoHistorial.tipo_cambio === "Turno"
+                          nuevoHistorial.tipo_cambio === "Redistribución" ||
+                          nuevoHistorial.tipo_cambio === "Turno"
                           ? profileStyles.modalFormInputDisabled
                           : {}),
                       }}
@@ -2721,7 +2737,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                     style={{
                       ...profileStyles.modalFormInput,
                       ...(nuevoHistorial.tipo_cambio === "Estatus" ||
-                      nuevoHistorial.tipo_cambio === "Redistribución"
+                        nuevoHistorial.tipo_cambio === "Redistribución"
                         ? profileStyles.modalFormInputDisabled
                         : {}),
                     }}
@@ -2749,7 +2765,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                     style={{
                       ...profileStyles.modalFormInput,
                       ...(nuevoHistorial.tipo_cambio === "Estatus" ||
-                      nuevoHistorial.tipo_cambio === "Turno"
+                        nuevoHistorial.tipo_cambio === "Turno"
                         ? profileStyles.modalFormInputDisabled
                         : {}),
                     }}
@@ -2768,7 +2784,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                     style={{
                       ...profileStyles.modalFormInput,
                       ...(nuevoHistorial.tipo_cambio === "Estatus" ||
-                      nuevoHistorial.tipo_cambio === "Turno"
+                        nuevoHistorial.tipo_cambio === "Turno"
                         ? profileStyles.modalFormInputDisabled
                         : {}),
                     }}
@@ -2784,7 +2800,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                     style={{
                       ...profileStyles.modalFormInput,
                       ...(nuevoHistorial.tipo_cambio === "Estatus" ||
-                      nuevoHistorial.tipo_cambio === "Turno"
+                        nuevoHistorial.tipo_cambio === "Turno"
                         ? profileStyles.modalFormInputDisabled
                         : {}),
                     }}

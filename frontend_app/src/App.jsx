@@ -659,14 +659,11 @@ function ProtectedRoute({ adminOnly = false, children }) {
   const { isAuthenticated, currentUser, isLoading } = useAuth();
 
   if (!isAuthenticated) {
-    // Si no está autenticado, redirige a login
     return <Navigate to="/login" replace />;
   }
   if (adminOnly && (!currentUser || currentUser.role !== "admin")) {
-    // Si requiere admin pero no lo es, redirige a la página principal
     return <Navigate to="/" replace />;
   }
-  // Si cumple las condiciones, renderiza el componente hijo
   return children;
 }
 
@@ -693,7 +690,7 @@ function AppContent() {
   };
 
   const navbarProps = {
-    title: "Sistema de Gestión de Información de Médicos Extranjeros",
+    title: "Sistema del Programa de Personal Extranjero de Atención a la Salud",
     vistaActual: vistaActual,
     onVerGraficasClick: handleVerGraficas,
     onVerTablaClick: handleVerTabla,
