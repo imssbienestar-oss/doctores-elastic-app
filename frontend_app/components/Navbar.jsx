@@ -438,7 +438,7 @@ function Navbar({
       </div>
       <nav style={styles.goldenBar}>
         <div style={styles.titleContainer}>
-          <span style={styles.imssTitle}>IMSS</span>
+          <span style={styles.imssTitle}>IMSS BIENESTAR</span>
           <span style={styles.mainTitle}>
             {title || "Sistema Doctores"}
             {isGuestMode && !isAuthenticated && (
