@@ -160,6 +160,7 @@ class EstatusHistoricoBase(BaseModel):
     nombre_unidad: Optional[str] = None
     turno: Optional[str] = None
     comentarios: Optional[str] = None
+    comentarios_estatus: Optional[str] = None
 
 # --- SCHEMA ESTATUS HISTORICO MANUAL
 class EstatusHistoricoCreate(EstatusHistoricoBase):

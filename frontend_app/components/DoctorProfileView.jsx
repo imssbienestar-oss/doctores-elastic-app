@@ -597,6 +597,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
     nombre_unidad: "",
     turno: "",
     comentarios: "",
+    comentarios_estatus: "",
   };
 
   const handleViewAttachment = async (attachmentId) => {
@@ -2485,7 +2486,22 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                     disabled={nuevoHistorial.tipo_cambio === "Estatus"}
                   />
                 </div>
-                {/* ... (campos para Entidad y Unidad, que se autocompletarían con la CLUES) ... */}
+                <div style={profileStyles.modalFormGroup}>
+                  <label style={profileStyles.modalFormLabel}>
+                    Comentarios Estatus:
+                  </label>
+                  <textarea
+                    name="comentarios_estatus"
+                    value={nuevoHistorial.comentarios_estatus || ""}
+                    onChange={handleHistorialChange}
+                    style={{
+                      ...profileStyles.modalFormInput,
+                      height: "80px",
+                      resize: "vertical",
+                    }}
+                    placeholder="Escriba aquí los detalles del movimiento..."
+                  />
+                </div>
                 <div style={profileStyles.modalActions}>
                   <button
                     type="button"
@@ -2541,6 +2557,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
               <th style={profileStyles.dataTableTh}>Turno</th>
               <th style={profileStyles.dataTableTh}>Entidad</th>
               <th style={profileStyles.dataTableTh}>Registro</th>
+              <th style={profileStyles.dataTableTh}>Comentarios Estatus</th>
               <th style={profileStyles.dataTableTh}>Usuario</th>
               {currentUser && currentUser.role === "admin" && (
                 <th style={profileStyles.dataTableTh}>Acciones</th>
@@ -2586,8 +2603,10 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                       {renderCommentWithBoldPrefix(item.comentarios)}
                     </td>
                     <td style={profileStyles.dataTableTd}>
+                      {item.comentarios_estatus || "N/A"}
+                    </td>
+                    <td style={profileStyles.dataTableTd}>
                       {item.username || "N/A"}{" "}
-                      {/* Muestra el username o 'N/A' si no viene */}
                     </td>
                     {currentUser && currentUser.role === "admin" && (
                       <td style={profileStyles.dataTableTd}>
@@ -2608,7 +2627,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
               <tr>
                 <td
                   colSpan={
-                    currentUser && currentUser.role === "admin" ? 12 : 11
+                    currentUser && currentUser.role === "admin" ? 13 : 12
                   } // <-- AJUSTA EL NÚMERO
                   style={{ textAlign: "center", padding: "10px" }}
                 >
@@ -2807,7 +2826,24 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                     readOnly
                   />
                 </div>
-                {/* ... (campos para Entidad y Unidad, que se autocompletarían con la CLUES) ... */}
+
+                <div style={profileStyles.modalFormGroup}>
+                  <label style={profileStyles.modalFormLabel}>
+                    Comentarios Estatus:
+                  </label>
+                  <textarea
+                    name="comentarios_estatus"
+                    value={nuevoHistorial.comentarios_estatus || ""}
+                    onChange={handleHistorialChange}
+                    style={{
+                      ...profileStyles.modalFormInput,
+                      height: "60px",
+                      resize: "vertical",
+                      fontFamily: "inherit"
+                    }}
+                    placeholder="Detalles del movimiento retroactivo..."
+                  />
+                </div>
                 <div style={profileStyles.modalActions}>
                   <button
                     type="button"
