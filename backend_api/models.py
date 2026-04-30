@@ -152,6 +152,7 @@ class EstatusHistorico(Base):
     nombre_unidad = Column(String, nullable=True)
     turno = Column(String, nullable=True)
     comentarios = Column(Text, nullable=True)   
+    comentarios_estatus = Column(Text, nullable=True)
     fecha_registro = Column(DateTime(timezone=True), server_default=func.now())
     
 
