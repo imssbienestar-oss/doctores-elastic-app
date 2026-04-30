@@ -1059,6 +1059,7 @@ async def actualizar_doctor_perfil_completo(
                 nombre_unidad=db_doctor.nombre_unidad,
                 turno=db_doctor.turno,
                 comentarios=comentario_final
+                comentarios_estatus=update_data_dict.get('comentarios_estatus', db_doctor.comentarios_estatus)
             )
             db.add(nuevo_registro)
 
