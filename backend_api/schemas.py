@@ -162,6 +162,11 @@ class EstatusHistoricoBase(BaseModel):
     comentarios: Optional[str] = None
     comentarios_estatus: Optional[str] = None
 
+# --- SCHEMA ACTUALIZAR ESTATUS HISTORICO
+class HistorialUpdate(BaseModel):
+    fecha_inicio: Optional[date] = None
+    fecha_fin: Optional[date] = None
+
 # --- SCHEMA ESTATUS HISTORICO MANUAL
 class EstatusHistoricoCreate(EstatusHistoricoBase):
     pass
