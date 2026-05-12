@@ -164,7 +164,8 @@ async def get_dashboard_unificado(
     # 1. Conteo Total
     total_q = db.query(func.count(models.Doctor.id_imss)).filter(
         models.Doctor.is_deleted == False,
-        models.Doctor.coordinacion == filtro_coord
+        models.Doctor.coordinacion == filtro_coord,
+        models.Doctor.estatus != '06 BAJA'
     ).scalar()
 
     universo_total = db.query(func.count(models.Doctor.id_imss)).filter(
