@@ -1,6 +1,7 @@
 // src/components/DoctorProfileView.jsx
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../src/contexts/AuthContext";
+import Swal from 'sweetalert2';
 
 const profileStyles = {
   container: {
@@ -234,6 +235,10 @@ const profileStyles = {
   },
   deleteButton: {
     background: "#dc3545",
+    color: "#fff",
+  },
+  editButton2: {
+    background: "#B08D55",
     color: "#fff",
   },
   uploadSection: {
@@ -582,6 +587,13 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
+  const [isEditHistoryModalOpen, setIsEditHistoryModalOpen] = useState(false);
+  const [historialAEditar, setHistorialAEditar] = useState({
+    id: "",
+    fecha_inicio: "",
+    fecha_fin: "",
+  });
+
   const doctorGuardadoEsDefuncion = doctor?.estatus === "Defunción";
   const puedeEditarAdminRegistroDefuncion = userRole === "admin";
   const edicionGeneralBloqueada =
@@ -598,6 +610,88 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
     turno: "",
     comentarios: "",
     comentarios_estatus: "",
+  };
+
+  // --- FUNCIÓN PARA ABRIR EL MODAL CON LOS DATOS ---
+  const handleAbrirEditarHistorial = (item) => {
+    setHistorialAEditar({
+      id: item.id,
+      fecha_inicio: item.fecha_inicio ? item.fecha_inicio.split('T')[0] : "",
+      fecha_fin: item.fecha_fin ? item.fecha_fin.split('T')[0] : "",
+    });
+    setIsEditHistoryModalOpen(true);
+  };
+
+  // --- FUNCIÓN PARA MANEJAR CAMBIOS EN LOS INPUTS DE EDICIÓN ---
+  const handleEditHistorialChange = (e) => {
+    const { name, value } = e.target;
+    setHistorialAEditar((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  // --- FUNCIÓN PARA GUARDAR (AQUÍ CONECTAS CON TU BACKEND) ---
+  const handleGuardarEdicionHistorial = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      const payload = {
+        fecha_inicio: historialAEditar.fecha_inicio || null,
+        fecha_fin: historialAEditar.fecha_fin || null,
+      };
+
+      const response = await fetch(`${API_BASE_URL}/api/historial/${historialAEditar.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error("Error al actualizar el historial");
+      }
+
+      // 1. Cerramos el modal primero
+      setIsEditHistoryModalOpen(false);
+
+      // 2. Mostramos la alerta profesional
+      Swal.fire({
+        icon: 'success',
+        title: '¡Actualizado!',
+        text: 'Fechas actualizadas correctamente',
+        confirmButtonColor: '#006657', 
+        timer: 2000,
+        showConfirmButton: false 
+      });
+
+      setDoctor((prevDoctor) => ({
+        ...prevDoctor,
+        historial: prevDoctor.historial.map((item) =>
+          item.id === historialAEditar.id
+            ? {
+              ...item,
+              fecha_inicio: payload.fecha_inicio,
+              fecha_fin: payload.fecha_fin
+            }
+            : item
+        ),
+      }));
+    } catch (error) {
+      console.error("Error:", error);
+      // Alerta profesional de error
+      Swal.fire({
+        icon: 'error',
+        title: 'Oops...',
+        text: 'Hubo un problema al guardar los cambios.',
+        confirmButtonColor: '#d33'
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleViewAttachment = async (attachmentId) => {
@@ -2610,8 +2704,36 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                     </td>
                     {currentUser && currentUser.role === "admin" && (
                       <td style={profileStyles.dataTableTd}>
+
                         <button
-                          style={profileStyles.deleteButton}
+                          style={{
+                            ...profileStyles.editButton2,
+                            color: "white",
+                            border: "none",
+                            padding: "7px 0",
+                            width: "90px",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                            display: "block",
+                            margin: "0 auto 6px auto",
+                          }}
+                          onClick={() => handleAbrirEditarHistorial(item)}
+                          className="boton-editar"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          style={{
+                            ...profileStyles.deleteButton,
+                            color: "white",
+                            border: "none",
+                            padding: "7px 0",
+                            width: "90px",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                            display: "block",
+                            margin: "0 auto",
+                          }}
                           onClick={() =>
                             handleEliminarRegistro(item.id, item.tipo_cambio)
                           }
@@ -2858,6 +2980,65 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                     style={profileStyles.saveButton}
                   >
                     Añadir al Historial
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {isEditHistoryModalOpen && (
+          <div style={profileStyles.modalBackdrop}>
+            <div style={profileStyles.modalContent}>
+              <button
+                onClick={() => setIsEditHistoryModalOpen(false)}
+                style={profileStyles.modalCloseButton}
+              >
+                &times;
+              </button>
+              <h2>Editar Fechas de Registro</h2>
+              <form onSubmit={handleGuardarEdicionHistorial}>
+
+                <div style={{ display: "flex", gap: "15px", marginTop: "20px" }}>
+                  <div style={{ ...profileStyles.modalFormGroup, flex: 1 }}>
+                    <label style={profileStyles.modalFormLabel}>
+                      Fecha Inicio:
+                    </label>
+                    <input
+                      name="fecha_inicio"
+                      type="date"
+                      value={historialAEditar.fecha_inicio}
+                      onChange={handleEditHistorialChange}
+                      style={profileStyles.modalFormInput}
+                    />
+                  </div>
+                  <div style={{ ...profileStyles.modalFormGroup, flex: 1 }}>
+                    <label style={profileStyles.modalFormLabel}>
+                      Fecha Conclusión:
+                    </label>
+                    <input
+                      name="fecha_fin"
+                      type="date"
+                      value={historialAEditar.fecha_fin}
+                      onChange={handleEditHistorialChange}
+                      style={profileStyles.modalFormInput}
+                    />
+                  </div>
+                </div>
+
+                <div style={profileStyles.modalActions}>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditHistoryModalOpen(false)}
+                    style={profileStyles.cancelButton}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    style={profileStyles.saveButton}
+                  >
+                    Guardar Cambios
                   </button>
                 </div>
               </form>
