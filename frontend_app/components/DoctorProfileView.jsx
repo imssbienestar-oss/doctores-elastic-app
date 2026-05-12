@@ -663,9 +663,9 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
         icon: 'success',
         title: '¡Actualizado!',
         text: 'Fechas actualizadas correctamente',
-        confirmButtonColor: '#006657', 
+        confirmButtonColor: '#006657',
         timer: 2000,
-        showConfirmButton: false 
+        showConfirmButton: false
       });
 
       setDoctor((prevDoctor) => ({
@@ -2653,9 +2653,8 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
               <th style={profileStyles.dataTableTh}>Registro</th>
               <th style={profileStyles.dataTableTh}>Comentarios Estatus</th>
               <th style={profileStyles.dataTableTh}>Usuario</th>
-              {currentUser && currentUser.role === "admin" && (
-                <th style={profileStyles.dataTableTh}>Acciones</th>
-              )}
+              <th style={profileStyles.dataTableTh}>Acciones</th>
+
             </tr>
           </thead>
           <tbody>
@@ -2704,7 +2703,6 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                     </td>
                     {currentUser && currentUser.role === "admin" && (
                       <td style={profileStyles.dataTableTd}>
-
                         <button
                           style={{
                             ...profileStyles.editButton2,
@@ -2722,27 +2720,28 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                         >
                           Editar
                         </button>
-                        <button
-                          style={{
-                            ...profileStyles.deleteButton,
-                            color: "white",
-                            border: "none",
-                            padding: "7px 0",
-                            width: "90px",
-                            borderRadius: "4px",
-                            cursor: "pointer",
-                            display: "block",
-                            margin: "0 auto",
-                          }}
-                          onClick={() =>
-                            handleEliminarRegistro(item.id, item.tipo_cambio)
-                          }
-                          className="boton-eliminar"
-                        >
-                          Eliminar
-                        </button>
                       </td>
                     )}
+                    <button
+                      style={{
+                        ...profileStyles.deleteButton,
+                        color: "white",
+                        border: "none",
+                        padding: "7px 0",
+                        width: "90px",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        display: "block",
+                        margin: "0 auto",
+                      }}
+                      onClick={() =>
+                        handleEliminarRegistro(item.id, item.tipo_cambio)
+                      }
+                      className="boton-eliminar"
+                    >
+                      Eliminar
+                    </button>
+
                   </tr>
                 ))
             ) : (
