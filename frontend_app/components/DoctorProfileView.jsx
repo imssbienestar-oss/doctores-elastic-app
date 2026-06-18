@@ -2730,7 +2730,6 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                     <td style={profileStyles.dataTableTd}>
                       {item.username || "N/A"}{" "}
                     </td>
-                    {currentUser && currentUser.role === "admin" && (
                       <td style={profileStyles.dataTableTd}>
                         <button
                           style={{
@@ -2749,28 +2748,26 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                         >
                           Editar
                         </button>
-                      </td>
-                    )}
-                    <button
-                      style={{
-                        ...profileStyles.deleteButton,
-                        color: "white",
-                        border: "none",
-                        padding: "7px 0",
-                        width: "90px",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                        display: "block",
-                        margin: "0 auto",
-                      }}
-                      onClick={() =>
-                        handleEliminarRegistro(item.id, item.tipo_cambio)
-                      }
-                      className="boton-eliminar"
-                    >
-                      Eliminar
-                    </button>
-
+                  {currentUser && currentUser.role === "admin" && (
+                        <button
+                          style={{
+                            ...profileStyles.deleteButton,
+                            color: "white",
+                            border: "none",
+                            padding: "7px 0",
+                            width: "90px",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                            display: "block",
+                            margin: "0 auto",
+                          }}
+                          onClick={() => handleEliminarRegistro(item.id, item.tipo_cambio)}
+                          className="boton-eliminar"
+                        >
+                          Eliminar
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))
             ) : (
