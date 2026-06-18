@@ -80,7 +80,8 @@ class DoctorCreate(BaseModel):
     apellido_materno: str = Field(..., min_length=1, max_length=255)
     estatus: str = Field(..., min_length=1, max_length=50)
     curp: Optional[str] = Field(None, pattern=r'^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$|^$', max_length=25)
-    especialidad: str = Field(..., min_length=1, max_length=255)
+    especialidad: Optional[str] = Field(None, max_length=255)
+    coordinacion: Optional[str] = Field(None, max_length=10)
     turno: Optional[str] = None 
     fecha_estatus: Optional[date] = None
     clues: Optional[str] = None
