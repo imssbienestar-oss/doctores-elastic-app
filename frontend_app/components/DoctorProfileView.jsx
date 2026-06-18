@@ -1790,8 +1790,8 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
             </div>
           </div>
 
-          <div style={profileStyles.sectionTitle}>Datos de Colaboración:</div>
-         <div
+         <div style={profileStyles.sectionTitle}>Datos de Colaboración:</div>
+          <div
             style={{
               ...profileStyles.gridContainer,
               gridTemplateColumns: "1fr 1fr",
@@ -1934,16 +1934,21 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                       </small>
                     </div>
                   )}
+                </>
+              )}
 
-                  <FieldRenderer
-                    label="Despliegue"
-                    fieldName="despliegue"
-                    type="text"
-                    isEditing={isEditing}
-                    currentValue={editableDoctorData.despliegue}
-                    onChange={handleInputChange}
-                    isLoading={isLoading}
-                  />
+              <FieldRenderer
+                label="Despliegue"
+                fieldName="despliegue"
+                type="text"
+                isEditing={isEditing}
+                currentValue={editableDoctorData.despliegue}
+                onChange={handleInputChange}
+                isLoading={isLoading}
+              />
+
+              {!esEstatusDeBaja && !esEstatusDeDefuncion && !esAdministrativo && (
+                <>
                   <FieldRenderer
                     label="Clues"
                     fieldName="clues"
@@ -1975,7 +1980,6 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
             <div>
               {!esEstatusDeBaja && !esEstatusDeDefuncion && (
                 <>
-                  {/* 🛑 OCULTAMOS ESTA PRIMERA PARTE SI ES ADMINISTRATIVO */}
                   {!esAdministrativo && (
                     <>
                       <FieldRenderer
@@ -2085,6 +2089,34 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                     onChange={handleInputChange}
                     isLoading={isLoading}
                   />
+
+                  {esAdministrativo && (
+                    <>
+                      <FieldRenderer
+                        label="Área"
+                        fieldName="area"
+                        type="select"
+                        options={[
+                          { value: "Coordinación Nacional", label: "Coordinación Nacional" },
+                          { value: "Coordinación Estatal", label: "Coordinación Estatal" },
+                        ]}
+                        isEditing={isEditing}
+                        currentValue={isEditing ? editableDoctorData.area : doctor.area}
+                        onChange={handleInputChange}
+                        isLoading={isLoading}
+                      />
+
+                      <FieldRenderer
+                        label="Cargo"
+                        fieldName="cargo"
+                        type="text" // Texto abierto como solicitaste
+                        isEditing={isEditing}
+                        currentValue={isEditing ? editableDoctorData.cargo : doctor.cargo}
+                        onChange={handleInputChange}
+                        isLoading={isLoading}
+                      />
+                    </>
+                  )}
 
                   {/* 🛑 OCULTAMOS MUNICIPIO Y REGIÓN SI ES ADMINISTRATIVO */}
                   {!esAdministrativo && (

@@ -55,6 +55,8 @@ class DoctorBase(BaseModel):
     motivo: Optional[str] = Field(None, max_length=255)
     tipo_incapacidad: Optional[str] = Field(None, max_length=255)
     coordinacion: Optional[str] = Field(None, max_length=100)
+    area: Optional[str] = Field(None, max_length=255)
+    cargo: Optional[str] = Field(None, max_length=255)
 
 # --- SCHEMA DATOS USUARIO
 class UserSimple(BaseModel): 

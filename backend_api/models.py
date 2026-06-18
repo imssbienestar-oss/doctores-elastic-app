@@ -64,7 +64,9 @@ class Doctor(Base):
     motivo = Column(String(255), nullable=True)
     tipo_incapacidad = Column(String(255), nullable=True) 
     attachments = relationship("DoctorAttachment", back_populates="doctor", cascade="all, delete-orphan")
-    coordinacion = Column(String(100), nullable=True)
+    coordinacion = Column(String(100), nullable=True)+
+    area = Column(String(255), nullable=True)
+    cargo = Column(String(255), nullable=True)
     __table_args__ = {'extend_existing': True}
     historial = relationship("EstatusHistorico", back_populates="doctor", cascade="all, delete-orphan")
 
