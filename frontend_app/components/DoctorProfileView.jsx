@@ -1539,6 +1539,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
   const valorCoord = isEditing ? editableDoctorData?.coordinacion : doctor?.coordinacion;
   const esAdministrativo = String(valorCoord) === "1";
 
+
   return (
     <>
       <div style={profileStyles.mainLayout}>
@@ -1790,7 +1791,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
             </div>
           </div>
 
-         <div style={profileStyles.sectionTitle}>Datos de Colaboración:</div>
+          <div style={profileStyles.sectionTitle}>Datos de Colaboración:</div>
           <div
             style={{
               ...profileStyles.gridContainer,
@@ -2730,25 +2731,26 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                     <td style={profileStyles.dataTableTd}>
                       {item.username || "N/A"}{" "}
                     </td>
-                      <td style={profileStyles.dataTableTd}>
-                        <button
-                          style={{
-                            ...profileStyles.editButton2,
-                            color: "white",
-                            border: "none",
-                            padding: "7px 0",
-                            width: "90px",
-                            borderRadius: "4px",
-                            cursor: "pointer",
-                            display: "block",
-                            margin: "0 auto 6px auto",
-                          }}
-                          onClick={() => handleAbrirEditarHistorial(item)}
-                          className="boton-editar"
-                        >
-                          Editar
-                        </button>
-                  {currentUser && currentUser.role === "admin" && (
+                    <td style={profileStyles.dataTableTd}>
+                      {/* BOTÓN DE EDITAR: Visible para todos */}
+                      <button
+                        style={{
+                          ...profileStyles.editButton2,
+                          color: "white",
+                          border: "none",
+                          padding: "7px 0",
+                          width: "90px",
+                          borderRadius: "4px",
+                          cursor: "pointer",
+                          display: "block",
+                          margin: "0 auto 6px auto",
+                        }}
+                        onClick={() => handleAbrirEditarHistorial(item)}
+                        className="boton-editar"
+                      >
+                        Editar
+                      </button>
+                      {currentUser && currentUser.role === "admin" && (
                         <button
                           style={{
                             ...profileStyles.deleteButton,
