@@ -62,8 +62,8 @@ const BarTooltip = ({ value, data }) => (
       Viendo: <strong>{value}</strong>
     </div>
     <div style={{ fontSize: '0.85em', color: '#666', borderTop: '1px solid #eee', marginTop: '5px', paddingTop: '5px' }}>
-      Médicos: {data.medCount}<br/>
-      Admin: {data.admCount}<br/>
+      Médicos: {data.medCount}<br />
+      Admin: {data.admCount}<br />
       <strong>Total Real: {data.totalReal}</strong>
     </div>
     <div style={{ fontSize: '0.85em', color: data.totalReal > data.maximo ? '#dc3545' : '#666', fontWeight: '600' }}>
@@ -80,17 +80,17 @@ const PieTooltip = ({ datum }) => (
 );
 
 const CenteredMetric = ({ dataWithArc, centerX, centerY }) => {
-    let total = 0;
-    dataWithArc.forEach(datum => { total += datum.value; });
-    return (
-        <text
-            x={centerX} y={centerY}
-            textAnchor="middle" dominantBaseline="central"
-            style={{ fontSize: '24px', fontWeight: '800', fill: '#333', pointerEvents: 'none' }}
-        >
-            {total.toLocaleString()}
-        </text>
-    );
+  let total = 0;
+  dataWithArc.forEach(datum => { total += datum.value; });
+  return (
+    <text
+      x={centerX} y={centerY}
+      textAnchor="middle" dominantBaseline="central"
+      style={{ fontSize: '24px', fontWeight: '800', fill: '#333', pointerEvents: 'none' }}
+    >
+      {total.toLocaleString()}
+    </text>
+  );
 };
 
 const CupoMaximoLayer = ({ bars, fullData }) => (
@@ -173,12 +173,13 @@ const styles = {
   quickStatLabel: { fontSize: "11px", color: COLORS.textLight, textTransform: "uppercase", fontWeight: "600", textAlign: "center" },
 
   mainGrid: { display: "grid", gridTemplateColumns: "1fr 1.8fr", gap: "25px", marginBottom: "40px", alignItems: "start", maxWidth: "1600px", margin: "0 auto 40px auto" },
-  leftColumn: { display: "flex", flexDirection: "column", gap: "25px" },
-  rightColumn: { display: "flex", flexDirection: "column" },
+  leftColumn: { display: "flex", flexDirection: "column", gap: "25px", minWidth: 0 },
+  rightColumn: { display: "flex", flexDirection: "column", gap: "25px", minWidth: 0 },
 
   chartCard: {
     backgroundColor: COLORS.cardBg, borderRadius: "10px", padding: "15px", boxShadow: "0 2px 8px rgba(0,0,0,0.05)", border: "1px solid #eee",
-    display: "flex", flexDirection: "column"
+    display: "flex", flexDirection: "column", minWidth: 0,    
+    overflow: "hidden"
   },
   chartTitle: { fontSize: "15px", fontWeight: "600", color: COLORS.primary, marginBottom: "15px", textAlign: "center", borderBottom: "1px solid #f0f0f0", paddingBottom: "8px" },
 
@@ -502,7 +503,7 @@ function GraficasPage() {
         </div>
       </div>
 
-      {error && <div style={{textAlign: 'center', color: 'red', marginBottom: 20}}>{error}</div>}
+      {error && <div style={{ textAlign: 'center', color: 'red', marginBottom: 20 }}>{error}</div>}
 
       {/* KPI PRINCIPAL */}
       <div style={styles.kpiWrapper}>
@@ -598,14 +599,46 @@ function GraficasPage() {
                       layers={['arcs', 'arcLabels', 'arcLinkLabels', 'legends', CenteredMetric]}
                     />
                   ) : (
-                    <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#999', fontSize: '0.9em'}}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#999', fontSize: '0.9em' }}>
                       No aplica nivel de atención
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* ── NUEVO: HISTÓRICO DE BAJAS MENSUALES ── */}
+            </div>
+
+            <div style={styles.rightColumn}>
+
+              {/*Distribución por entidad */}
+              <div style={styles.chartCard}>
+                <h3 style={styles.chartTitle}>Distribución por Entidad Federativa (ACTIVOS)</h3>
+                <div style={styles.barContainer}>
+                  <ResponsiveBar
+                    data={dataPorEstado}
+                    keys={BAR_KEYS}
+                    indexBy="id"
+                    layout="horizontal"
+                    margin={BAR_MARGIN}
+                    padding={0.25}
+                    valueScale={BAR_VALUE_SCALE}
+                    indexScale={BAR_INDEX_SCALE}
+                    colors={getBarColorWrapper}
+                    borderColor={BAR_BORDER_COLOR}
+                    axisBottom={BAR_AXIS_BOTTOM}
+                    axisLeft={BAR_AXIS_LEFT}
+                    labelSkipWidth={12}
+                    labelTextColor={BAR_LABEL_TEXT_COLOR}
+                    layers={barLayers}
+                    tooltip={BarTooltip}
+                    theme={CHART_THEME}
+                    animate={true}
+                    motionConfig="stiff"
+                  />
+                </div>
+              </div>
+
+              {/* HISTÓRICO DE BAJAS MENSUALES */}
               <div style={styles.chartCard}>
                 <h3 style={styles.chartTitle}>Registro de Bajas Mensuales</h3>
                 <div style={styles.lineContainer}>
@@ -656,35 +689,6 @@ function GraficasPage() {
                 </div>
               </div>
 
-            </div>
-
-            <div style={styles.rightColumn}>
-              <div style={styles.chartCard}>
-                <h3 style={styles.chartTitle}>Distribución por Entidad Federativa (ACTIVOS)</h3>
-                <div style={styles.barContainer}>
-                  <ResponsiveBar
-                    data={dataPorEstado}
-                    keys={BAR_KEYS}
-                    indexBy="id"
-                    layout="horizontal"
-                    margin={BAR_MARGIN}
-                    padding={0.25}
-                    valueScale={BAR_VALUE_SCALE}
-                    indexScale={BAR_INDEX_SCALE}
-                    colors={getBarColorWrapper}
-                    borderColor={BAR_BORDER_COLOR}
-                    axisBottom={BAR_AXIS_BOTTOM}
-                    axisLeft={BAR_AXIS_LEFT}
-                    labelSkipWidth={12}
-                    labelTextColor={BAR_LABEL_TEXT_COLOR}
-                    layers={barLayers}
-                    tooltip={BarTooltip}
-                    theme={CHART_THEME}
-                    animate={true}
-                    motionConfig="stiff"
-                  />
-                </div>
-              </div>
             </div>
           </div>
         </>
@@ -766,7 +770,7 @@ function GraficasPage() {
                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = index % 2 === 0 ? 'transparent' : '#fbfbfb'}
               >
                 <td style={styles.dataTableTd}>{item.entidad}</td>
-                <td style={{...styles.dataTableTd, fontWeight: 'bold', fontSize: '0.85em'}}>{item.clues}</td>
+                <td style={{ ...styles.dataTableTd, fontWeight: 'bold', fontSize: '0.85em' }}>{item.clues}</td>
                 <td style={styles.dataTableTd}>{item.nombre_unidad}</td>
                 <td style={styles.dataTableTd}>{item.especialidad}</td>
                 <td style={styles.dataTableTd}>{item.nivel_atencion}</td>

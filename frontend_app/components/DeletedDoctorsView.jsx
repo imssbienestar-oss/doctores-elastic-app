@@ -225,7 +225,6 @@ function DeletedDoctorsView({ onDoctorRestored }) {
       const newPin = pastedData.substring(0, 4);
       setPermanentDeletePinInput(newPin);
       const focusIndex = Math.min(newPin.length, 3);
-      // CORREGIDO: Usar permanentDeletePinInputRefs
       if (permanentDeletePinInputRefs.current[focusIndex]) {
         permanentDeletePinInputRefs.current[focusIndex]?.focus();
       } else if (permanentDeletePinInputRefs.current[3]) {
@@ -424,7 +423,6 @@ function DeletedDoctorsView({ onDoctorRestored }) {
       return;
     }
 
-    // Confirmación del usuario
     if (
       !window.confirm(
         `¿Está seguro de que desea restaurar ${selectedDoctorIds.length} registro(s) seleccionado(s)?`
@@ -433,18 +431,18 @@ function DeletedDoctorsView({ onDoctorRestored }) {
       return;
     }
 
-    setIsLoading(true); // Usar el estado de carga general o uno específico como isRestoring
+    setIsLoading(true); 
     setError("");
     setSuccessMessage("");
 
     try {
       const restorePromises = selectedDoctorIds.map((id) =>
         fetch(`${API_BASE_URL}/api/admin/doctores/${id}/restore`, {
-          // Asegúrate que este sea tu endpoint correcto
-          method: "POST", // O el método que use tu API para restaurar
+          
+          method: "POST", 
           headers: {
             Authorization: `Bearer ${authToken}`,
-            // "Content-Type": "application/json", // No es necesario para POST sin cuerpo usualmente
+           
           },
         })
       );
@@ -459,13 +457,12 @@ function DeletedDoctorsView({ onDoctorRestored }) {
         if (response.ok) {
           successfulRestores++;
         } else {
-          // Intentar obtener más detalles del error
           let errorDetail = `Error ${response.status}`;
           try {
             const errorData = await response.json();
             errorDetail = errorData.detail || errorDetail;
           } catch (e) {
-            // No hacer nada si el cuerpo no es JSON, usar el statusText o el detalle por defecto
+           
             errorDetail = response.statusText || errorDetail;
           }
           errors.push(`ID ${selectedDoctorIds[i]}: ${errorDetail}`);
@@ -486,8 +483,8 @@ function DeletedDoctorsView({ onDoctorRestored }) {
         );
        
         setSelectedDoctorIds([]);
-        fetchDeletedDoctors(0); // Recargar la lista de doctores eliminados (a la página 0)
-        setCurrentPage(0); // Resetear la página actual de esta vista
+        fetchDeletedDoctors(0); 
+        setCurrentPage(0);
 
         if (onDoctorRestored) {
           onDoctorRestored();
@@ -499,7 +496,7 @@ function DeletedDoctorsView({ onDoctorRestored }) {
         err.message || "Ocurrió un error de conexión durante la restauración."
       );
     } finally {
-      setIsLoading(false); // O setIsRestoring(false)
+      setIsLoading(false);
     }
   };
   const totalPages = Math.ceil(totalDoctors / ITEMS_PER_PAGE);
@@ -529,7 +526,7 @@ function DeletedDoctorsView({ onDoctorRestored }) {
   if (isLoading && deletedDoctors.length === 0 && !error)
     return <div style={styles.message}>Cargando registros eliminados...</div>;
 
-  const numberOfColumns = 6; // Ajustado al número de columnas visibles en la tabla de doctores eliminados
+  const numberOfColumns = 6; 
 
   return (
     <div style={styles.container}>
@@ -737,7 +734,7 @@ function DeletedDoctorsView({ onDoctorRestored }) {
                 {Array.from({ length: 4 }).map((_, i) => (
                   <input
                     key={i}
-                    ref={(el) => (permanentDeletePinInputRefs.current[i] = el)} // CORREGIDO
+                    ref={(el) => (permanentDeletePinInputRefs.current[i] = el)} 
                     type="password"
                     inputMode="numeric"
                     maxLength={1}
