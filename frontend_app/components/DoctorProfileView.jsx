@@ -2698,29 +2698,11 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                     <td style={profileStyles.dataTableTd}>
                       {item.username || "N/A"}{" "}
                     </td>
-                    <td style={profileStyles.dataTableTd}>
-                      {/* BOTÓN DE EDITAR: Visible para todos */}
-                      <button
-                        style={{
-                          ...profileStyles.editButton2,
-                          color: "white",
-                          border: "none",
-                          padding: "7px 0",
-                          width: "90px",
-                          borderRadius: "4px",
-                          cursor: "pointer",
-                          display: "block",
-                          margin: "0 auto 6px auto", 
-                        }}
-                        onClick={() => handleAbrirEditarHistorial(item)}
-                        className="boton-editar"
-                      >
-                        Editar
-                      </button>
-                      {currentUser && currentUser.role === "admin" && (
+                    {currentUser && currentUser.role === "admin" && (
+                      <td style={profileStyles.dataTableTd}>
                         <button
                           style={{
-                            ...profileStyles.deleteButton,
+                            ...profileStyles.editButton2,
                             color: "white",
                             border: "none",
                             padding: "7px 0",
@@ -2728,15 +2710,35 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
                             borderRadius: "4px",
                             cursor: "pointer",
                             display: "block",
-                            margin: "0 auto",
+                            margin: "0 auto 6px auto",
                           }}
-                          onClick={() => handleEliminarRegistro(item.id, item.tipo_cambio)}
-                          className="boton-eliminar"
+                          onClick={() => handleAbrirEditarHistorial(item)}
+                          className="boton-editar"
                         >
-                          Eliminar
+                          Editar
                         </button>
-                      )}
-                    </td>
+                      </td>
+                    )}
+                    <button
+                      style={{
+                        ...profileStyles.deleteButton,
+                        color: "white",
+                        border: "none",
+                        padding: "7px 0",
+                        width: "90px",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        display: "block",
+                        margin: "0 auto",
+                      }}
+                      onClick={() =>
+                        handleEliminarRegistro(item.id, item.tipo_cambio)
+                      }
+                      className="boton-eliminar"
+                    >
+                      Eliminar
+                    </button>
+
                   </tr>
                 ))
             ) : (
