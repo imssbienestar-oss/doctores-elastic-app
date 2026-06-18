@@ -6,8 +6,8 @@ import { useAuth } from "../src/contexts/AuthContext";
 const ESTATUS_OPTIONS = [
   { value: "", label: "Seleccione un estatus..." },
   { value: "01 ACTIVO", label: "01 ACTIVO" },
-  { value: "02 RETIRO TEMP. (CUBA)", label: "02 RETIRO TEMPORAL (CUBA)" },
-  { value: "03 RETIRO TEMP. (MEXICO)", label: "03 RETIRO TEMPORAL (MEXICO)" },
+  { value: "02 RETIRO TEMP. (CUBA)", label: "02 RETIRO TEMPORAL. (CUBA)" },
+  { value: "03 RETIRO TEMP. (MEXICO)", label: "03 RETIRO TEMPORAL. (MEXICO)" },
   { value: "04 SOL. PERSONAL", label: "04 SOLICITUD PERSONAL" },
   { value: "05 INCAPACIDAD", label: "05 INCAPACIDAD" },
   { value: "06 BAJA", label: "06 BAJA" },
@@ -286,6 +286,7 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
     apellido_materno: "",
     estatus: "",
     fecha_estatus: "",
+    coordinacion: "",
     clues: "",
     entidad: "",
     nombre_unidad: "",
@@ -484,16 +485,25 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
     event.preventDefault();
     setError("");
 
-    // --- Añadir validación para id_imss ---
-    if (
+    // 1. Validaciones base (obligatorias para TODOS)
+    const faltanCamposBase =
       !formData.id_imss.trim() ||
       !formData.nombre.trim() ||
       !formData.apellido_paterno.trim() ||
       !formData.estatus ||
-      !formData.especialidad ||
+      !formData.fecha_estatus ||
       !formData.entidad ||
-      !formData.fecha_estatus
-    ) {
+      !formData.coordinacion; // <-- Agregamos coordinación como obligatoria
+
+    // 2. Validaciones específicas (obligatorias SOLO para Médicos)
+    const esMedico = formData.coordinacion !== "1";
+    const faltanCamposMedico = esMedico && (
+      !formData.especialidad ||
+      !formData.clues.trim()
+    );
+
+    // Si falta algo de la base, o falta algo de médico (siendo médico), lanzamos error
+    if (faltanCamposBase || faltanCamposMedico) {
       setError("Por favor, completa todos los campos requeridos (*).");
       setIsSaving(false);
       return;
@@ -527,7 +537,16 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
         onSave(savedDoctor, false);
       } else {
         const errorData = await response.json();
-        setError(errorData.detail || "Hubo un error al crear el doctor.");
+
+        if (Array.isArray(errorData.detail)) {
+          // Si FastAPI nos manda una lista de errores (Error 422), extraemos el primero
+          const campoFallido = errorData.detail[0].loc[errorData.detail[0].loc.length - 1];
+          const mensajeFallo = errorData.detail[0].msg;
+          setError(`Error del servidor: El campo "${campoFallido}" ${mensajeFallo}`);
+        } else {
+          // Si es un error normal de texto
+          setError(errorData.detail || "Hubo un error al crear el doctor.");
+        }
       }
     } catch (err) {
       setError(err.message || "Error de conexión. Intenta de nuevo.");
@@ -636,51 +655,71 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
           />
         </div>
         <div style={modalStyles.formGroup}>
-          <label style={modalStyles.label}>Especialidad*:</label>
+          <label style={modalStyles.label}>Coordinación*:</label>
           <select
-            name="especialidad"
-            value={formData.especialidad}
+            name="coordinacion"
+            value={formData.coordinacion}
             onChange={handleChange}
             required
             style={modalStyles.select}
           >
-            {ESPECIALIDAD_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
+            <option value="">Seleccione el rol...</option>
+            <option value="0">Atención Médica</option>
+            <option value="1">Administrativo</option>
           </select>
         </div>
-        <div style={modalStyles.formGroup}>
-          <label style={modalStyles.label}>Turno:</label>
-          <select
-            name="turno"
-            value={formData.turno}
-            onChange={handleChange}
-            style={modalStyles.select}
-          >
-            <option value="">Seleccione un turno...</option>
-            <option value="Jornada Acumulada">Jornada Acumulada</option>
-            <option value="Matutino">Matutino</option>
-            <option value="No Aplica">No Aplica</option>
-            <option value="Nocturno A">Nocturno A</option>
-            <option value="Nocturno B">Nocturno B</option>
-            <option value="Vespertino">Vespertino</option>
-          </select>
-        </div>
-        <div style={modalStyles.formGroup}>
-          <label style={modalStyles.label}>CLUES*:</label>
-          <input
-            type="text"
-            name="clues"
-            value={formData.clues}
-            onChange={handleChange}
-            required
-            style={modalStyles.input}
-          />{" "}
-          {isLoadingClues && <p style={modalStyles.infoText}>Buscando...</p>}{" "}
-          {cluesError && <p style={modalStyles.errorText}>{cluesError}</p>}
-        </div>
+
+        {formData.coordinacion !== "1" && (
+          <>
+            <div style={modalStyles.formGroup}>
+              <label style={modalStyles.label}>Especialidad*:</label>
+              <select
+                name="especialidad"
+                value={formData.especialidad}
+                onChange={handleChange}
+                required={formData.coordinacion !== "1"}
+                style={modalStyles.select}
+              >
+                {ESPECIALIDAD_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div style={modalStyles.formGroup}>
+              <label style={modalStyles.label}>Turno:</label>
+              <select
+                name="turno"
+                value={formData.turno}
+                onChange={handleChange}
+                style={modalStyles.select}
+              >
+                <option value="">Seleccione un turno...</option>
+                <option value="Jornada Acumulada">Jornada Acumulada</option>
+                <option value="Matutino">Matutino</option>
+                <option value="No Aplica">No Aplica</option>
+                <option value="Nocturno A">Nocturno A</option>
+                <option value="Nocturno B">Nocturno B</option>
+                <option value="Vespertino">Vespertino</option>
+              </select>
+            </div>
+            <div style={modalStyles.formGroup}>
+              <label style={modalStyles.label}>CLUES*:</label>
+              <input
+                type="text"
+                name="clues"
+                value={formData.clues}
+                onChange={handleChange}
+                required={formData.coordinacion !== "1"}
+                style={modalStyles.input}
+              />{" "}
+              {isLoadingClues && <p style={modalStyles.infoText}>Buscando...</p>}{" "}
+              {cluesError && <p style={modalStyles.errorText}>{cluesError}</p>}
+            </div>
+          </>
+        )}
+
         <div style={modalStyles.formGroup}>
           <label style={modalStyles.label}>Entidad*:</label>
           <select
@@ -713,39 +752,45 @@ function AddDoctorModal({ isOpen, onRequestClose, onSave }) {
             })}
           </select>
         </div>
-        <div style={modalStyles.formGroup}>
-          <label style={modalStyles.label}>Unidad Médica:</label>
-          <input
-            type="text"
-            name="nombre_unidad"
-            value={formData.nombre_unidad}
-            onChange={handleChange}
-            style={modalStyles.input}
-            readOnly
-          />
-        </div>
-        <div style={modalStyles.formGroup}>
-          <label style={modalStyles.label}>Municipio:</label>
-          <input
-            type="text"
-            name="municipio"
-            value={formData.municipio}
-            onChange={handleChange}
-            style={modalStyles.input}
-            readOnly
-          />
-        </div>
-        <div style={modalStyles.formGroup}>
-          <label style={modalStyles.label}>Nivel de Atención:</label>
-          <input
-            type="text"
-            name="nivel_atencion"
-            value={formData.nivel_atencion}
-            onChange={handleChange}
-            style={modalStyles.input}
-            readOnly
-          />
-        </div>
+
+        {formData.coordinacion !== "1" && (
+          <>
+            <div style={modalStyles.formGroup}>
+              <label style={modalStyles.label}>Unidad Médica:</label>
+              <input
+                type="text"
+                name="nombre_unidad"
+                value={formData.nombre_unidad}
+                onChange={handleChange}
+                style={modalStyles.input}
+                readOnly
+              />
+            </div>
+            <div style={modalStyles.formGroup}>
+              <label style={modalStyles.label}>Municipio:</label>
+              <input
+                type="text"
+                name="municipio"
+                value={formData.municipio}
+                onChange={handleChange}
+                style={modalStyles.input}
+                readOnly
+              />
+            </div>
+            <div style={modalStyles.formGroup}>
+              <label style={modalStyles.label}>Nivel de Atención:</label>
+              <input
+                type="text"
+                name="nivel_atencion"
+                value={formData.nivel_atencion}
+                onChange={handleChange}
+                style={modalStyles.input}
+                readOnly
+              />
+            </div>
+          </>
+        )}
+
 
         {error && <p style={modalStyles.errorText}>{error}</p>}
         <div style={modalStyles.buttonContainer}>
