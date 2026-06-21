@@ -4,7 +4,6 @@ import { jwtDecode } from "jwt-decode";
 
 const AuthContext = createContext(null);
 
-// Función auxiliar para leer y decodificar el token INMEDIATAMENTE
 const getUserFromToken = (tokenValue) => {
   if (!tokenValue) return null;
   try {
@@ -20,7 +19,6 @@ const getUserFromToken = (tokenValue) => {
 };
 
 export const AuthProvider = ({ children }) => {
-  // Inicializamos TODO de forma síncrona en el primer milisegundo
   const [token, setToken] = useState(() => localStorage.getItem("authToken"));
   const [currentUser, setCurrentUser] = useState(() => getUserFromToken(localStorage.getItem("authToken")));
   const [isGuestMode, setIsGuestMode] = useState(false);
@@ -30,7 +28,6 @@ export const AuthProvider = ({ children }) => {
     setDataRefreshKey((prevKey) => prevKey + 1);
   }, []);
 
-  // Este useEffect ya solo sirve como "vigilante" por si el token caduca o se corrompe
   useEffect(() => {
     const storedToken = localStorage.getItem("authToken");
     if (storedToken) {
