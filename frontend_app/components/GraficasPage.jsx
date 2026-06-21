@@ -384,28 +384,28 @@ function GraficasPage() {
   useEffect(() => {
     const fetchFilterOptions = async () => {
       setIsLoadingFiltros(true);
-      const params = new URLSearchParams();
-      if (filtroEstatus) params.append("estatus", filtroEstatus);
-      if (filtroEntidad) params.append("entidad", filtroEntidad);
-      if (filtroUnidad) params.append("nombre_unidad", filtroUnidad);
-      if (filtroEspecialidad) params.append("especialidad", filtroEspecialidad);
-      if (filtroNivel) params.append("nivel_atencion", filtroNivel);
-      if (debouncedBusqueda) params.append("search", debouncedBusqueda);
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/opciones/filtros-dinamicos?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
+      const params = new URLSearchParams({ tipo: tipoPersonal });
+  try {
+        const response = await fetch(`${API_BASE_URL}/api/opciones/filtros-dinamicos?${params.toString()}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
         if (!response.ok) throw new Error("Error filtros");
         const data = await response.json();
-        setOpcionesEstatus(data.estatus);
-        setOpcionesEntidad(data.entidades);
-        setOpcionesUnidad(data.unidades);
-        setOpcionesEspecialidad(data.especialidades);
-        setOpcionesNivel(data.niveles_atencion);
-      } catch (error) { console.error(error); }
-      finally { setIsLoadingFiltros(false); }
+
+        setOpcionesEstatus(data.estatus || []);
+        setOpcionesEntidad(data.entidades || []);
+        setOpcionesUnidad(data.unidades || []);
+        setOpcionesEspecialidad(data.especialidades || []);
+        setOpcionesNivel(data.niveles_atencion || []);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setIsLoadingFiltros(false);
+      }
     };
     if (token) fetchFilterOptions();
-  }, [filtroEstatus, filtroEntidad, filtroUnidad, filtroEspecialidad, filtroNivel, debouncedBusqueda, token]);
-
+  }, [token, tipoPersonal]);
+      
   // Carga Tabla
   useEffect(() => {
     const fetchEstadisticaData = async () => {
