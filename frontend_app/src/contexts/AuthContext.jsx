@@ -1,13 +1,28 @@
 // src/contexts/AuthContext.jsx
-import React, { createContext, useState, useContext, useEffect,useCallback  } from "react";
-import { jwtDecode } from "jwt-decode"; // Importa la librería
+import React, { createContext, useState, useContext, useEffect, useCallback } from "react";
+import { jwtDecode } from "jwt-decode";
 
 const AuthContext = createContext(null);
 
+// Función auxiliar para leer y decodificar el token INMEDIATAMENTE
+const getUserFromToken = (tokenValue) => {
+  if (!tokenValue) return null;
+  try {
+    const decodedUser = jwtDecode(tokenValue);
+    return {
+      username: decodedUser.sub || decodedUser.username || decodedUser.name,
+      role: decodedUser.role,
+      id: decodedUser.userId,
+    };
+  } catch (error) {
+    return null;
+  }
+};
+
 export const AuthProvider = ({ children }) => {
-  const [token, setToken] = useState(localStorage.getItem("authToken"));
-  // currentUser almacenará el objeto de usuario decodificado del token
-  const [currentUser, setCurrentUser] = useState(null);
+  // Inicializamos TODO de forma síncrona en el primer milisegundo
+  const [token, setToken] = useState(() => localStorage.getItem("authToken"));
+  const [currentUser, setCurrentUser] = useState(() => getUserFromToken(localStorage.getItem("authToken")));
   const [isGuestMode, setIsGuestMode] = useState(false);
 
   const [dataRefreshKey, setDataRefreshKey] = useState(0);
@@ -15,25 +30,13 @@ export const AuthProvider = ({ children }) => {
     setDataRefreshKey((prevKey) => prevKey + 1);
   }, []);
 
+  // Este useEffect ya solo sirve como "vigilante" por si el token caduca o se corrompe
   useEffect(() => {
     const storedToken = localStorage.getItem("authToken");
-
     if (storedToken) {
-      try {
-        const decodedUser = jwtDecode(storedToken);
-
-        setCurrentUser({
-          username: decodedUser.sub || decodedUser.username || decodedUser.name, // Esto parece funcionar para ti
-          role: decodedUser.role,
-          id: decodedUser.userId,
-        });
-        setIsGuestMode(false);
-      } catch (error) {
-        console.error(
-          "AuthContext - Token inválido o expirado al cargar:",
-          error
-        );
-
+      const user = getUserFromToken(storedToken);
+      if (!user) {
+        console.error("AuthContext - Token inválido o expirado al cargar");
         localStorage.removeItem("authToken");
         setToken(null);
         setCurrentUser(null);
@@ -47,6 +50,7 @@ export const AuthProvider = ({ children }) => {
   const login = (newToken, userDataFromLoginPage) => {
     localStorage.setItem("authToken", newToken);
     setToken(newToken);
+    setCurrentUser(getUserFromToken(newToken)); // Actualizamos síncronamente al loguear
     setIsGuestMode(false);
   };
 
@@ -59,21 +63,23 @@ export const AuthProvider = ({ children }) => {
 
   const enterGuestMode = () => {
     localStorage.removeItem("authToken");
+    setToken(null);
     setCurrentUser(null);
     setIsGuestMode(true);
   };
+  
   const isAuthenticated = !!currentUser && !isGuestMode;
 
   const value = {
     token,
     currentUser,
-    isAuthenticated, // Booleano que indica si el usuario está autenticado
-    isGuestMode, // Booleano para el modo invitado
-    login, // Función para iniciar sesión
-    logout, // Función para cerrar sesión
-    enterGuestMode, // Función para entrar en modo invitado
+    isAuthenticated,
+    isGuestMode,
+    login,
+    logout,
+    enterGuestMode,
     triggerDataRefresh,
-    dataRefreshKey, // El estado del timbre
+    dataRefreshKey,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
