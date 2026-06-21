@@ -161,7 +161,7 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
     currentUser,
   } = useAuth();
   const { isModalOpen, editingDoctor, openModal, closeModal } = useModal();
-  const navigate = useNavigate(); // <--- ASEGÚRATE DE QUE ESTA LÍNEA ESTÉ PRESENTE
+  const navigate = useNavigate();
 
   // Estados específicos de esta página
   const [doctores, setDoctores] = useState([]);
@@ -184,12 +184,13 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
     "todos",
   ];
 
-  const [viewMode, setViewMode] = useState("table");
+  const [viewMode, setViewMode] = useState("tabla");
   const [selectedDoctorProfile, setSelectedDoctorProfile] = useState(null);
   const [searchParams] = useSearchParams();
   const totalPages = Math.ceil(totalDoctores / itemsPerPage);
   const API_BASE_URL =
     import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+
   useEffect(() => {
     const timerId = setTimeout(() => {
       setDebouncedSearchTerm(searchTermInput);
@@ -198,11 +199,10 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
       clearTimeout(timerId);
     };
   }, [searchTermInput]);
+
   useEffect(() => {
     const profileId = searchParams.get('profile');
-
     if (profileId) {
-      onSwitchToTableView();
       handleViewProfileClick({ id_imss: profileId });
     }
   }, [searchParams]);
@@ -215,15 +215,12 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
     if (!canProceedBasedOnAuth) {
       setDoctores([]);
       setTotalDoctores(0);
-      if (!isGuestMode && !isAuthenticated) {
-        ("Por favor, inicie sesión para ver los datos.");
-      }
       setIsLoading(false);
       return;
     }
 
     if (isAuthenticated && !authToken) {
-      setIsLoading(false); // Detener loading
+      setIsLoading(false);
       return;
     }
 
@@ -260,7 +257,6 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
         setTotalDoctores(data.total_count || 0);
       } else {
         const errorText = await response.text();
-
         let detailErrorMessage = `Error del servidor: ${response.status}.`;
         try {
           const errorData = JSON.parse(errorText);
@@ -284,15 +280,13 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
         setTotalDoctores(0);
       }
     } catch (err) {
-      console.error("APP.JSX - fetchDoctores: Error de red o JS:", err);
       setFetchError(
-        "Error de conexión al obtener datos de doctores. Verifica tu conexión o la URL de la API."
+        "Error de conexión al obtener datos de doctores."
       );
       setDoctores([]);
       setTotalDoctores(0);
     } finally {
       setIsLoading(false);
-      console.log("APP.JSX - fetchDoctores: FINALIZADO. isLoading=false");
     }
   }, [
     isAuthenticated,
@@ -309,34 +303,10 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
   ]);
 
   useEffect(() => {
-    if (vistaActualProp !== "tabla") return;
-    let shouldFetch = (isGuestMode && !isAuthenticated) || (isAuthenticated && authToken && currentUser);
-    if (isGuestMode && !isAuthenticated) {
-      // Modo invitado
-      shouldFetch = true;
-    } else if (isAuthenticated && authToken && currentUser) {
-      shouldFetch = true;
-    }
-
-    if (shouldFetch && viewMode === "table") {
+    if (vistaActualProp === "tabla" && viewMode === "tabla") {
       fetchDoctores();
-    } else if (viewMode !== "profile") {
-      if (!shouldFetch) {
-        setDoctores([]);
-        setTotalDoctores(0);
-      }
     }
-  }, [
-    fetchDoctores,
-    isAuthenticated,
-    isGuestMode,
-    authToken,
-    currentUser,
-    viewMode,
-    doctorListRefreshKey,
-    vistaActualProp,
-    selectedCoord
-  ]);
+  }, [fetchDoctores, viewMode, vistaActualProp, doctorListRefreshKey]);
 
   useEffect(() => {
     if (currentPage !== 1) {
@@ -346,9 +316,7 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
 
   const fetchFullDoctorProfile = async (doctorId) => {
     if (!doctorId) return;
-
     setFetchError("");
-
     try {
       const headers = { "Content-Type": "application/json" };
       if (isAuthenticated && authToken) {
@@ -368,7 +336,6 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
       const data = await response.json();
       setSelectedDoctorProfile(data);
     } catch (err) {
-      console.error("Error al cargar perfil completo del doctor:", err);
       setFetchError(err.message || "Ocurrió un error al cargar el perfil.");
     } finally {
       setIsLoading(false);
@@ -388,9 +355,9 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
   };
 
   const handleBackToTable = () => {
-    setViewMode("table");
+    setViewMode("tabla");
     setSelectedDoctorProfile(null);
-    fetchDoctores();
+    // Ya no necesitas llamar a fetchDoctores() manualmente porque el useEffect lo hará al cambiar viewMode a "table"
   };
 
   const handleDoctorProfileWasUpdated = (doctorId) => {
@@ -423,16 +390,13 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
         setSelectedDoctorProfile(savedDoctorData);
         setViewMode("profile");
       } catch (error) {
-        console.error("Error al cargar el perfil del nuevo doctor:", error);
-        setFetchError(
-          "Se creó el doctor, pero hubo un error al cargar su perfil completo."
-        );
+        setFetchError("Se creó el doctor, pero hubo un error al cargar su perfil.");
         fetchDoctores();
       } finally {
         setIsLoading(false);
       }
     } else if (wasEditing && savedDoctorData && savedDoctorData.id_imss) {
-      if (viewMode === "table") {
+      if (viewMode === "tabla") {
         fetchDoctores();
       } else if (
         viewMode === "profile" &&
@@ -446,16 +410,14 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
       fetchDoctores();
     }
   };
+
   const handleDeleteClick = (doctorId, doctorNombre) => {
     if (!isAuthenticated) return;
-    if (
-      window.confirm(
-        `¿Estás seguro de que quieres eliminar el registro "${doctorNombre}" (ID: ${doctorId})?`
-      )
-    ) {
+    if (window.confirm(`¿Estás seguro de que quieres eliminar el registro "${doctorNombre}" (ID: ${doctorId})?`)) {
       deleteDoctor(doctorId);
     }
   };
+
   const deleteDoctor = async (doctorId) => {
     if (!isAuthenticated || !authToken) return;
     setFetchError("");
@@ -472,14 +434,10 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
         setFetchError("Tu sesión ha expirado.");
         authLogout();
       } else if (response.status === 404) {
-        setFetchError(`Error: No se encontró el doctor con ID ${doctorId}.`);
-        fetchDoctores(currentPage, searchTerm);
+        setFetchError(`Error: No se encontró el doctor.`);
+        fetchDoctores();
       } else {
-        const errorData = await response.json().catch(() => null);
-        setFetchError(
-          `Error del servidor al borrar: ${response.status} ${errorData?.detail ? "- " + errorData.detail : ""
-          }`
-        );
+        setFetchError(`Error del servidor al borrar: ${response.status}`);
       }
     } catch (err) {
       setFetchError("Error de conexión al borrar.");
@@ -490,10 +448,6 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
     setSearchTermInput(event.target.value);
   };
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [debouncedSearchTerm, selectedStatus]);
-
   const handleNavigateToDeletedDoctors = () => {
     navigate("/admin/deleted-doctors");
   };
@@ -502,157 +456,114 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
     return <GraficasPage />;
   }
 
-  if (vistaActualProp === "tabla") {
-    if (viewMode === "profile" && selectedDoctorProfile) {
-      return (
-        <DoctorProfileView
-          doctor={selectedDoctorProfile}
-          onBack={handleBackToTable}
-          onProfileUpdate={handleDoctorProfileWasUpdated}
-        />
-      );
-    }
+  if (viewMode === "profile" && selectedDoctorProfile) {
     return (
-      <>
-        <div>
-          <h1 style={{ marginTop: "30px" }}>Registro de Médicos</h1>
-          {isGuestMode && !isAuthenticated && (
-            <p
-              style={{
-                backgroundColor: "#fff3cd",
-                color: "#856404",
-                border: "1px solid #ffeeba",
-                padding: "10px",
-                borderRadius: "5px",
-                marginBottom: "15px",
-              }}
-            >
-              Estás navegando como invitado. Las opciones de modificación están
-              desactivadas.
-            </p>
-          )}
-          {/* --- Controles de Búsqueda --- */}
-          <div style={styles.controlsRow}>
-            <div style={styles.searchControls}>
-              <label htmlFor="search-nombre" style={styles.searchLabel}>
-                {" "}
-                Buscar por Nombre:{" "}
-              </label>
-              <input
-                type="search"
-                id="search-nombre"
-                placeholder="Escribe un nombre o ID..."
-                value={searchTermInput}
-                onChange={handleSearchInputChange}
-                onKeyPress={(e) => {
-                  if (e.key === "Enter") {
-                    setDebouncedSearchTerm(searchTermInput);
-                    setCurrentPage(1);
-                  }
-                }}
-                style={styles.searchInput}
-              />
-
-            </div>
-            {isAuthenticated && currentUser?.role !== "consulta" && (
-              <button
-                onClick={handleOpenCreateDoctorModal}
-                style={styles.addButton}
-              >
-                <span
-                  role="img"
-                  aria-label="agregar"
-                  style={{ marginRight: "8px" }}
-                >
-                  ➕
-                </span>
-                Registrar Médico
-              </button>
-            )}
-            {isAuthenticated && currentUser?.role === "admin" && (
-              <button
-                onClick={handleNavigateToDeletedDoctors}
-                style={{
-                  ...styles.button,
-                  backgroundColor: "#BC955C",
-                  color: "white"
-                }}
-              >
-                Registros Eliminados
-              </button>
-            )}
-          </div>
-
-          {isLoading && <p>Cargando doctores...</p>}
-          {fetchError && <p style={{ color: "red" }}>{fetchError}</p>}
-
-          {/* --- Controles de Paginación --- */}
-          {!isLoading && !fetchError && totalPages > 0 && (
-            <div
-              style={{
-                marginTop: "20px",
-                marginBottom: "20px",
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-              }}
-            >
-              <button
-                className="form-button primary"
-                onClick={() => setCurrentPage(currentPage - 1)}
-                disabled={currentPage === 1}
-              >
-                Anterior
-              </button>
-              <span
-                style={{
-                  margin: "0 15px",
-                  fontSize: "18px",
-                  fontWeight: "bold",
-                }}
-              >
-                Página {currentPage} de {totalPages} (Total: {totalDoctores})
-              </span>
-              <button
-                className="form-button primary"
-                onClick={() => setCurrentPage(currentPage + 1)}
-                disabled={currentPage === totalPages || totalPages === 0}
-              >
-                Siguiente
-              </button>
-            </div>
-          )}
-
-          {/* --- Tabla de Doctores --- */}
-          {!isLoading && !fetchError && (
-            <DoctorTable
-              doctores={doctores}
-              selectedStatus={selectedStatus}
-              onStatusChange={handleStatusChange}
-              estatusDisponibles={estatusDisponibles}
-              onViewProfile={handleViewProfileClick}
-              selectedCoord={selectedCoord}
-              onCoordChange={(e) => {
-                setSelectedCoord(e.target.value);
-                setCurrentPage(1); // Reiniciar a página 1 al filtrar
-              }}
-              onEdit={isAuthenticated ? handleOpenEditModal : undefined}
-              onDelete={isAuthenticated ? handleDeleteClick : undefined}
-            />
-          )}
-        </div>
-        {isAuthenticated && (
-          <EditDoctorModal
-            isOpen={isModalOpen}
-            onRequestClose={closeModal}
-            doctorData={editingDoctor}
-            onSave={handleDoctorSave}
-          />
-        )}
-      </>
+      <DoctorProfileView
+        doctor={selectedDoctorProfile}
+        onBack={handleBackToTable}
+        onProfileUpdate={handleDoctorProfileWasUpdated}
+      />
     );
   }
-  return <div>Vista no reconocida o estado inesperado.</div>;
+
+  return (
+    <>
+      <div>
+        <h1 style={{ marginTop: "30px" }}>Registro de Médicos</h1>
+        {isGuestMode && !isAuthenticated && (
+          <p style={styles.guestMessage}>
+            Estás navegando como invitado. Las opciones de modificación están
+            desactivadas.
+          </p>
+        )}
+        <div style={styles.controlsRow}>
+          <div style={styles.searchControls}>
+            <label htmlFor="search-nombre" style={styles.searchLabel}>
+              Buscar por Nombre:
+            </label>
+            <input
+              type="search"
+              id="search-nombre"
+              placeholder="Escribe un nombre o ID..."
+              value={searchTermInput}
+              onChange={handleSearchInputChange}
+              onKeyPress={(e) => {
+                if (e.key === "Enter") {
+                  setDebouncedSearchTerm(searchTermInput);
+                  setCurrentPage(1);
+                }
+              }}
+              style={styles.searchInput}
+            />
+          </div>
+          {isAuthenticated && currentUser?.role !== "consulta" && (
+            <button onClick={handleOpenCreateDoctorModal} style={styles.addButton}>
+              <span role="img" aria-label="agregar" style={{ marginRight: "8px" }}>➕</span>
+              Registrar Médico
+            </button>
+          )}
+          {isAuthenticated && currentUser?.role === "admin" && (
+            <button
+              onClick={handleNavigateToDeletedDoctors}
+              style={{ ...styles.button, backgroundColor: "#BC955C", color: "white" }}
+            >
+              Registros Eliminados
+            </button>
+          )}
+        </div>
+
+        {isLoading && <p>Cargando doctores...</p>}
+        {fetchError && <p style={{ color: "red" }}>{fetchError}</p>}
+
+        {!isLoading && !fetchError && totalPages > 0 && (
+          <div style={styles.paginationControls}>
+            <button
+              className="form-button primary"
+              onClick={() => setCurrentPage(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              Anterior
+            </button>
+            <span style={styles.paginationInfo}>
+              Página {currentPage} de {totalPages} (Total: {totalDoctores})
+            </span>
+            <button
+              className="form-button primary"
+              onClick={() => setCurrentPage(currentPage + 1)}
+              disabled={currentPage === totalPages || totalPages === 0}
+            >
+              Siguiente
+            </button>
+          </div>
+        )}
+
+        {!isLoading && !fetchError && (
+          <DoctorTable
+            doctores={doctores}
+            selectedStatus={selectedStatus}
+            onStatusChange={handleStatusChange}
+            estatusDisponibles={estatusDisponibles}
+            onViewProfile={handleViewProfileClick}
+            selectedCoord={selectedCoord}
+            onCoordChange={(e) => {
+              setSelectedCoord(e.target.value);
+              setCurrentPage(1);
+            }}
+            onEdit={isAuthenticated ? handleOpenEditModal : undefined}
+            onDelete={isAuthenticated ? handleDeleteClick : undefined}
+          />
+        )}
+      </div>
+      {isAuthenticated && (
+        <EditDoctorModal
+          isOpen={isModalOpen}
+          onRequestClose={closeModal}
+          doctorData={editingDoctor}
+          onSave={handleDoctorSave}
+        />
+      )}
+    </>
+  );
 }
 
 function ProtectedRoute({ adminOnly = false, children }) {
