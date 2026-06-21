@@ -26,6 +26,7 @@ import ChangePasswordPage from "../components/ChangePasswordPage";
 import ProfilePage from "../components/ProfilePage";
 import { useSearchParams } from "react-router-dom";
 
+
 Modal.setAppElement("#root");
 
 const styles = {
