@@ -304,10 +304,10 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
   ]);
 
   useEffect(() => {
-    if (viewMode === "tabla") {
+    if (vistaActualProp === "tabla" && viewMode === "tabla") {
       fetchDoctores();
     }
-  }, [fetchDoctores, viewMode, doctorListRefreshKey]);
+  }, [fetchDoctores, viewMode, vistaActualProp, doctorListRefreshKey]);
 
   useEffect(() => {
     if (currentPage !== 1) {
