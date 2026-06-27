@@ -20,6 +20,9 @@ import re
 from passlib.context import CryptContext # Para hashing seguro de PINs
 import json
 import logging
+import asyncio
+import hashlib
+import time
 
 # Importaciones locales
 import security
