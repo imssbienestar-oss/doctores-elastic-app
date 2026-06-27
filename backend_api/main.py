@@ -2374,3 +2374,22 @@ async def actualizar_fechas_historial(
     datos: schemas.HistorialUpdate, 
     db: Session = Depends(get_db_session)
 ):
+    # 1. Buscamos el registro exacto en la tabla EstatusHistorico
+    registro = db.query(models.EstatusHistorico).filter(models.EstatusHistorico.id == historial_id).first()
+    
+    if not registro:
+        raise HTTPException(status_code=404, detail="Registro de historial no encontrado")
+    
+    # 2. Actualizamos las fechas
+    # FastAPI/Pydantic ya se encargaron de convertir los strings ("2025-12-30") a objetos Date
+    registro.fecha_inicio = datos.fecha_inicio
+    registro.fecha_fin = datos.fecha_fin
+    
+    # 3. Guardamos los cambios en PostgreSQL
+    try:
+        db.commit()
+        db.refresh(registro)
+        return {"mensaje": "Fechas actualizadas correctamente", "id": registro.id}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error al guardar en la base de datos: {str(e)}")
