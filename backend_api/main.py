@@ -1294,95 +1294,144 @@ async def generar_reporte_excel(
             detail="No tiene permisos para modificar datos."
         )
     try:
-        query = db.query(models.Doctor)
-
-        query = query.filter(models.Doctor.is_deleted == False)
-
-        if hasattr(models.Doctor, 'id_imss'):
-            query = query.order_by(models.Doctor.id_imss)
+        # Columnas en el orden exacto que tenías
+        column_names = [
+            "ID_IMSS", "NOMBRE", "APELLIDO_PATERNO", "APELLIDO_MATERNO", "ESTATUS",
+            "MATRIMONIO_ID", "CURP", "CEDULA_ESP", "CEDULA_LIC", "ESPECIALIDAD",
+            "ENTIDAD", "CLUES", "FORMA_NOTIFICACION", "MOTIVO_BAJA",
+            "FECHA_EXTRACCION", "FECHA_NOTIFICACION", "SEXO", "TURNO",
+            "NOMBRE_UNIDAD", "MUNICIPIO", "NIVEL_ATENCION",
+            "FECHA_ESTATUS", "DESPLIEGUE", "FECHA_VUELO", "ESTRATO", "ACUERDO",
+            "CORREO", "ENTIDAD_NACIMIENTO", "TELEFONO",
+            "COMENTARIOS_ESTATUS", "FECHA_NACIMIENTO", "PASAPORTE",
+            "FECHA_EMISION", "FECHA_EXPIRACION", "DOMICILIO",
+            "LICENCIATURA", "INSTITUCION_LIC", "INSTITUCION_ESP",
+            "FECHA_EGRESO_LIC", "FECHA_EGRESO_ESP",
+            "TIPO_ESTABLECIMIENTO", "SUBTIPO_ESTABLECIMIENTO",
+            "DIRECCION_UNIDAD", "REGION",
+            "FECHA_INICIO", "FECHA_FIN", "MOTIVO", "TIPO_INCAPACIDAD"
+        ]
         
-        doctores_orm = query.all()
-
-        if not doctores_orm:
-            column_names = [
-                "ID_IMSS", "NOMBRE","APELLIDO_PATERNO","APELLIDO_MATERNO", "ESTATUS","MATRIMONIO_ID", "CURP", 
-                "CEDULA_ESP","CEDULA_LIC","ESPECIALIDAD","ENTIDAD","CLUES","FORMA_NOTIFICACION","MOTIVO_BAJA",
-                "FECHA_EXTRACCION","FECHA_NOTIFICACION","SEXO","TURNO","NOMBRE_UNIDAD","MUNICIPIO","NIVEL_ATENCION",
-                "FECHA_ESTATUS","DESPLIEGUE","FECHA_VUELO","ESTRATO","ACUERDO","CORREO","ENTIDAD_NACIMIENTO","TELEFONO",
-                "COMENTARIOS_ESTATUS","FECHA_NACIMIENTO","PASAPORTE","FECHA_EMISION","FECHA_EXPIRACION",
-                "DOMICILIO","LICENCIATURA","INSTITUCION_LIC","INSTITUCION_ESP","FECHA_EGRESO_LIC", "FECHA_EGRESO_ESP", "TIPO_ESTABLECIMIENTO","SUBTIPO_ESTABLECIMIENTO","DIRECCION_UNIDAD","REGION"
-                "FECHA_INICIO","FECHA_FIN","MOTIVO","TIPO_INCAPACIDAD",
-            ]
-            df = pd.DataFrame(columns=column_names)
-
-        else:
-            doctores_data = []
-            for doc in doctores_orm:
-                doctores_data.append({
-                    "ID_IMSS": doc.id_imss,
-                    "NOMBRE": doc.nombre,
-                    "APELLIDO_PATERNO": doc.apellido_paterno,
-                    "APELLIDO_MATERNO": doc.apellido_materno, 
-                    "ESTATUS": doc.estatus,
-                    "MATRIMONIO_ID": doc.matrimonio_id, 
-                    "CURP": doc.curp, 
-                    "CEDULA_ESP": doc.cedula_esp,
-                    "CEDULA_LIC": doc.cedula_lic,
-                    "ESPECIALIDAD": doc.especialidad,
-                    "ENTIDAD": doc.entidad,
-                    "CLUES": doc.clues,
-                    "FORMA_NOTIFICACION":doc.forma_notificacion,
-                    "MOTIVO_BAJA": doc.motivo_baja,
-                    "FECHA_EXTRACCION": doc.fecha_extraccion,
-                    "FECHA_NOTIFICACION":  doc.fecha_notificacion,
-                    "SEXO": doc.sexo,
-                    "TURNO": doc.turno,
-                    "NOMBRE_UNIDAD": doc.nombre_unidad,
-                    "MUNICIPIO": doc.municipio,
-                    "NIVEL_ATENCION": doc.nivel_atencion,
-                    "FECHA_ESTATUS" : doc.fecha_estatus,
-                    "DESPLIEGUE" : doc.despliegue,
-                    "FECHA_VUELO" : doc.fecha_vuelo,
-                    "ESTRATO" : doc.estrato,
-                    "ACUERDO" : doc.acuerdo,
-                    "CORREO" : doc.correo,
-                    "ENTIDAD_NACIMIENTO" : doc.entidad_nacimiento,
-                    "TELEFONO" : doc.telefono,
-                    "COMENTARIOS_ESTATUS" : doc.comentarios_estatus,
-                    "FECHA_NACIMIENTO" : doc.fecha_nacimiento,
-                    "PASAPORTE" : doc.pasaporte,
-                    "FECHA_EMISION": doc.fecha_emision,
-                    "FECHA_EXPIRACION": doc.fecha_expiracion,
-                    "DOMICILIO" : doc.domicilio,
-                    "LICENCIATURA" : doc.licenciatura,
-                    "INSTITUCION_LIC" : doc.institucion_lic,
-                    "INSTITUCION_ESP" : doc.institucion_esp,
-                    "FECHA_EGRESO_LIC" : doc.fecha_egreso_lic, 
-                    "FECHA_EGRESO_ESP" : doc.fecha_egreso_esp, 
-                    "TIPO_ESTABLECIMIENTO" : doc.tipo_establecimiento ,
-                    "SUBTIPO_ESTABLECIMIENTO": doc. subtipo_establecimiento,
-                    "DIRECCION_UNIDAD": doc.direccion_unidad,
-                    "REGION": doc.region,
-                    "FECHA_INICIO" : doc.fecha_inicio,
-                    "FECHA_FIN": doc.fecha_fin,
-                    "MOTIVO": doc.motivo,
-                    "TIPO_INCAPACIDAD":doc.tipo_incapacidad
-                })
-            df = pd.DataFrame(doctores_data)
-        for col in df.columns:
-            if pd.api.types.is_datetime64_any_dtype(df[col]) and getattr(df[col].dt, 'tz', None) is not None:
-
-                df[col] = df[col].dt.tz_localize(None)
-
+        # ✅ CREAR EXCEL POR CHUNKS (Streaming real)
         output = GlobalBytesIO()
+        
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='Doctores')
+            worksheet = writer.book.create_sheet('Doctores')
+            writer.sheets['Doctores'] = worksheet
+            
+            # Escribir cabeceras
+            for col_idx, col_name in enumerate(column_names, 1):
+                worksheet.cell(row=1, column=col_idx, value=col_name)
+            
+            # ✅ PROCESAR EN CHUNKS DE 500 REGISTROS
+            CHUNK_SIZE = 500
+            offset = 0
+            row_idx = 2  # Empezamos en fila 2 (fila 1 = cabeceras)
+            total_procesados = 0
+            
+            while True:
+                # Consultar SOLO el chunk actual (no carga todo en RAM)
+                chunk = db.query(models.Doctor)\
+                    .filter(models.Doctor.is_deleted == False)\
+                    .order_by(models.Doctor.id_imss)\
+                    .offset(offset)\
+                    .limit(CHUNK_SIZE)\
+                    .all()
+                
+                if not chunk:
+                    break  # No hay más registros
+                
+                # Procesar SOLO este chunk
+                for doc in chunk:
+                    # Mapeo completo de todas tus variables
+                    row_data = {
+                        "ID_IMSS": doc.id_imss,
+                        "NOMBRE": doc.nombre,
+                        "APELLIDO_PATERNO": doc.apellido_paterno,
+                        "APELLIDO_MATERNO": doc.apellido_materno,
+                        "ESTATUS": doc.estatus,
+                        "MATRIMONIO_ID": doc.matrimonio_id,
+                        "CURP": doc.curp,
+                        "CEDULA_ESP": doc.cedula_esp,
+                        "CEDULA_LIC": doc.cedula_lic,
+                        "ESPECIALIDAD": doc.especialidad,
+                        "ENTIDAD": doc.entidad,
+                        "CLUES": doc.clues,
+                        "FORMA_NOTIFICACION": doc.forma_notificacion,
+                        "MOTIVO_BAJA": doc.motivo_baja,
+                        "FECHA_EXTRACCION": doc.fecha_extraccion,
+                        "FECHA_NOTIFICACION": doc.fecha_notificacion,
+                        "SEXO": doc.sexo,
+                        "TURNO": doc.turno,
+                        "NOMBRE_UNIDAD": doc.nombre_unidad,
+                        "MUNICIPIO": doc.municipio,
+                        "NIVEL_ATENCION": doc.nivel_atencion,
+                        "FECHA_ESTATUS": doc.fecha_estatus,
+                        "DESPLIEGUE": doc.despliegue,
+                        "FECHA_VUELO": doc.fecha_vuelo,
+                        "ESTRATO": doc.estrato,
+                        "ACUERDO": doc.acuerdo,
+                        "CORREO": doc.correo,
+                        "ENTIDAD_NACIMIENTO": doc.entidad_nacimiento,
+                        "TELEFONO": doc.telefono,
+                        "COMENTARIOS_ESTATUS": doc.comentarios_estatus,
+                        "FECHA_NACIMIENTO": doc.fecha_nacimiento,
+                        "PASAPORTE": doc.pasaporte,
+                        "FECHA_EMISION": doc.fecha_emision,
+                        "FECHA_EXPIRACION": doc.fecha_expiracion,
+                        "DOMICILIO": doc.domicilio,
+                        "LICENCIATURA": doc.licenciatura,
+                        "INSTITUCION_LIC": doc.institucion_lic,
+                        "INSTITUCION_ESP": doc.institucion_esp,
+                        "FECHA_EGRESO_LIC": doc.fecha_egreso_lic,
+                        "FECHA_EGRESO_ESP": doc.fecha_egreso_esp,
+                        "TIPO_ESTABLECIMIENTO": doc.tipo_establecimiento,
+                        "SUBTIPO_ESTABLECIMIENTO": doc.subtipo_establecimiento,
+                        "DIRECCION_UNIDAD": doc.direccion_unidad,
+                        "REGION": doc.region,
+                        "FECHA_INICIO": doc.fecha_inicio,
+                        "FECHA_FIN": doc.fecha_fin,
+                        "MOTIVO": doc.motivo,
+                        "TIPO_INCAPACIDAD": doc.tipo_incapacidad
+                    }
+                    
+                    # Convertir fechas timezone-aware a naive (tu lógica original)
+                    for key, value in row_data.items():
+                        if isinstance(value, datetime) and getattr(value, 'tzinfo', None) is not None:
+                            row_data[key] = value.replace(tzinfo=None)
+                    
+                    # Escribir fila directamente al Excel (sin DataFrame intermedio)
+                    for col_idx, col_name in enumerate(column_names, 1):
+                        cell_value = row_data.get(col_name)
+                        worksheet.cell(row=row_idx, column=col_idx, value=cell_value)
+                    
+                    row_idx += 1
+                    total_procesados += 1
+                
+                del chunk
+                
+                # Avanzar al siguiente chunk
+                offset += CHUNK_SIZE
+                
+                # ✅ Forzar garbage collection cada 5 chunks
+                if offset % (CHUNK_SIZE * 5) == 0:
+                    gc.collect()
+            
+            if total_procesados == 0:
+                # Ya tenemos las cabeceras, la hoja queda lista
+                pass
+        
+        gc.collect()
         
         output.seek(0)
         headers = {
             'Content-Disposition': 'attachment; filename="reporte_doctores.xlsx"'
         }
-        return StreamingResponse(output, headers=headers, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        return StreamingResponse(
+            output, 
+            headers=headers, 
+            media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
 
     except Exception as e:
         print(f"Error al generar reporte Excel: {e}")
@@ -1795,19 +1844,19 @@ async def get_clues_data(clues_code: str, db: Session = Depends(get_db_session))
 async def generar_reporte_dinamico_excel(
     request_data: schemas.ReporteDinamicoRequest,
     db: Session = Depends(get_db_session),
-    current_user: models.User = Depends(security.get_current_user) # Seguridad añadida
+    current_user: models.User = Depends(security.get_current_user)
 ):
     try:
         # 1. Determinamos el filtro de coordinación dinámicamente ✅
-        # '1' para administrativos, '0' para médicos
         filtro_coord = '1' if request_data.tipo == "administrativos" else '0'
 
+        # 2. Construir query base (sin ejecutar aún)
         query = db.query(models.Doctor).filter(
             models.Doctor.is_deleted == False,
             models.Doctor.coordinacion == filtro_coord
         )
 
-        # 2. Aplicamos filtros adicionales del usuario
+        # 3. Aplicamos filtros adicionales del usuario
         if request_data.entidad:
             query = query.filter(models.Doctor.entidad == request_data.entidad)
         if request_data.especialidad:
@@ -1819,40 +1868,94 @@ async def generar_reporte_dinamico_excel(
         if request_data.estatus:
             query = query.filter(models.Doctor.estatus == request_data.estatus)
 
-        # 3. Búsqueda por texto (CLUES)
+        # 4. Búsqueda por texto (CLUES)
         if request_data.search and request_data.search.strip():
             word_term = f"%{request_data.search.strip()}%"
             query = query.filter(models.Doctor.clues.ilike(word_term))
 
-        doctores_filtrados = query.all()
-
-        if not doctores_filtrados:
-            raise HTTPException(status_code=404, detail="No se encontraron registros para exportar.")
-
-        # 4. LIMPIEZA DE DATOS (Vital para evitar Error 500 y problemas de CORS) ✅
-        # Usamos model_validate para quitar metadatos internos de SQLAlchemy
-        doctores_limpios = [
-            schemas.Doctor.model_validate(doc).model_dump() 
-            for doc in doctores_filtrados
-        ]
+        # 5. Definir columnas a exportar
+        columnas_solicitadas = request_data.columnas if request_data.columnas else []
         
-        df = pd.DataFrame(doctores_limpios)
-
-        # 5. Selección de columnas
-        columnas_validas = [col for col in request_data.columnas if col in df.columns]
-        if not columnas_validas:
-            # Fallback a columnas básicas si el usuario no mandó nada válido
+        # Fallback a columnas básicas si no se enviaron o están vacías
+        if not columnas_solicitadas:
             columnas_validas = ["id_imss", "nombre", "apellido_paterno", "entidad", "estatus"]
+        else:
+            # Validar que las columnas existan en el modelo Doctor
+            columnas_disponibles = [col.key for col in models.Doctor.__table__.columns]
+            columnas_validas = [col for col in columnas_solicitadas if col in columnas_disponibles]
+            
+            if not columnas_validas:
+                columnas_validas = ["id_imss", "nombre", "apellido_paterno", "entidad", "estatus"]
 
-        df_seleccionado = df[columnas_validas]
-
-        # 6. Generación del archivo en memoria
-        output = BytesIO() # Asegúrate de que 'from io import BytesIO' esté arriba
+        # 6. ✅ CREAR EXCEL POR CHUNKS (Streaming real, sin cargar todo en RAM)
+        output = BytesIO()
+        total_procesados = 0
+        
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df_seleccionado.to_excel(writer, index=False, sheet_name='Registros Filtrados')
+            worksheet = writer.book.create_sheet('Registros Filtrados')
+            writer.sheets['Registros Filtrados'] = worksheet
+            
+            # Escribir cabeceras en mayúsculas para mejor presentación
+            for col_idx, col_name in enumerate(columnas_validas, 1):
+                worksheet.cell(row=1, column=col_idx, value=col_name.upper())
+            
+            # ✅ PROCESAR EN CHUNKS DE 500 REGISTROS
+            CHUNK_SIZE = 500
+            offset = 0
+            row_idx = 2  # Fila 1 = cabeceras
+            
+            while True:
+                # Consultar SOLO el chunk actual
+                chunk = query\
+                    .order_by(models.Doctor.id_imss)\
+                    .offset(offset)\
+                    .limit(CHUNK_SIZE)\
+                    .all()
+                
+                if not chunk:
+                    break  # No hay más registros
+                
+                # Procesar SOLO este chunk
+                for doc in chunk:
+                    # Convertir a diccionario limpio (tu lógica original)
+                    doc_dict = schemas.Doctor.model_validate(doc).model_dump()
+                    
+                    # Escribir solo las columnas seleccionadas
+                    for col_idx, col_name in enumerate(columnas_validas, 1):
+                        cell_value = doc_dict.get(col_name)
+                        
+                        # Convertir fechas timezone-aware a naive (tu lógica original)
+                        if isinstance(cell_value, datetime) and getattr(cell_value, 'tzinfo', None) is not None:
+                            cell_value = cell_value.replace(tzinfo=None)
+                        
+                        worksheet.cell(row=row_idx, column=col_idx, value=cell_value)
+                    
+                    row_idx += 1
+                    total_procesados += 1
+                
+                # Liberar memoria del chunk procesado
+                del chunk
+                
+                # Avanzar al siguiente chunk
+                offset += CHUNK_SIZE
+                
+                # ✅ Forzar garbage collection cada 5 chunks
+                if offset % (CHUNK_SIZE * 5) == 0:
+                    gc.collect()
+            
+            # Si no hay registros, lanzar error 404
+            if total_procesados == 0:
+                raise HTTPException(
+                    status_code=404, 
+                    detail="No se encontraron registros para exportar."
+                )
+        
+        # ✅ Liberar memoria final
+        gc.collect()
+        
         output.seek(0)
 
-        # 7. Respuesta con encabezados de seguridad corregidos
+        # 7. Respuesta con encabezados de seguridad
         headers = {
             'Content-Disposition': 'attachment; filename="reporte_personal.xlsx"',
             'Access-Control-Expose-Headers': 'Content-Disposition'
@@ -1864,10 +1967,16 @@ async def generar_reporte_dinamico_excel(
             media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
 
+    except HTTPException:
+        # Re-lanzar excepciones HTTP (como el 404)
+        raise
     except Exception as e:
-        print(f"Error crítico en reporte: {str(e)}")
+        print(f"Error crítico en reporte dinámico: {str(e)}")
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail="Error interno al generar el reporte.")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error interno al generar el reporte: {str(e)}"
+        )
 
 # --- ENDPOINT (GENERA REPORTE OPCIONES FILTRO - PENDIENTE) ---
 @app.get("/api/opciones/filtros-dinamicos", response_model=schemas.OpcionesFiltro, tags=["Opciones de Filtro"])
