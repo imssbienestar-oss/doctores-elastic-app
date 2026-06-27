@@ -23,6 +23,7 @@ import logging
 import asyncio
 import hashlib
 import time
+import gc
 
 # Importaciones locales
 import security
