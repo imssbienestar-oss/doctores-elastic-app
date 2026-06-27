@@ -367,77 +367,95 @@ async def upload_to_firebase(file: UploadFile, destination_path: str, optimize_i
         bucket = storage.bucket(bucket_name, app=app_instance)
         
         filename_base, file_extension = os.path.splitext(file.filename)
-
         safe_filename_base = re.sub(r"[^a-zA-Z0-9_\-]", "_", filename_base) 
         unique_filename = f"{uuid.uuid4()}_{safe_filename_base}{file_extension}"
         blob_path = f"{destination_path.strip('/')}/{unique_filename}"
-        blob = bucket.blob(blob_path)
+        blob = bucket.blob(blob_path, chunk_size=256 * 1024)  # Streaming en chunks pequeños
 
-        file_content = await file.read()
-        file_content_to_upload = file_content
-        content_type_to_upload = file.content_type
+        if not (optimize_image and file.content_type and 'image' in file.content_type):
+            await asyncio.to_thread(
+                blob.upload_from_file,
+                file.file,
+                content_type=file.content_type,
+                size=file.size
+            )
+            return blob_path
 
-        # --- OPTIMIZAR IMAGEN ---
-        if optimize_image and file.content_type and file.content_type.startswith("image/") and Image:
-            try:
-                img_io = BytesIO(file_content)
-                img = Image.open(img_io)
-                
-                # Convertir a RGB si es necesario (RGBA a RGB con fondo blanco, o P a RGB)
-                if img.mode == "RGBA":
-                    background = Image.new("RGB", img.size, (255, 255, 255))
-                    background.paste(img, mask=img.split()[3])
-                    img = background
-                elif img.mode == "P":
-                    img = img.convert("RGB")
+        return await _optimizar_y_subir_imagen(file, blob, blob_path)
 
-                # Redimensionar la imagen
-                img.thumbnail((1024, 1024))
-                output_buffer = io.BytesIO()
-                
-                # Formato de salida y calidad
-                img_format = "JPEG" 
-                save_kwargs = {'format': img_format}
-                if img_format == "JPEG":
-                    save_kwargs['quality'] = 80
-                    save_kwargs['optimize'] = True
-                
-                img.save(output_buffer, **save_kwargs)
-                file_content_to_upload = output_buffer.getvalue()
-                content_type_to_upload = f"image/{img_format.lower()}"
-
-            except Exception as img_e:
-                print(f"ERROR_UPLOAD: Fallo en la optimización de imagen para {file.filename}: {img_e}")
-                traceback.print_exc()
-                # Si falla la optimización, subir el contenido original
-                file_content_to_upload = file_content
-                content_type_to_upload = file.content_type
-        # --- FIN OPTIMIZAR IMAGEN ---
-        blob.upload_from_string(file_content_to_upload, content_type=content_type_to_upload)
-        
-        # ¡CORRECCIÓN CLAVE! Devolver la ruta del objeto, NO la URL firmada.
-        return blob_path 
-
-    except firebase_admin.exceptions.FirebaseError as fb_e:
-        print(f"ERROR_UPLOAD: Error de Firebase al subir el archivo: {fb_e}")
-        traceback.print_exc()
-        return None
     except Exception as e:
-        print(f"ERROR_UPLOAD: Error inesperado al subir el archivo: {e}")
-        traceback.print_exc()
+        print(f"ERROR: {e}")
         return None
+
+async def _optimizar_y_subir_imagen(file: UploadFile, blob, blob_path: str) -> Optional[str]:
+    """Solo se llama para imágenes que necesitan optimización"""
+    try:
+        MAX_MEMORIA = 20 * 1024 * 1024  # Máximo 20 MB para imágenes
+        
+        # Leer en chunks y verificar tamaño
+        chunks = []
+        total = 0
+        while True:
+            chunk = await file.read(1024 * 1024)  # 1 MB chunks
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > MAX_MEMORIA:
+                # Imagen muy grande → subir sin optimizar (streaming)
+                file.file.seek(0)
+                blob.upload_from_file(file.file, content_type=file.content_type, size=file.size)
+                return blob_path
+            chunks.append(chunk)
+        
+        # Procesar imagen (esto sí usa RAM, pero limitada)
+        image_data = b''.join(chunks)
+        del chunks  # Liberar inmediatamente
+        
+        img = Image.open(BytesIO(image_data))
+        del image_data  # Liberar datos originales
+        
+        # Optimizar
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+        img.thumbnail((800, 800))  # Más agresivo que 1024
+        
+        # Guardar con compresión máxima
+        output = BytesIO()
+        img.save(output, format="JPEG", quality=70, optimize=True)
+        img.close()
+        del img
+        
+        # Subir resultado optimizado
+        output.seek(0)
+        blob.upload_from_file(output, content_type="image/jpeg")
+        output.close()
+        del output
+        
+        gc.collect()
+        return blob_path
+        
+    except Exception as e:
+        # Fallback: subir original
+        file.file.seek(0)
+        blob.upload_from_file(file.file, content_type=file.content_type, size=file.size)
+        return blob_path
 
 # --- ELIMINAR ARCHIVOS FIREBASE ---
 async def delete_from_firebase(file_path_in_storage: str) -> bool:
     try:
-        firebase_app_instance = firebase_admin.get_app()
-        bucket = storage.bucket(app=firebase_app_instance)
+        app_instance = firebase_admin.get_app()
+        bucket_name = app_instance.options.get('storageBucket')
+        if not bucket_name:
+            return False
+            
+        bucket = storage.bucket(bucket_name, app=app_instance)
         blob = bucket.blob(file_path_in_storage)
         blob.delete()
-        print(f"DEBUG_DELETE: Archivo eliminado de Firebase: {file_path_in_storage}")
         return True
+        
     except Exception as e:
-        print(f"ERROR_DELETE: Error al eliminar el archivo {file_path_in_storage} de Firebase: {e}")
+        print(f"ERROR_DELETE: Error al eliminar archivo: {e}")
+        traceback.print_exc()
         return False
 
 # --- INICIO ENDPOINT ---
