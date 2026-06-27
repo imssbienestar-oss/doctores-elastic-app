@@ -33,6 +33,58 @@ import firebase_admin
 from firebase_admin import credentials, storage
 from PIL import Image
 
+# --- SISTEMA DE CACHÉ SIMPLE PARA COUNTS ---
+class CountCache:
+    """Caché en memoria para consultas COUNT frecuentes"""
+    def __init__(self):
+        self._cache = {}
+        self._default_ttl = 300  # 5 minutos por defecto
+    
+    def get(self, key: str) -> Optional[int]:
+        """Obtiene un valor del caché si no ha expirado"""
+        if key in self._cache:
+            entry = self._cache[key]
+            if time.time() - entry['time'] < entry['ttl']:
+                return entry['value']
+            else:
+                del self._cache[key]
+        return None
+    
+    def set(self, key: str, value: int, ttl: int = None):
+        """Guarda un valor en el caché"""
+        if ttl is None:
+            ttl = self._default_ttl
+        self._cache[key] = {
+            'value': value,
+            'time': time.time(),
+            'ttl': ttl
+        }
+    
+    def invalidate(self, pattern: str = None):
+        """Invalida entradas del caché. Si pattern es None, limpia todo"""
+        if pattern is None:
+            self._cache.clear()
+        else:
+            keys_to_delete = [k for k in self._cache if pattern in k]
+            for k in keys_to_delete:
+                del self._cache[k]
+    
+    def get_size(self) -> int:
+        """Retorna el número de entradas en caché"""
+        return len(self._cache)
+
+# Instancia global del caché
+count_cache = CountCache()
+
+def generate_cache_key(prefix: str, **params) -> str:
+    """Genera una clave única para el caché basada en los parámetros"""
+    # Ordenar params para consistencia
+    sorted_params = sorted(params.items())
+    params_str = json.dumps(sorted_params, default=str)
+    # Crear hash corto para la clave
+    params_hash = hashlib.md5(params_str.encode()).hexdigest()[:8]
+    return f"{prefix}:{params_hash}"
+
 # --- INICIALIZACIÓN DE DOTENV ---
 from dotenv import load_dotenv
 load_dotenv()
@@ -152,25 +204,40 @@ async def get_current_admin_user(current_user: models.User = Depends(security.ge
         )
     return current_user
 
-# --- ENDPOINT UNIFICADO ---
+# --- ENDPOINT UNIFICADO (CON CACHÉ) ---
 @app.get("/api/dashboard/resumen_unificado", tags=["Gráficas"])
 async def get_dashboard_unificado(
     tipo: str = Query("medicos", enum=["medicos", "administrativos"]),
     db: Session = Depends(get_db_session)):
 
+    # ✅ INTENTAR OBTENER DEL CACHÉ PRIMERO
+    cache_key = generate_cache_key("dashboard_unificado", tipo=tipo)
+    cached_result = count_cache.get(cache_key)
+    if cached_result is not None:
+        return cached_result
+
     filtro_coord = '1' if tipo == "administrativos" else '0'
     condicion_sql = "coordinacion = '1'" if tipo == "administrativos" else "coordinacion != '1'"
 
-    # 1. Conteo Total
-    total_q = db.query(func.count(models.Doctor.id_imss)).filter(
-        models.Doctor.is_deleted == False,
-        models.Doctor.coordinacion == filtro_coord,
-        models.Doctor.estatus != '06 BAJA'
-    ).scalar()
+    # 1. Conteo Total (con sub-caché)
+    total_key = f"total_q:{tipo}"
+    total_q = count_cache.get(total_key)
+    if total_q is None:
+        total_q = db.query(func.count(models.Doctor.id_imss)).filter(
+            models.Doctor.is_deleted == False,
+            models.Doctor.coordinacion == filtro_coord,
+            models.Doctor.estatus != '06 BAJA'
+        ).scalar()
+        count_cache.set(total_key, total_q, ttl=600)
 
-    universo_total = db.query(func.count(models.Doctor.id_imss)).filter(
-        models.Doctor.is_deleted == False
-    ).scalar()
+    # Universo total (casi nunca cambia)
+    universo_key = "universo_total"
+    universo_total = count_cache.get(universo_key)
+    if universo_total is None:
+        universo_total = db.query(func.count(models.Doctor.id_imss)).filter(
+            models.Doctor.is_deleted == False
+        ).scalar()
+        count_cache.set(universo_key, universo_total, ttl=1800)
 
     # 2. Por Estatus
     estatus_map = {
@@ -219,28 +286,36 @@ async def get_dashboard_unificado(
     data_estados = [{"label": r.entidad, "value": r.value, "minimo": r.minimo, "maximo": r.maximo} for r in res_estados]
 
     # ── NUEVO 1: Cédulas de Licenciatura (sin bajas) ──
-    cedulas_licenciatura = db.query(func.count(models.Doctor.id_imss)).filter(
-        models.Doctor.is_deleted == False,
-        models.Doctor.coordinacion == filtro_coord,
-        models.Doctor.estatus != '06 BAJA',
-        models.Doctor.cedula_lic.isnot(None),
-        models.Doctor.cedula_lic != '',
-        models.Doctor.cedula_lic.not_ilike('%NULL%'),
-        models.Doctor.cedula_lic.not_ilike('%BAJA%'),
-        models.Doctor.cedula_lic.not_ilike('%TRAMITE%')
-    ).scalar()
+    cedulas_lic_key = f"cedulas_lic:{tipo}"
+    cedulas_licenciatura = count_cache.get(cedulas_lic_key)
+    if cedulas_licenciatura is None:
+        cedulas_licenciatura = db.query(func.count(models.Doctor.id_imss)).filter(
+            models.Doctor.is_deleted == False,
+            models.Doctor.coordinacion == filtro_coord,
+            models.Doctor.estatus != '06 BAJA',
+            models.Doctor.cedula_lic.isnot(None),
+            models.Doctor.cedula_lic != '',
+            models.Doctor.cedula_lic.not_ilike('%NULL%'),
+            models.Doctor.cedula_lic.not_ilike('%BAJA%'),
+            models.Doctor.cedula_lic.not_ilike('%TRAMITE%')
+        ).scalar()
+        count_cache.set(cedulas_lic_key, cedulas_licenciatura, ttl=600)
 
     # ── NUEVO 2: Cédulas de Especialidad (sin bajas) ──
-    cedulas_especialidad = db.query(func.count(models.Doctor.id_imss)).filter(
-        models.Doctor.is_deleted == False,
-        models.Doctor.coordinacion == filtro_coord,
-        models.Doctor.estatus != '06 BAJA',
-        models.Doctor.cedula_esp.isnot(None),
-        models.Doctor.cedula_esp != '',
-        models.Doctor.cedula_esp.not_ilike('%NULL%'),
-        models.Doctor.cedula_esp.not_ilike('%BAJA%'),
-        models.Doctor.cedula_esp.not_ilike('%TRAMITE%')
-    ).scalar()
+    cedulas_esp_key = f"cedulas_esp:{tipo}"
+    cedulas_especialidad = count_cache.get(cedulas_esp_key)
+    if cedulas_especialidad is None:
+        cedulas_especialidad = db.query(func.count(models.Doctor.id_imss)).filter(
+            models.Doctor.is_deleted == False,
+            models.Doctor.coordinacion == filtro_coord,
+            models.Doctor.estatus != '06 BAJA',
+            models.Doctor.cedula_esp.isnot(None),
+            models.Doctor.cedula_esp != '',
+            models.Doctor.cedula_esp.not_ilike('%NULL%'),
+            models.Doctor.cedula_esp.not_ilike('%BAJA%'),
+            models.Doctor.cedula_esp.not_ilike('%TRAMITE%')
+        ).scalar()
+        count_cache.set(cedulas_esp_key, cedulas_especialidad, ttl=600)
 
     # ── NUEVO 3: Total Mujeres y Hombres (sin bajas) ──
     # y los valores que usa tu BD: 'M'/'H', 'F'/'M', 'FEMENINO'/'MASCULINO', etc.
@@ -265,7 +340,8 @@ async def get_dashboard_unificado(
         elif valor in ('H', 'HOMBRE', 'MASCULINO', 'M'):
             total_hombres = r.total
 
-    return {
+    # ✅ CONSTRUIR RESPUESTA FINAL
+    result = {
         "total_general": total_q,
         "universo_total": universo_total,
         "data_estatus": data_estatus,
@@ -276,6 +352,11 @@ async def get_dashboard_unificado(
         "total_mujeres": total_mujeres,
         "total_hombres": total_hombres,
     }
+    
+    # ✅ GUARDAR EN CACHÉ EL RESULTADO COMPLETO (5 minutos)
+    count_cache.set(cache_key, result, ttl=300)
+    
+    return result
 
 # --- TABLA DE ESTADISTICAS (VERSIÓN ESTABLE) ---
 @app.get("/api/graficas/estadistica_doctores_agrupados", response_model=schemas.EstadisticaPaginada, tags=["Graficas y Estadísticas"])
@@ -293,6 +374,23 @@ async def obtener_estadistica_doctores_agrupados(
     try:
         filtro_coord = '1' if tipo == "administrativos" else '0'
         
+        # ✅ INTENTAR OBTENER DEL CACHÉ (solo si no hay búsqueda ni filtros muy específicos)
+        use_cache = not search  # No cachear búsquedas libres
+        cache_key = None
+        cached_result = None
+        
+        if use_cache:
+            cache_key = generate_cache_key(
+                "estadistica",
+                tipo=tipo, entidad=entidad, especialidad=especialidad,
+                nivel_atencion=nivel_atencion, nombre_unidad=nombre_unidad,
+                estatus=estatus, skip=skip, limit=limit
+            )
+            cached_result = count_cache.get(cache_key)
+            
+            if cached_result is not None:
+                return cached_result
+        
         # 1. Base de la consulta
         base_query = db.query(models.Doctor).filter(
             models.Doctor.is_deleted == False, 
@@ -307,8 +405,21 @@ async def obtener_estadistica_doctores_agrupados(
         if estatus: base_query = base_query.filter(models.Doctor.estatus == estatus)
         if search: base_query = base_query.filter(models.Doctor.clues.ilike(f"%{search}%"))
 
-        # 3. CONTEO TOTAL DE PERSONAL (Suma de humanos filtrados)
-        total_personal = base_query.count()
+        # 3. CONTEO TOTAL DE PERSONAL (con sub-caché)
+        total_personal = None
+        if use_cache:
+            count_key = generate_cache_key(
+                "estadistica_count",
+                tipo=tipo, entidad=entidad, especialidad=especialidad,
+                nivel_atencion=nivel_atencion, nombre_unidad=nombre_unidad,
+                estatus=estatus
+            )
+            total_personal = count_cache.get(count_key)
+        
+        if total_personal is None:
+            total_personal = base_query.count()
+            if use_cache:
+                count_cache.set(count_key, total_personal, ttl=300)
 
         # 4. CONTEO DE GRUPOS (Para la paginación)
         # IMPORTANTE: No incluimos 'estatus' aquí si no está en el schema de la tabla
@@ -342,11 +453,18 @@ async def obtener_estadistica_doctores_agrupados(
                 "cantidad": row.cantidad
             })
 
-        return {
+        result = {
             "total_groups": total_grupos,
             "total_doctors_in_groups": total_personal,
             "items": items_list
         }
+        
+        # ✅ GUARDAR EN CACHÉ (solo si no es búsqueda)
+        if use_cache and cache_key:
+            count_cache.set(cache_key, result, ttl=300)
+        
+        return result
+        
     except Exception as e:
         # Esto te imprimirá el error real en tu consola de VS Code/Terminal
         print(f"ERROR DETECTADO: {str(e)}")
@@ -502,10 +620,28 @@ async def leer_doctores(
         func.upper(func.trim(models.Doctor.estatus)) == estatus.strip().upper()
     )
     
-    try:
-        total_count = query.count()
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error al contar los doctores: {str(e)}")
+    # ✅ INTENTAR CACHÉ PARA COUNT (solo sin búsqueda)
+    use_cache = not search  # No cachear búsquedas (son muy variables)
+    total_count = None
+    
+    if use_cache:
+        count_key = generate_cache_key(
+            "doctores_count",
+            estatus=estatus or "todos",
+            coordinacion=coordinacion
+        )
+        total_count = count_cache.get(count_key)
+    
+    if total_count is None:
+        try:
+            total_count = query.count()
+        except Exception as e:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error al contar los doctores: {str(e)}")
+        
+        # Guardar en caché solo si no hay búsqueda
+        if use_cache:
+            count_cache.set(count_key, total_count, ttl=300)  # 5 minutos
+    
     doctores = query.order_by(models.Doctor.id_imss).offset(skip).limit(limit).all()
     return {"total_count": total_count, "doctores": doctores}
 
@@ -756,6 +892,14 @@ async def crear_doctor(
         db.commit()
         db.refresh(db_doctor)
         db.refresh(nuevo_registro_historial)
+
+        count_cache.invalidate("total_q")
+        count_cache.invalidate("universo_total")
+        count_cache.invalidate("doctores_count")
+        count_cache.invalidate("dashboard")
+        count_cache.invalidate("estadistica")
+        count_cache.invalidate("estadistica_count")
+        count_cache.invalidate("cedulas")
 
         doctor_completo_obj = db.query(models.Doctor).options(
             selectinload(models.Doctor.historial)
@@ -1094,7 +1238,19 @@ async def actualizar_doctor_perfil_completo(
         
         db.commit()
         db.refresh(db_doctor)
-    
+
+          # ✅ INVALIDAR CACHÉS AFECTADOS
+        count_cache.invalidate("total_q")
+        count_cache.invalidate("doctores_count")
+        count_cache.invalidate("dashboard")
+        count_cache.invalidate("estadistica")
+        count_cache.invalidate("estadistica_count")
+        count_cache.invalidate("cedulas")
+        
+        # Solo invalidar universo_total si cambió el estatus a BAJA o se restauró
+        if cambio_estatus:
+            count_cache.invalidate("universo_total")
+
         return db_doctor
             
     except IntegrityError as e:
@@ -1130,6 +1286,10 @@ async def crear_registro_historial(
     db.add(nuevo_registro)
     db.commit()
     db.refresh(nuevo_registro)
+
+    count_cache.invalidate("dashboard")
+    count_cache.invalidate("estadistica")
+
     return nuevo_registro
 
 # --- Endpoint de Autenticación (Login) ---
@@ -1440,44 +1600,6 @@ async def generar_reporte_excel(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error interno del servidor al generar el reporte Excel: {str(e)}"
         )
-
-# --- ENDPOINT (REPORTE PDF - PENDIENTE) ---
-@app.get("/api/reporte/pdf", tags=["Reportes"])
-async def generar_reporte_resumen_pdf(
-    db: Session = Depends(get_db_session),
-    current_user: models.User = Depends(security.get_current_user)):
-    if current_user.role == 'consulta':
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="No tiene permisos para modificar datos."
-        )
-    query_total_general = text("SELECT COUNT(*) FROM doctores;"); total_general_doctores = db.execute(query_total_general).scalar_one_or_none() or 0
-    query_estado = text("SELECT entidad, COUNT(*) as total FROM doctores WHERE entidad IS NOT NULL AND entidad != '' GROUP BY entidad ORDER BY entidad;"); result_estado = db.execute(query_estado); data_por_estado = [{"label": row[0], "total": row[1]} for row in result_estado]
-    query_especialidad = text("SELECT especialidad, COUNT(*) as total FROM doctores WHERE especialidad IS NOT NULL AND especialidad != '' GROUP BY especialidad ORDER BY especialidad;"); result_especialidad = db.execute(query_especialidad); data_por_especialidad = [{"label": row[0], "total": row[1]} for row in result_especialidad]
-    if not data_por_estado and not data_por_especialidad and total_general_doctores == 0 : raise HTTPException(status_code=404, detail="No hay datos.")
-    pdf = FPDF(orientation='P', unit='mm', format='A4'); pdf.add_page(); pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.set_font('Arial', 'B', 16); pdf.cell(0, 10, 'Reporte Doctores', 0, 1, 'C'); pdf.ln(5)
-    pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, f'Total de Doctores Registrados: {total_general_doctores}', 0, 1, 'L'); pdf.ln(10)
-    if data_por_estado:
-        pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, 'Doctores por Estado', 0, 1, 'L'); pdf.set_font('Arial', 'B', 10)
-        col_widths = [130, 40]; headers = ['Estado', 'Total Doctores']; pdf.set_fill_color(220, 220, 220)
-        for h, w in zip(headers, col_widths): pdf.cell(w, 7, h, 1, 0, 'C', fill=True)
-        pdf.ln(); pdf.set_font('Arial', '', 10)
-        for item in data_por_estado:
-            for d, w in zip([str(item['label']), str(item['total'])], col_widths): pdf.cell(w, 6, d, 1, 0)
-            pdf.ln()
-        pdf.ln(10)
-    if data_por_especialidad:
-        pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, 'Doctores por Especialidad', 0, 1, 'L'); pdf.set_font('Arial', 'B', 10)
-        col_widths = [130, 40]; headers = ['Especialidad', 'Total Doctores']; pdf.set_fill_color(220, 220, 220)
-        for h, w in zip(headers, col_widths): pdf.cell(w, 7, h, 1, 0, 'C', fill=True)
-        pdf.ln(); pdf.set_font('Arial', '', 10)
-        for item in data_por_especialidad:
-            for d, w in zip([str(item['label']), str(item['total'])], col_widths): pdf.cell(w, 6, d, 1, 0)
-            pdf.ln()
-        pdf.ln(10)
-    pdf_bytes = pdf.output(); pdf_output_stream = GlobalBytesIO(pdf_bytes)
-    return StreamingResponse(pdf_output_stream, headers={'Content-Disposition': 'attachment; filename="reporte_resumido_doctores.pdf"'}, media_type='application/pdf')
 
 # --- ENDPOINT (AUDITORIA MOSTRAR) ---
 @app.get("/api/admin/audit-logs", response_model=schemas.AuditLogsPaginados, tags=["Admin - Auditoría"])
@@ -2252,22 +2374,3 @@ async def actualizar_fechas_historial(
     datos: schemas.HistorialUpdate, 
     db: Session = Depends(get_db_session)
 ):
-    # 1. Buscamos el registro exacto en la tabla EstatusHistorico
-    registro = db.query(models.EstatusHistorico).filter(models.EstatusHistorico.id == historial_id).first()
-    
-    if not registro:
-        raise HTTPException(status_code=404, detail="Registro de historial no encontrado")
-    
-    # 2. Actualizamos las fechas
-    # FastAPI/Pydantic ya se encargaron de convertir los strings ("2025-12-30") a objetos Date
-    registro.fecha_inicio = datos.fecha_inicio
-    registro.fecha_fin = datos.fecha_fin
-    
-    # 3. Guardamos los cambios en PostgreSQL
-    try:
-        db.commit()
-        db.refresh(registro)
-        return {"mensaje": "Fechas actualizadas correctamente", "id": registro.id}
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error al guardar en la base de datos: {str(e)}")
