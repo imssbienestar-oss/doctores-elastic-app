@@ -33,6 +33,58 @@ import firebase_admin
 from firebase_admin import credentials, storage
 from PIL import Image
 
+# --- SISTEMA DE CACHÉ SIMPLE PARA COUNTS ---
+class CountCache:
+    """Caché en memoria para consultas COUNT frecuentes"""
+    def __init__(self):
+        self._cache = {}
+        self._default_ttl = 300  # 5 minutos por defecto
+    
+    def get(self, key: str) -> Optional[int]:
+        """Obtiene un valor del caché si no ha expirado"""
+        if key in self._cache:
+            entry = self._cache[key]
+            if time.time() - entry['time'] < entry['ttl']:
+                return entry['value']
+            else:
+                del self._cache[key]
+        return None
+    
+    def set(self, key: str, value: int, ttl: int = None):
+        """Guarda un valor en el caché"""
+        if ttl is None:
+            ttl = self._default_ttl
+        self._cache[key] = {
+            'value': value,
+            'time': time.time(),
+            'ttl': ttl
+        }
+    
+    def invalidate(self, pattern: str = None):
+        """Invalida entradas del caché. Si pattern es None, limpia todo"""
+        if pattern is None:
+            self._cache.clear()
+        else:
+            keys_to_delete = [k for k in self._cache if pattern in k]
+            for k in keys_to_delete:
+                del self._cache[k]
+    
+    def get_size(self) -> int:
+        """Retorna el número de entradas en caché"""
+        return len(self._cache)
+
+# Instancia global del caché
+count_cache = CountCache()
+
+def generate_cache_key(prefix: str, **params) -> str:
+    """Genera una clave única para el caché basada en los parámetros"""
+    # Ordenar params para consistencia
+    sorted_params = sorted(params.items())
+    params_str = json.dumps(sorted_params, default=str)
+    # Crear hash corto para la clave
+    params_hash = hashlib.md5(params_str.encode()).hexdigest()[:8]
+    return f"{prefix}:{params_hash}"
+
 # --- INICIALIZACIÓN DE DOTENV ---
 from dotenv import load_dotenv
 load_dotenv()
@@ -152,25 +204,40 @@ async def get_current_admin_user(current_user: models.User = Depends(security.ge
         )
     return current_user
 
-# --- ENDPOINT UNIFICADO ---
+# --- ENDPOINT UNIFICADO (CON CACHÉ) ---
 @app.get("/api/dashboard/resumen_unificado", tags=["Gráficas"])
 async def get_dashboard_unificado(
     tipo: str = Query("medicos", enum=["medicos", "administrativos"]),
     db: Session = Depends(get_db_session)):
 
+    # ✅ INTENTAR OBTENER DEL CACHÉ PRIMERO
+    cache_key = generate_cache_key("dashboard_unificado", tipo=tipo)
+    cached_result = count_cache.get(cache_key)
+    if cached_result is not None:
+        return cached_result
+
     filtro_coord = '1' if tipo == "administrativos" else '0'
     condicion_sql = "coordinacion = '1'" if tipo == "administrativos" else "coordinacion != '1'"
 
-    # 1. Conteo Total
-    total_q = db.query(func.count(models.Doctor.id_imss)).filter(
-        models.Doctor.is_deleted == False,
-        models.Doctor.coordinacion == filtro_coord,
-        models.Doctor.estatus != '06 BAJA'
-    ).scalar()
+    # 1. Conteo Total (con sub-caché)
+    total_key = f"total_q:{tipo}"
+    total_q = count_cache.get(total_key)
+    if total_q is None:
+        total_q = db.query(func.count(models.Doctor.id_imss)).filter(
+            models.Doctor.is_deleted == False,
+            models.Doctor.coordinacion == filtro_coord,
+            models.Doctor.estatus != '06 BAJA'
+        ).scalar()
+        count_cache.set(total_key, total_q, ttl=600)
 
-    universo_total = db.query(func.count(models.Doctor.id_imss)).filter(
-        models.Doctor.is_deleted == False
-    ).scalar()
+    # Universo total (casi nunca cambia)
+    universo_key = "universo_total"
+    universo_total = count_cache.get(universo_key)
+    if universo_total is None:
+        universo_total = db.query(func.count(models.Doctor.id_imss)).filter(
+            models.Doctor.is_deleted == False
+        ).scalar()
+        count_cache.set(universo_key, universo_total, ttl=1800)
 
     # 2. Por Estatus
     estatus_map = {
@@ -219,28 +286,36 @@ async def get_dashboard_unificado(
     data_estados = [{"label": r.entidad, "value": r.value, "minimo": r.minimo, "maximo": r.maximo} for r in res_estados]
 
     # ── NUEVO 1: Cédulas de Licenciatura (sin bajas) ──
-    cedulas_licenciatura = db.query(func.count(models.Doctor.id_imss)).filter(
-        models.Doctor.is_deleted == False,
-        models.Doctor.coordinacion == filtro_coord,
-        models.Doctor.estatus != '06 BAJA',
-        models.Doctor.cedula_lic.isnot(None),
-        models.Doctor.cedula_lic != '',
-        models.Doctor.cedula_lic.not_ilike('%NULL%'),
-        models.Doctor.cedula_lic.not_ilike('%BAJA%'),
-        models.Doctor.cedula_lic.not_ilike('%TRAMITE%')
-    ).scalar()
+    cedulas_lic_key = f"cedulas_lic:{tipo}"
+    cedulas_licenciatura = count_cache.get(cedulas_lic_key)
+    if cedulas_licenciatura is None:
+        cedulas_licenciatura = db.query(func.count(models.Doctor.id_imss)).filter(
+            models.Doctor.is_deleted == False,
+            models.Doctor.coordinacion == filtro_coord,
+            models.Doctor.estatus != '06 BAJA',
+            models.Doctor.cedula_lic.isnot(None),
+            models.Doctor.cedula_lic != '',
+            models.Doctor.cedula_lic.not_ilike('%NULL%'),
+            models.Doctor.cedula_lic.not_ilike('%BAJA%'),
+            models.Doctor.cedula_lic.not_ilike('%TRAMITE%')
+        ).scalar()
+        count_cache.set(cedulas_lic_key, cedulas_licenciatura, ttl=600)
 
     # ── NUEVO 2: Cédulas de Especialidad (sin bajas) ──
-    cedulas_especialidad = db.query(func.count(models.Doctor.id_imss)).filter(
-        models.Doctor.is_deleted == False,
-        models.Doctor.coordinacion == filtro_coord,
-        models.Doctor.estatus != '06 BAJA',
-        models.Doctor.cedula_esp.isnot(None),
-        models.Doctor.cedula_esp != '',
-        models.Doctor.cedula_esp.not_ilike('%NULL%'),
-        models.Doctor.cedula_esp.not_ilike('%BAJA%'),
-        models.Doctor.cedula_esp.not_ilike('%TRAMITE%')
-    ).scalar()
+    cedulas_esp_key = f"cedulas_esp:{tipo}"
+    cedulas_especialidad = count_cache.get(cedulas_esp_key)
+    if cedulas_especialidad is None:
+        cedulas_especialidad = db.query(func.count(models.Doctor.id_imss)).filter(
+            models.Doctor.is_deleted == False,
+            models.Doctor.coordinacion == filtro_coord,
+            models.Doctor.estatus != '06 BAJA',
+            models.Doctor.cedula_esp.isnot(None),
+            models.Doctor.cedula_esp != '',
+            models.Doctor.cedula_esp.not_ilike('%NULL%'),
+            models.Doctor.cedula_esp.not_ilike('%BAJA%'),
+            models.Doctor.cedula_esp.not_ilike('%TRAMITE%')
+        ).scalar()
+        count_cache.set(cedulas_esp_key, cedulas_especialidad, ttl=600)
 
     # ── NUEVO 3: Total Mujeres y Hombres (sin bajas) ──
     # y los valores que usa tu BD: 'M'/'H', 'F'/'M', 'FEMENINO'/'MASCULINO', etc.
@@ -265,7 +340,8 @@ async def get_dashboard_unificado(
         elif valor in ('H', 'HOMBRE', 'MASCULINO', 'M'):
             total_hombres = r.total
 
-    return {
+    # ✅ CONSTRUIR RESPUESTA FINAL
+    result = {
         "total_general": total_q,
         "universo_total": universo_total,
         "data_estatus": data_estatus,
@@ -276,6 +352,11 @@ async def get_dashboard_unificado(
         "total_mujeres": total_mujeres,
         "total_hombres": total_hombres,
     }
+    
+    # ✅ GUARDAR EN CACHÉ EL RESULTADO COMPLETO (5 minutos)
+    count_cache.set(cache_key, result, ttl=300)
+    
+    return result
 
 # --- TABLA DE ESTADISTICAS (VERSIÓN ESTABLE) ---
 @app.get("/api/graficas/estadistica_doctores_agrupados", response_model=schemas.EstadisticaPaginada, tags=["Graficas y Estadísticas"])
@@ -293,6 +374,23 @@ async def obtener_estadistica_doctores_agrupados(
     try:
         filtro_coord = '1' if tipo == "administrativos" else '0'
         
+        # ✅ INTENTAR OBTENER DEL CACHÉ (solo si no hay búsqueda ni filtros muy específicos)
+        use_cache = not search  # No cachear búsquedas libres
+        cache_key = None
+        cached_result = None
+        
+        if use_cache:
+            cache_key = generate_cache_key(
+                "estadistica",
+                tipo=tipo, entidad=entidad, especialidad=especialidad,
+                nivel_atencion=nivel_atencion, nombre_unidad=nombre_unidad,
+                estatus=estatus, skip=skip, limit=limit
+            )
+            cached_result = count_cache.get(cache_key)
+            
+            if cached_result is not None:
+                return cached_result
+        
         # 1. Base de la consulta
         base_query = db.query(models.Doctor).filter(
             models.Doctor.is_deleted == False, 
@@ -307,8 +405,21 @@ async def obtener_estadistica_doctores_agrupados(
         if estatus: base_query = base_query.filter(models.Doctor.estatus == estatus)
         if search: base_query = base_query.filter(models.Doctor.clues.ilike(f"%{search}%"))
 
-        # 3. CONTEO TOTAL DE PERSONAL (Suma de humanos filtrados)
-        total_personal = base_query.count()
+        # 3. CONTEO TOTAL DE PERSONAL (con sub-caché)
+        total_personal = None
+        if use_cache:
+            count_key = generate_cache_key(
+                "estadistica_count",
+                tipo=tipo, entidad=entidad, especialidad=especialidad,
+                nivel_atencion=nivel_atencion, nombre_unidad=nombre_unidad,
+                estatus=estatus
+            )
+            total_personal = count_cache.get(count_key)
+        
+        if total_personal is None:
+            total_personal = base_query.count()
+            if use_cache:
+                count_cache.set(count_key, total_personal, ttl=300)
 
         # 4. CONTEO DE GRUPOS (Para la paginación)
         # IMPORTANTE: No incluimos 'estatus' aquí si no está en el schema de la tabla
@@ -342,11 +453,18 @@ async def obtener_estadistica_doctores_agrupados(
                 "cantidad": row.cantidad
             })
 
-        return {
+        result = {
             "total_groups": total_grupos,
             "total_doctors_in_groups": total_personal,
             "items": items_list
         }
+        
+        # ✅ GUARDAR EN CACHÉ (solo si no es búsqueda)
+        if use_cache and cache_key:
+            count_cache.set(cache_key, result, ttl=300)
+        
+        return result
+        
     except Exception as e:
         # Esto te imprimirá el error real en tu consola de VS Code/Terminal
         print(f"ERROR DETECTADO: {str(e)}")
@@ -367,77 +485,95 @@ async def upload_to_firebase(file: UploadFile, destination_path: str, optimize_i
         bucket = storage.bucket(bucket_name, app=app_instance)
         
         filename_base, file_extension = os.path.splitext(file.filename)
-
         safe_filename_base = re.sub(r"[^a-zA-Z0-9_\-]", "_", filename_base) 
         unique_filename = f"{uuid.uuid4()}_{safe_filename_base}{file_extension}"
         blob_path = f"{destination_path.strip('/')}/{unique_filename}"
-        blob = bucket.blob(blob_path)
+        blob = bucket.blob(blob_path, chunk_size=256 * 1024)  # Streaming en chunks pequeños
 
-        file_content = await file.read()
-        file_content_to_upload = file_content
-        content_type_to_upload = file.content_type
+        if not (optimize_image and file.content_type and 'image' in file.content_type):
+            await asyncio.to_thread(
+                blob.upload_from_file,
+                file.file,
+                content_type=file.content_type,
+                size=file.size
+            )
+            return blob_path
 
-        # --- OPTIMIZAR IMAGEN ---
-        if optimize_image and file.content_type and file.content_type.startswith("image/") and Image:
-            try:
-                img_io = BytesIO(file_content)
-                img = Image.open(img_io)
-                
-                # Convertir a RGB si es necesario (RGBA a RGB con fondo blanco, o P a RGB)
-                if img.mode == "RGBA":
-                    background = Image.new("RGB", img.size, (255, 255, 255))
-                    background.paste(img, mask=img.split()[3])
-                    img = background
-                elif img.mode == "P":
-                    img = img.convert("RGB")
+        return await _optimizar_y_subir_imagen(file, blob, blob_path)
 
-                # Redimensionar la imagen
-                img.thumbnail((1024, 1024))
-                output_buffer = io.BytesIO()
-                
-                # Formato de salida y calidad
-                img_format = "JPEG" 
-                save_kwargs = {'format': img_format}
-                if img_format == "JPEG":
-                    save_kwargs['quality'] = 80
-                    save_kwargs['optimize'] = True
-                
-                img.save(output_buffer, **save_kwargs)
-                file_content_to_upload = output_buffer.getvalue()
-                content_type_to_upload = f"image/{img_format.lower()}"
-
-            except Exception as img_e:
-                print(f"ERROR_UPLOAD: Fallo en la optimización de imagen para {file.filename}: {img_e}")
-                traceback.print_exc()
-                # Si falla la optimización, subir el contenido original
-                file_content_to_upload = file_content
-                content_type_to_upload = file.content_type
-        # --- FIN OPTIMIZAR IMAGEN ---
-        blob.upload_from_string(file_content_to_upload, content_type=content_type_to_upload)
-        
-        # ¡CORRECCIÓN CLAVE! Devolver la ruta del objeto, NO la URL firmada.
-        return blob_path 
-
-    except firebase_admin.exceptions.FirebaseError as fb_e:
-        print(f"ERROR_UPLOAD: Error de Firebase al subir el archivo: {fb_e}")
-        traceback.print_exc()
-        return None
     except Exception as e:
-        print(f"ERROR_UPLOAD: Error inesperado al subir el archivo: {e}")
-        traceback.print_exc()
+        print(f"ERROR: {e}")
         return None
+
+async def _optimizar_y_subir_imagen(file: UploadFile, blob, blob_path: str) -> Optional[str]:
+    """Solo se llama para imágenes que necesitan optimización"""
+    try:
+        MAX_MEMORIA = 20 * 1024 * 1024  # Máximo 20 MB para imágenes
+        
+        # Leer en chunks y verificar tamaño
+        chunks = []
+        total = 0
+        while True:
+            chunk = await file.read(1024 * 1024)  # 1 MB chunks
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > MAX_MEMORIA:
+                # Imagen muy grande → subir sin optimizar (streaming)
+                file.file.seek(0)
+                blob.upload_from_file(file.file, content_type=file.content_type, size=file.size)
+                return blob_path
+            chunks.append(chunk)
+        
+        # Procesar imagen (esto sí usa RAM, pero limitada)
+        image_data = b''.join(chunks)
+        del chunks  # Liberar inmediatamente
+        
+        img = Image.open(BytesIO(image_data))
+        del image_data  # Liberar datos originales
+        
+        # Optimizar
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+        img.thumbnail((800, 800))  # Más agresivo que 1024
+        
+        # Guardar con compresión máxima
+        output = BytesIO()
+        img.save(output, format="JPEG", quality=70, optimize=True)
+        img.close()
+        del img
+        
+        # Subir resultado optimizado
+        output.seek(0)
+        blob.upload_from_file(output, content_type="image/jpeg")
+        output.close()
+        del output
+        
+        gc.collect()
+        return blob_path
+        
+    except Exception as e:
+        # Fallback: subir original
+        file.file.seek(0)
+        blob.upload_from_file(file.file, content_type=file.content_type, size=file.size)
+        return blob_path
 
 # --- ELIMINAR ARCHIVOS FIREBASE ---
 async def delete_from_firebase(file_path_in_storage: str) -> bool:
     try:
-        firebase_app_instance = firebase_admin.get_app()
-        bucket = storage.bucket(app=firebase_app_instance)
+        app_instance = firebase_admin.get_app()
+        bucket_name = app_instance.options.get('storageBucket')
+        if not bucket_name:
+            return False
+            
+        bucket = storage.bucket(bucket_name, app=app_instance)
         blob = bucket.blob(file_path_in_storage)
         blob.delete()
-        print(f"DEBUG_DELETE: Archivo eliminado de Firebase: {file_path_in_storage}")
         return True
+        
     except Exception as e:
-        print(f"ERROR_DELETE: Error al eliminar el archivo {file_path_in_storage} de Firebase: {e}")
+        print(f"ERROR_DELETE: Error al eliminar archivo: {e}")
+        traceback.print_exc()
         return False
 
 # --- INICIO ENDPOINT ---
@@ -484,10 +620,28 @@ async def leer_doctores(
         func.upper(func.trim(models.Doctor.estatus)) == estatus.strip().upper()
     )
     
-    try:
-        total_count = query.count()
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error al contar los doctores: {str(e)}")
+    # ✅ INTENTAR CACHÉ PARA COUNT (solo sin búsqueda)
+    use_cache = not search  # No cachear búsquedas (son muy variables)
+    total_count = None
+    
+    if use_cache:
+        count_key = generate_cache_key(
+            "doctores_count",
+            estatus=estatus or "todos",
+            coordinacion=coordinacion
+        )
+        total_count = count_cache.get(count_key)
+    
+    if total_count is None:
+        try:
+            total_count = query.count()
+        except Exception as e:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error al contar los doctores: {str(e)}")
+        
+        # Guardar en caché solo si no hay búsqueda
+        if use_cache:
+            count_cache.set(count_key, total_count, ttl=300)  # 5 minutos
+    
     doctores = query.order_by(models.Doctor.id_imss).offset(skip).limit(limit).all()
     return {"total_count": total_count, "doctores": doctores}
 
@@ -738,6 +892,14 @@ async def crear_doctor(
         db.commit()
         db.refresh(db_doctor)
         db.refresh(nuevo_registro_historial)
+
+        count_cache.invalidate("total_q")
+        count_cache.invalidate("universo_total")
+        count_cache.invalidate("doctores_count")
+        count_cache.invalidate("dashboard")
+        count_cache.invalidate("estadistica")
+        count_cache.invalidate("estadistica_count")
+        count_cache.invalidate("cedulas")
 
         doctor_completo_obj = db.query(models.Doctor).options(
             selectinload(models.Doctor.historial)
@@ -1076,7 +1238,19 @@ async def actualizar_doctor_perfil_completo(
         
         db.commit()
         db.refresh(db_doctor)
-    
+
+          # ✅ INVALIDAR CACHÉS AFECTADOS
+        count_cache.invalidate("total_q")
+        count_cache.invalidate("doctores_count")
+        count_cache.invalidate("dashboard")
+        count_cache.invalidate("estadistica")
+        count_cache.invalidate("estadistica_count")
+        count_cache.invalidate("cedulas")
+        
+        # Solo invalidar universo_total si cambió el estatus a BAJA o se restauró
+        if cambio_estatus:
+            count_cache.invalidate("universo_total")
+
         return db_doctor
             
     except IntegrityError as e:
@@ -1112,6 +1286,10 @@ async def crear_registro_historial(
     db.add(nuevo_registro)
     db.commit()
     db.refresh(nuevo_registro)
+
+    count_cache.invalidate("dashboard")
+    count_cache.invalidate("estadistica")
+
     return nuevo_registro
 
 # --- Endpoint de Autenticación (Login) ---
@@ -1276,95 +1454,144 @@ async def generar_reporte_excel(
             detail="No tiene permisos para modificar datos."
         )
     try:
-        query = db.query(models.Doctor)
-
-        query = query.filter(models.Doctor.is_deleted == False)
-
-        if hasattr(models.Doctor, 'id_imss'):
-            query = query.order_by(models.Doctor.id_imss)
+        # Columnas en el orden exacto que tenías
+        column_names = [
+            "ID_IMSS", "NOMBRE", "APELLIDO_PATERNO", "APELLIDO_MATERNO", "ESTATUS",
+            "MATRIMONIO_ID", "CURP", "CEDULA_ESP", "CEDULA_LIC", "ESPECIALIDAD",
+            "ENTIDAD", "CLUES", "FORMA_NOTIFICACION", "MOTIVO_BAJA",
+            "FECHA_EXTRACCION", "FECHA_NOTIFICACION", "SEXO", "TURNO",
+            "NOMBRE_UNIDAD", "MUNICIPIO", "NIVEL_ATENCION",
+            "FECHA_ESTATUS", "DESPLIEGUE", "FECHA_VUELO", "ESTRATO", "ACUERDO",
+            "CORREO", "ENTIDAD_NACIMIENTO", "TELEFONO",
+            "COMENTARIOS_ESTATUS", "FECHA_NACIMIENTO", "PASAPORTE",
+            "FECHA_EMISION", "FECHA_EXPIRACION", "DOMICILIO",
+            "LICENCIATURA", "INSTITUCION_LIC", "INSTITUCION_ESP",
+            "FECHA_EGRESO_LIC", "FECHA_EGRESO_ESP",
+            "TIPO_ESTABLECIMIENTO", "SUBTIPO_ESTABLECIMIENTO",
+            "DIRECCION_UNIDAD", "REGION",
+            "FECHA_INICIO", "FECHA_FIN", "MOTIVO", "TIPO_INCAPACIDAD"
+        ]
         
-        doctores_orm = query.all()
-
-        if not doctores_orm:
-            column_names = [
-                "ID_IMSS", "NOMBRE","APELLIDO_PATERNO","APELLIDO_MATERNO", "ESTATUS","MATRIMONIO_ID", "CURP", 
-                "CEDULA_ESP","CEDULA_LIC","ESPECIALIDAD","ENTIDAD","CLUES","FORMA_NOTIFICACION","MOTIVO_BAJA",
-                "FECHA_EXTRACCION","FECHA_NOTIFICACION","SEXO","TURNO","NOMBRE_UNIDAD","MUNICIPIO","NIVEL_ATENCION",
-                "FECHA_ESTATUS","DESPLIEGUE","FECHA_VUELO","ESTRATO","ACUERDO","CORREO","ENTIDAD_NACIMIENTO","TELEFONO",
-                "COMENTARIOS_ESTATUS","FECHA_NACIMIENTO","PASAPORTE","FECHA_EMISION","FECHA_EXPIRACION",
-                "DOMICILIO","LICENCIATURA","INSTITUCION_LIC","INSTITUCION_ESP","FECHA_EGRESO_LIC", "FECHA_EGRESO_ESP", "TIPO_ESTABLECIMIENTO","SUBTIPO_ESTABLECIMIENTO","DIRECCION_UNIDAD","REGION"
-                "FECHA_INICIO","FECHA_FIN","MOTIVO","TIPO_INCAPACIDAD",
-            ]
-            df = pd.DataFrame(columns=column_names)
-
-        else:
-            doctores_data = []
-            for doc in doctores_orm:
-                doctores_data.append({
-                    "ID_IMSS": doc.id_imss,
-                    "NOMBRE": doc.nombre,
-                    "APELLIDO_PATERNO": doc.apellido_paterno,
-                    "APELLIDO_MATERNO": doc.apellido_materno, 
-                    "ESTATUS": doc.estatus,
-                    "MATRIMONIO_ID": doc.matrimonio_id, 
-                    "CURP": doc.curp, 
-                    "CEDULA_ESP": doc.cedula_esp,
-                    "CEDULA_LIC": doc.cedula_lic,
-                    "ESPECIALIDAD": doc.especialidad,
-                    "ENTIDAD": doc.entidad,
-                    "CLUES": doc.clues,
-                    "FORMA_NOTIFICACION":doc.forma_notificacion,
-                    "MOTIVO_BAJA": doc.motivo_baja,
-                    "FECHA_EXTRACCION": doc.fecha_extraccion,
-                    "FECHA_NOTIFICACION":  doc.fecha_notificacion,
-                    "SEXO": doc.sexo,
-                    "TURNO": doc.turno,
-                    "NOMBRE_UNIDAD": doc.nombre_unidad,
-                    "MUNICIPIO": doc.municipio,
-                    "NIVEL_ATENCION": doc.nivel_atencion,
-                    "FECHA_ESTATUS" : doc.fecha_estatus,
-                    "DESPLIEGUE" : doc.despliegue,
-                    "FECHA_VUELO" : doc.fecha_vuelo,
-                    "ESTRATO" : doc.estrato,
-                    "ACUERDO" : doc.acuerdo,
-                    "CORREO" : doc.correo,
-                    "ENTIDAD_NACIMIENTO" : doc.entidad_nacimiento,
-                    "TELEFONO" : doc.telefono,
-                    "COMENTARIOS_ESTATUS" : doc.comentarios_estatus,
-                    "FECHA_NACIMIENTO" : doc.fecha_nacimiento,
-                    "PASAPORTE" : doc.pasaporte,
-                    "FECHA_EMISION": doc.fecha_emision,
-                    "FECHA_EXPIRACION": doc.fecha_expiracion,
-                    "DOMICILIO" : doc.domicilio,
-                    "LICENCIATURA" : doc.licenciatura,
-                    "INSTITUCION_LIC" : doc.institucion_lic,
-                    "INSTITUCION_ESP" : doc.institucion_esp,
-                    "FECHA_EGRESO_LIC" : doc.fecha_egreso_lic, 
-                    "FECHA_EGRESO_ESP" : doc.fecha_egreso_esp, 
-                    "TIPO_ESTABLECIMIENTO" : doc.tipo_establecimiento ,
-                    "SUBTIPO_ESTABLECIMIENTO": doc. subtipo_establecimiento,
-                    "DIRECCION_UNIDAD": doc.direccion_unidad,
-                    "REGION": doc.region,
-                    "FECHA_INICIO" : doc.fecha_inicio,
-                    "FECHA_FIN": doc.fecha_fin,
-                    "MOTIVO": doc.motivo,
-                    "TIPO_INCAPACIDAD":doc.tipo_incapacidad
-                })
-            df = pd.DataFrame(doctores_data)
-        for col in df.columns:
-            if pd.api.types.is_datetime64_any_dtype(df[col]) and getattr(df[col].dt, 'tz', None) is not None:
-
-                df[col] = df[col].dt.tz_localize(None)
-
+        # ✅ CREAR EXCEL POR CHUNKS (Streaming real)
         output = GlobalBytesIO()
+        
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='Doctores')
+            worksheet = writer.book.create_sheet('Doctores')
+            writer.sheets['Doctores'] = worksheet
+            
+            # Escribir cabeceras
+            for col_idx, col_name in enumerate(column_names, 1):
+                worksheet.cell(row=1, column=col_idx, value=col_name)
+            
+            # ✅ PROCESAR EN CHUNKS DE 500 REGISTROS
+            CHUNK_SIZE = 500
+            offset = 0
+            row_idx = 2  # Empezamos en fila 2 (fila 1 = cabeceras)
+            total_procesados = 0
+            
+            while True:
+                # Consultar SOLO el chunk actual (no carga todo en RAM)
+                chunk = db.query(models.Doctor)\
+                    .filter(models.Doctor.is_deleted == False)\
+                    .order_by(models.Doctor.id_imss)\
+                    .offset(offset)\
+                    .limit(CHUNK_SIZE)\
+                    .all()
+                
+                if not chunk:
+                    break  # No hay más registros
+                
+                # Procesar SOLO este chunk
+                for doc in chunk:
+                    # Mapeo completo de todas tus variables
+                    row_data = {
+                        "ID_IMSS": doc.id_imss,
+                        "NOMBRE": doc.nombre,
+                        "APELLIDO_PATERNO": doc.apellido_paterno,
+                        "APELLIDO_MATERNO": doc.apellido_materno,
+                        "ESTATUS": doc.estatus,
+                        "MATRIMONIO_ID": doc.matrimonio_id,
+                        "CURP": doc.curp,
+                        "CEDULA_ESP": doc.cedula_esp,
+                        "CEDULA_LIC": doc.cedula_lic,
+                        "ESPECIALIDAD": doc.especialidad,
+                        "ENTIDAD": doc.entidad,
+                        "CLUES": doc.clues,
+                        "FORMA_NOTIFICACION": doc.forma_notificacion,
+                        "MOTIVO_BAJA": doc.motivo_baja,
+                        "FECHA_EXTRACCION": doc.fecha_extraccion,
+                        "FECHA_NOTIFICACION": doc.fecha_notificacion,
+                        "SEXO": doc.sexo,
+                        "TURNO": doc.turno,
+                        "NOMBRE_UNIDAD": doc.nombre_unidad,
+                        "MUNICIPIO": doc.municipio,
+                        "NIVEL_ATENCION": doc.nivel_atencion,
+                        "FECHA_ESTATUS": doc.fecha_estatus,
+                        "DESPLIEGUE": doc.despliegue,
+                        "FECHA_VUELO": doc.fecha_vuelo,
+                        "ESTRATO": doc.estrato,
+                        "ACUERDO": doc.acuerdo,
+                        "CORREO": doc.correo,
+                        "ENTIDAD_NACIMIENTO": doc.entidad_nacimiento,
+                        "TELEFONO": doc.telefono,
+                        "COMENTARIOS_ESTATUS": doc.comentarios_estatus,
+                        "FECHA_NACIMIENTO": doc.fecha_nacimiento,
+                        "PASAPORTE": doc.pasaporte,
+                        "FECHA_EMISION": doc.fecha_emision,
+                        "FECHA_EXPIRACION": doc.fecha_expiracion,
+                        "DOMICILIO": doc.domicilio,
+                        "LICENCIATURA": doc.licenciatura,
+                        "INSTITUCION_LIC": doc.institucion_lic,
+                        "INSTITUCION_ESP": doc.institucion_esp,
+                        "FECHA_EGRESO_LIC": doc.fecha_egreso_lic,
+                        "FECHA_EGRESO_ESP": doc.fecha_egreso_esp,
+                        "TIPO_ESTABLECIMIENTO": doc.tipo_establecimiento,
+                        "SUBTIPO_ESTABLECIMIENTO": doc.subtipo_establecimiento,
+                        "DIRECCION_UNIDAD": doc.direccion_unidad,
+                        "REGION": doc.region,
+                        "FECHA_INICIO": doc.fecha_inicio,
+                        "FECHA_FIN": doc.fecha_fin,
+                        "MOTIVO": doc.motivo,
+                        "TIPO_INCAPACIDAD": doc.tipo_incapacidad
+                    }
+                    
+                    # Convertir fechas timezone-aware a naive (tu lógica original)
+                    for key, value in row_data.items():
+                        if isinstance(value, datetime) and getattr(value, 'tzinfo', None) is not None:
+                            row_data[key] = value.replace(tzinfo=None)
+                    
+                    # Escribir fila directamente al Excel (sin DataFrame intermedio)
+                    for col_idx, col_name in enumerate(column_names, 1):
+                        cell_value = row_data.get(col_name)
+                        worksheet.cell(row=row_idx, column=col_idx, value=cell_value)
+                    
+                    row_idx += 1
+                    total_procesados += 1
+                
+                del chunk
+                
+                # Avanzar al siguiente chunk
+                offset += CHUNK_SIZE
+                
+                # ✅ Forzar garbage collection cada 5 chunks
+                if offset % (CHUNK_SIZE * 5) == 0:
+                    gc.collect()
+            
+            if total_procesados == 0:
+                # Ya tenemos las cabeceras, la hoja queda lista
+                pass
+        
+        gc.collect()
         
         output.seek(0)
         headers = {
             'Content-Disposition': 'attachment; filename="reporte_doctores.xlsx"'
         }
-        return StreamingResponse(output, headers=headers, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        return StreamingResponse(
+            output, 
+            headers=headers, 
+            media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
 
     except Exception as e:
         print(f"Error al generar reporte Excel: {e}")
@@ -1373,44 +1600,6 @@ async def generar_reporte_excel(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error interno del servidor al generar el reporte Excel: {str(e)}"
         )
-
-# --- ENDPOINT (REPORTE PDF - PENDIENTE) ---
-@app.get("/api/reporte/pdf", tags=["Reportes"])
-async def generar_reporte_resumen_pdf(
-    db: Session = Depends(get_db_session),
-    current_user: models.User = Depends(security.get_current_user)):
-    if current_user.role == 'consulta':
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="No tiene permisos para modificar datos."
-        )
-    query_total_general = text("SELECT COUNT(*) FROM doctores;"); total_general_doctores = db.execute(query_total_general).scalar_one_or_none() or 0
-    query_estado = text("SELECT entidad, COUNT(*) as total FROM doctores WHERE entidad IS NOT NULL AND entidad != '' GROUP BY entidad ORDER BY entidad;"); result_estado = db.execute(query_estado); data_por_estado = [{"label": row[0], "total": row[1]} for row in result_estado]
-    query_especialidad = text("SELECT especialidad, COUNT(*) as total FROM doctores WHERE especialidad IS NOT NULL AND especialidad != '' GROUP BY especialidad ORDER BY especialidad;"); result_especialidad = db.execute(query_especialidad); data_por_especialidad = [{"label": row[0], "total": row[1]} for row in result_especialidad]
-    if not data_por_estado and not data_por_especialidad and total_general_doctores == 0 : raise HTTPException(status_code=404, detail="No hay datos.")
-    pdf = FPDF(orientation='P', unit='mm', format='A4'); pdf.add_page(); pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.set_font('Arial', 'B', 16); pdf.cell(0, 10, 'Reporte Doctores', 0, 1, 'C'); pdf.ln(5)
-    pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, f'Total de Doctores Registrados: {total_general_doctores}', 0, 1, 'L'); pdf.ln(10)
-    if data_por_estado:
-        pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, 'Doctores por Estado', 0, 1, 'L'); pdf.set_font('Arial', 'B', 10)
-        col_widths = [130, 40]; headers = ['Estado', 'Total Doctores']; pdf.set_fill_color(220, 220, 220)
-        for h, w in zip(headers, col_widths): pdf.cell(w, 7, h, 1, 0, 'C', fill=True)
-        pdf.ln(); pdf.set_font('Arial', '', 10)
-        for item in data_por_estado:
-            for d, w in zip([str(item['label']), str(item['total'])], col_widths): pdf.cell(w, 6, d, 1, 0)
-            pdf.ln()
-        pdf.ln(10)
-    if data_por_especialidad:
-        pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, 'Doctores por Especialidad', 0, 1, 'L'); pdf.set_font('Arial', 'B', 10)
-        col_widths = [130, 40]; headers = ['Especialidad', 'Total Doctores']; pdf.set_fill_color(220, 220, 220)
-        for h, w in zip(headers, col_widths): pdf.cell(w, 7, h, 1, 0, 'C', fill=True)
-        pdf.ln(); pdf.set_font('Arial', '', 10)
-        for item in data_por_especialidad:
-            for d, w in zip([str(item['label']), str(item['total'])], col_widths): pdf.cell(w, 6, d, 1, 0)
-            pdf.ln()
-        pdf.ln(10)
-    pdf_bytes = pdf.output(); pdf_output_stream = GlobalBytesIO(pdf_bytes)
-    return StreamingResponse(pdf_output_stream, headers={'Content-Disposition': 'attachment; filename="reporte_resumido_doctores.pdf"'}, media_type='application/pdf')
 
 # --- ENDPOINT (AUDITORIA MOSTRAR) ---
 @app.get("/api/admin/audit-logs", response_model=schemas.AuditLogsPaginados, tags=["Admin - Auditoría"])
@@ -1777,19 +1966,19 @@ async def get_clues_data(clues_code: str, db: Session = Depends(get_db_session))
 async def generar_reporte_dinamico_excel(
     request_data: schemas.ReporteDinamicoRequest,
     db: Session = Depends(get_db_session),
-    current_user: models.User = Depends(security.get_current_user) # Seguridad añadida
+    current_user: models.User = Depends(security.get_current_user)
 ):
     try:
         # 1. Determinamos el filtro de coordinación dinámicamente ✅
-        # '1' para administrativos, '0' para médicos
         filtro_coord = '1' if request_data.tipo == "administrativos" else '0'
 
+        # 2. Construir query base (sin ejecutar aún)
         query = db.query(models.Doctor).filter(
             models.Doctor.is_deleted == False,
             models.Doctor.coordinacion == filtro_coord
         )
 
-        # 2. Aplicamos filtros adicionales del usuario
+        # 3. Aplicamos filtros adicionales del usuario
         if request_data.entidad:
             query = query.filter(models.Doctor.entidad == request_data.entidad)
         if request_data.especialidad:
@@ -1801,40 +1990,94 @@ async def generar_reporte_dinamico_excel(
         if request_data.estatus:
             query = query.filter(models.Doctor.estatus == request_data.estatus)
 
-        # 3. Búsqueda por texto (CLUES)
+        # 4. Búsqueda por texto (CLUES)
         if request_data.search and request_data.search.strip():
             word_term = f"%{request_data.search.strip()}%"
             query = query.filter(models.Doctor.clues.ilike(word_term))
 
-        doctores_filtrados = query.all()
-
-        if not doctores_filtrados:
-            raise HTTPException(status_code=404, detail="No se encontraron registros para exportar.")
-
-        # 4. LIMPIEZA DE DATOS (Vital para evitar Error 500 y problemas de CORS) ✅
-        # Usamos model_validate para quitar metadatos internos de SQLAlchemy
-        doctores_limpios = [
-            schemas.Doctor.model_validate(doc).model_dump() 
-            for doc in doctores_filtrados
-        ]
+        # 5. Definir columnas a exportar
+        columnas_solicitadas = request_data.columnas if request_data.columnas else []
         
-        df = pd.DataFrame(doctores_limpios)
-
-        # 5. Selección de columnas
-        columnas_validas = [col for col in request_data.columnas if col in df.columns]
-        if not columnas_validas:
-            # Fallback a columnas básicas si el usuario no mandó nada válido
+        # Fallback a columnas básicas si no se enviaron o están vacías
+        if not columnas_solicitadas:
             columnas_validas = ["id_imss", "nombre", "apellido_paterno", "entidad", "estatus"]
+        else:
+            # Validar que las columnas existan en el modelo Doctor
+            columnas_disponibles = [col.key for col in models.Doctor.__table__.columns]
+            columnas_validas = [col for col in columnas_solicitadas if col in columnas_disponibles]
+            
+            if not columnas_validas:
+                columnas_validas = ["id_imss", "nombre", "apellido_paterno", "entidad", "estatus"]
 
-        df_seleccionado = df[columnas_validas]
-
-        # 6. Generación del archivo en memoria
-        output = BytesIO() # Asegúrate de que 'from io import BytesIO' esté arriba
+        # 6. ✅ CREAR EXCEL POR CHUNKS (Streaming real, sin cargar todo en RAM)
+        output = BytesIO()
+        total_procesados = 0
+        
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df_seleccionado.to_excel(writer, index=False, sheet_name='Registros Filtrados')
+            worksheet = writer.book.create_sheet('Registros Filtrados')
+            writer.sheets['Registros Filtrados'] = worksheet
+            
+            # Escribir cabeceras en mayúsculas para mejor presentación
+            for col_idx, col_name in enumerate(columnas_validas, 1):
+                worksheet.cell(row=1, column=col_idx, value=col_name.upper())
+            
+            # ✅ PROCESAR EN CHUNKS DE 500 REGISTROS
+            CHUNK_SIZE = 500
+            offset = 0
+            row_idx = 2  # Fila 1 = cabeceras
+            
+            while True:
+                # Consultar SOLO el chunk actual
+                chunk = query\
+                    .order_by(models.Doctor.id_imss)\
+                    .offset(offset)\
+                    .limit(CHUNK_SIZE)\
+                    .all()
+                
+                if not chunk:
+                    break  # No hay más registros
+                
+                # Procesar SOLO este chunk
+                for doc in chunk:
+                    # Convertir a diccionario limpio (tu lógica original)
+                    doc_dict = schemas.Doctor.model_validate(doc).model_dump()
+                    
+                    # Escribir solo las columnas seleccionadas
+                    for col_idx, col_name in enumerate(columnas_validas, 1):
+                        cell_value = doc_dict.get(col_name)
+                        
+                        # Convertir fechas timezone-aware a naive (tu lógica original)
+                        if isinstance(cell_value, datetime) and getattr(cell_value, 'tzinfo', None) is not None:
+                            cell_value = cell_value.replace(tzinfo=None)
+                        
+                        worksheet.cell(row=row_idx, column=col_idx, value=cell_value)
+                    
+                    row_idx += 1
+                    total_procesados += 1
+                
+                # Liberar memoria del chunk procesado
+                del chunk
+                
+                # Avanzar al siguiente chunk
+                offset += CHUNK_SIZE
+                
+                # ✅ Forzar garbage collection cada 5 chunks
+                if offset % (CHUNK_SIZE * 5) == 0:
+                    gc.collect()
+            
+            # Si no hay registros, lanzar error 404
+            if total_procesados == 0:
+                raise HTTPException(
+                    status_code=404, 
+                    detail="No se encontraron registros para exportar."
+                )
+        
+        # ✅ Liberar memoria final
+        gc.collect()
+        
         output.seek(0)
 
-        # 7. Respuesta con encabezados de seguridad corregidos
+        # 7. Respuesta con encabezados de seguridad
         headers = {
             'Content-Disposition': 'attachment; filename="reporte_personal.xlsx"',
             'Access-Control-Expose-Headers': 'Content-Disposition'
@@ -1846,10 +2089,16 @@ async def generar_reporte_dinamico_excel(
             media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
 
+    except HTTPException:
+        # Re-lanzar excepciones HTTP (como el 404)
+        raise
     except Exception as e:
-        print(f"Error crítico en reporte: {str(e)}")
+        print(f"Error crítico en reporte dinámico: {str(e)}")
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail="Error interno al generar el reporte.")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error interno al generar el reporte: {str(e)}"
+        )
 
 # --- ENDPOINT (GENERA REPORTE OPCIONES FILTRO - PENDIENTE) ---
 @app.get("/api/opciones/filtros-dinamicos", response_model=schemas.OpcionesFiltro, tags=["Opciones de Filtro"])
@@ -2125,22 +2374,3 @@ async def actualizar_fechas_historial(
     datos: schemas.HistorialUpdate, 
     db: Session = Depends(get_db_session)
 ):
-    # 1. Buscamos el registro exacto en la tabla EstatusHistorico
-    registro = db.query(models.EstatusHistorico).filter(models.EstatusHistorico.id == historial_id).first()
-    
-    if not registro:
-        raise HTTPException(status_code=404, detail="Registro de historial no encontrado")
-    
-    # 2. Actualizamos las fechas
-    # FastAPI/Pydantic ya se encargaron de convertir los strings ("2025-12-30") a objetos Date
-    registro.fecha_inicio = datos.fecha_inicio
-    registro.fecha_fin = datos.fecha_fin
-    
-    # 3. Guardamos los cambios en PostgreSQL
-    try:
-        db.commit()
-        db.refresh(registro)
-        return {"mensaje": "Fechas actualizadas correctamente", "id": registro.id}
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error al guardar en la base de datos: {str(e)}")
