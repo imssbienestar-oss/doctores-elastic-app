@@ -2116,26 +2116,16 @@ async def get_opciones_dinamicas(
     db: Session = Depends(get_db_session)):
     """
     Obtiene las listas de opciones disponibles para TODOS los filtros, 
-    basadas en los filtros ya aplicados.
+    basadas en los filtros ya aplicados, evitando el 'efecto trampa' en los dropdowns.
     """
-    # Consulta base: siempre sobre doctores no eliminados y no de coordinación.
+    
+    # 1. Consulta base (Solo los activos/eliminados y coordinación)
     base_query = db.query(models.Doctor).filter(
         models.Doctor.is_deleted == False,
         models.Doctor.coordinacion == '0'
     )
 
-    # Aplicamos los filtros que vienen del frontend a nuestra consulta base
-    if entidad:
-        base_query = base_query.filter(models.Doctor.entidad == entidad)
-    if nombre_unidad:
-        base_query = base_query.filter(models.Doctor.nombre_unidad == nombre_unidad)
-    if especialidad:
-        base_query = base_query.filter(models.Doctor.especialidad == especialidad)
-    if nivel_atencion:
-        base_query = base_query.filter(models.Doctor.nivel_atencion == nivel_atencion)
-    if estatus:
-        base_query = base_query.filter(models.Doctor.estatus == estatus)
-
+    # 2. La búsqueda (search) afecta a todos por igual, la aplicamos a la base
     if search and search.strip():
         search_words = search.strip().split()
         search_conditions = []
@@ -2152,22 +2142,39 @@ async def get_opciones_dinamicas(
             )
         base_query = base_query.filter(and_(*search_conditions))
 
+    # 3. Función auxiliar inteligente: Aplica los filtros cruzados
+    def get_distinct_values(field, exclude_filter=None):
+        query = base_query
+        
+        # Aplicamos todos los filtros EXCEPTO el del propio dropdown
+        if exclude_filter != 'entidad' and entidad:
+            query = query.filter(models.Doctor.entidad == entidad)
+            
+        if exclude_filter != 'nombre_unidad' and nombre_unidad:
+            query = query.filter(models.Doctor.nombre_unidad == nombre_unidad)
+            
+        if exclude_filter != 'especialidad' and especialidad:
+            query = query.filter(models.Doctor.especialidad == especialidad)
+            
+        if exclude_filter != 'nivel_atencion' and nivel_atencion:
+            query = query.filter(models.Doctor.nivel_atencion == nivel_atencion)
+            
+        if exclude_filter != 'estatus' and estatus:
+            query = query.filter(models.Doctor.estatus == estatus)
 
-    # Función auxiliar para obtener valores únicos de una columna
-    def get_distinct_values(field):
-        query = base_query.with_entities(distinct(field)).filter(field.isnot(None), field != '').order_by(field)
+        # Finalmente extraemos los valores únicos
+        query = query.with_entities(distinct(field)).filter(field.isnot(None), field != '').order_by(field)
         return [row[0] for row in query.all()]
 
-    # --- CORRECCIÓN CLAVE AQUÍ ---
-    # A partir de la consulta base filtrada, obtenemos las opciones únicas para cada campo
-    # y nos aseguramos de incluir 'estatuses' en la respuesta.
+    # 4. Llenamos la respuesta pasándole el nombre del filtro que debe ignorar
     return {
-        "entidades": get_distinct_values(models.Doctor.entidad),
-        "unidades": get_distinct_values(models.Doctor.nombre_unidad),
-        "especialidades": get_distinct_values(models.Doctor.especialidad),
-        "niveles_atencion": get_distinct_values(models.Doctor.nivel_atencion),
-        "estatus": get_distinct_values(models.Doctor.estatus),
+        "entidades": get_distinct_values(models.Doctor.entidad, 'entidad'),
+        "unidades": get_distinct_values(models.Doctor.nombre_unidad, 'nombre_unidad'),
+        "especialidades": get_distinct_values(models.Doctor.especialidad, 'especialidad'),
+        "niveles_atencion": get_distinct_values(models.Doctor.nivel_atencion, 'nivel_atencion'),
+        "estatus": get_distinct_values(models.Doctor.estatus, 'estatus'),
     }
+
 
 @app.get("/api/opciones/entidades-capacidad", response_model=List[schemas.EntidadCapacidad], tags=["Opciones de Filtro"])
 async def get_entidades_con_capacidad(db: Session = Depends(get_db_session)):
