@@ -382,14 +382,28 @@ function GraficasPage() {
 
   // Carga Filtros
   useEffect(() => {
+    const controller = new AbortController();
+    const signal = controller.signal;
+
     const fetchFilterOptions = async () => {
       setIsLoadingFiltros(true);
+
       const params = new URLSearchParams({ tipo: tipoPersonal });
-  try {
+      // Inyectamos los filtros actuales para que el backend sepa qué opciones descartar
+      if (filtroEntidad) params.append("entidad", filtroEntidad);
+      if (filtroUnidad) params.append("nombre_unidad", filtroUnidad);
+      if (filtroEspecialidad) params.append("especialidad", filtroEspecialidad);
+      if (filtroNivel) params.append("nivel_atencion", filtroNivel);
+      if (debouncedBusqueda) params.append("search", debouncedBusqueda);
+      if (filtroEstatus) params.append("estatus", filtroEstatus);
+
+      try {
         const response = await fetch(`${API_BASE_URL}/api/opciones/filtros-dinamicos?${params.toString()}`, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
+          signal: signal // Usamos la señal para cancelar peticiones repetidas
         });
-        if (!response.ok) throw new Error("Error filtros");
+
+        if (!response.ok) throw new Error("Error al cargar filtros dinámicos");
         const data = await response.json();
 
         setOpcionesEstatus(data.estatus || []);
@@ -398,13 +412,23 @@ function GraficasPage() {
         setOpcionesEspecialidad(data.especialidades || []);
         setOpcionesNivel(data.niveles_atencion || []);
       } catch (error) {
-        console.error(error);
+        // Ignoramos el error si fue provocado intencionalmente por la cancelación
+        if (error.name !== 'AbortError') {
+          console.error(error);
+        }
       } finally {
         setIsLoadingFiltros(false);
       }
     };
+
     if (token) fetchFilterOptions();
-  }, [token, tipoPersonal]);
+
+    // Función de limpieza para cancelar peticiones viejas
+    return () => {
+      controller.abort();
+    };
+  }, [token, tipoPersonal, filtroEntidad, filtroUnidad, filtroEspecialidad, filtroNivel, debouncedBusqueda, filtroEstatus]);
+
       
   // Carga Tabla
   useEffect(() => {
