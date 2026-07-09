@@ -23,7 +23,7 @@ import logging
 import asyncio
 import hashlib
 import time
-import gc
+import calendar
 
 # Importaciones locales
 import security
@@ -1973,10 +1973,10 @@ async def generar_reporte_dinamico_excel(
     current_user: models.User = Depends(security.get_current_user)
 ):
     try:
-        # 1. Determinamos el filtro de coordinación dinámicamente ✅
+        # 1. Determinamos el filtro de coordinación dinámicamente
         filtro_coord = '1' if request_data.tipo == "administrativos" else '0'
 
-        # 2. Construir query base (sin ejecutar aún)
+        # 2. Construir query base
         query = db.query(models.Doctor).filter(
             models.Doctor.is_deleted == False,
             models.Doctor.coordinacion == filtro_coord
@@ -1999,21 +1999,28 @@ async def generar_reporte_dinamico_excel(
             word_term = f"%{request_data.search.strip()}%"
             query = query.filter(models.Doctor.clues.ilike(word_term))
 
-        # 5. Definir columnas a exportar
+        # 5. Definir columnas a exportar (NUEVO: Permitimos la columna virtual)
+        COLUMNA_VIRTUAL = "dias_activos_mes_actual"
         columnas_solicitadas = request_data.columnas if request_data.columnas else []
         
-        # Fallback a columnas básicas si no se enviaron o están vacías
         if not columnas_solicitadas:
-            columnas_validas = ["id_imss", "nombre", "apellido_paterno", "entidad", "estatus"]
+            columnas_validas = ["id_imss", "nombre", "apellido_paterno", "entidad", "estatus", COLUMNA_VIRTUAL]
         else:
-            # Validar que las columnas existan en el modelo Doctor
             columnas_disponibles = [col.key for col in models.Doctor.__table__.columns]
-            columnas_validas = [col for col in columnas_solicitadas if col in columnas_disponibles]
+            columnas_validas = []
+            for col in columnas_solicitadas:
+                if col in columnas_disponibles or col == COLUMNA_VIRTUAL:
+                    columnas_validas.append(col)
             
             if not columnas_validas:
                 columnas_validas = ["id_imss", "nombre", "apellido_paterno", "entidad", "estatus"]
 
-        # 6. ✅ CREAR EXCEL POR CHUNKS (Streaming real, sin cargar todo en RAM)
+        # NUEVO: Pre-calculamos las variables de la "Guillotina" para el mes actual
+        hoy = date.today()
+        primer_dia_mes_actual = date(hoy.year, hoy.month, 1)
+        limite_superior = hoy # Siempre cortamos en el día actual
+
+        # 6. CREAR EXCEL POR CHUNKS
         output = BytesIO()
         total_procesados = 0
         
@@ -2021,36 +2028,81 @@ async def generar_reporte_dinamico_excel(
             worksheet = writer.book.create_sheet('Registros Filtrados')
             writer.sheets['Registros Filtrados'] = worksheet
             
-            # Escribir cabeceras en mayúsculas para mejor presentación
+            # Escribir cabeceras
             for col_idx, col_name in enumerate(columnas_validas, 1):
-                worksheet.cell(row=1, column=col_idx, value=col_name.upper())
+                # Cambiamos el nombre técnico por algo bonito en el Excel
+                header_title = "DÍAS ACTIVOS (MES ACTUAL)" if col_name == COLUMNA_VIRTUAL else col_name.upper()
+                worksheet.cell(row=1, column=col_idx, value=header_title)
             
-            # ✅ PROCESAR EN CHUNKS DE 500 REGISTROS
             CHUNK_SIZE = 500
             offset = 0
-            row_idx = 2  # Fila 1 = cabeceras
+            row_idx = 2  
             
             while True:
-                # Consultar SOLO el chunk actual
-                chunk = query\
-                    .order_by(models.Doctor.id_imss)\
-                    .offset(offset)\
-                    .limit(CHUNK_SIZE)\
-                    .all()
+                chunk = query.order_by(models.Doctor.id_imss).offset(offset).limit(CHUNK_SIZE).all()
                 
                 if not chunk:
-                    break  # No hay más registros
+                    break 
                 
-                # Procesar SOLO este chunk
+                # --- NUEVO: CARGA EN BLOQUE DEL HISTORIAL ---
+                # Si pidieron la columna virtual, traemos el historial de los 500 doctores de un solo golpe
+                historial_agrupado = {}
+                if COLUMNA_VIRTUAL in columnas_validas:
+                    chunk_ids = [doc.id_imss for doc in chunk]
+                    historial_chunk = db.query(models.EstatusHistorico).filter(
+                        models.EstatusHistorico.id_imss.in_(chunk_ids)
+                    ).order_by(
+                        models.EstatusHistorico.id_imss, 
+                        models.EstatusHistorico.fecha_inicio.asc(), 
+                        models.EstatusHistorico.id.asc()
+                    ).all()
+                    
+                    # Agrupamos por id_imss en un diccionario para búsqueda instantánea
+                    for reg in historial_chunk:
+                        if reg.id_imss not in historial_agrupado:
+                            historial_agrupado[reg.id_imss] = []
+                        historial_agrupado[reg.id_imss].append(reg)
+                # ---------------------------------------------
+                
                 for doc in chunk:
-                    # Convertir a diccionario limpio (tu lógica original)
                     doc_dict = schemas.Doctor.model_validate(doc).model_dump()
+                    
+                    # --- NUEVO: CÁLCULO DE DÍAS EN VIVO PARA EL EXCEL ---
+                    if COLUMNA_VIRTUAL in columnas_validas:
+                        historial_doc = historial_agrupado.get(doc.id_imss, [])
+                        dias_activos = 0
+                        
+                        for idx, reg in enumerate(historial_doc):
+                            if reg.estatus == "01 ACTIVO":
+                                inicio_real = max(primer_dia_mes_actual, reg.fecha_inicio)
+                                fin_calculado = reg.fecha_fin
+                                fue_cortado_por_estatus = False
+                                
+                                if not fin_calculado:
+                                    if idx + 1 < len(historial_doc):
+                                        fin_calculado = historial_doc[idx + 1].fecha_inicio
+                                        fue_cortado_por_estatus = True
+                                    else:
+                                        fin_calculado = limite_superior
+                                else:
+                                    fue_cortado_por_estatus = True
+                                
+                                fin_real = min(limite_superior, fin_calculado)
+                                
+                                if inicio_real <= fin_real:
+                                    dias_tramo = (fin_real - inicio_real).days
+                                    if not fue_cortado_por_estatus or fin_calculado > limite_superior:
+                                        dias_tramo += 1
+                                    dias_activos += dias_tramo
+                                    
+                        # Guardamos el resultado en el diccionario antes de pasarlo al Excel
+                        doc_dict[COLUMNA_VIRTUAL] = dias_activos
+                    # ----------------------------------------------------
                     
                     # Escribir solo las columnas seleccionadas
                     for col_idx, col_name in enumerate(columnas_validas, 1):
                         cell_value = doc_dict.get(col_name)
                         
-                        # Convertir fechas timezone-aware a naive (tu lógica original)
                         if isinstance(cell_value, datetime) and getattr(cell_value, 'tzinfo', None) is not None:
                             cell_value = cell_value.replace(tzinfo=None)
                         
@@ -2059,29 +2111,23 @@ async def generar_reporte_dinamico_excel(
                     row_idx += 1
                     total_procesados += 1
                 
-                # Liberar memoria del chunk procesado
                 del chunk
-                
-                # Avanzar al siguiente chunk
                 offset += CHUNK_SIZE
                 
-                # ✅ Forzar garbage collection cada 5 chunks
                 if offset % (CHUNK_SIZE * 5) == 0:
+                    import gc
                     gc.collect()
             
-            # Si no hay registros, lanzar error 404
             if total_procesados == 0:
                 raise HTTPException(
                     status_code=404, 
                     detail="No se encontraron registros para exportar."
                 )
         
-        # ✅ Liberar memoria final
+        import gc
         gc.collect()
-        
         output.seek(0)
 
-        # 7. Respuesta con encabezados de seguridad
         headers = {
             'Content-Disposition': 'attachment; filename="reporte_personal.xlsx"',
             'Access-Control-Expose-Headers': 'Content-Disposition'
@@ -2094,9 +2140,9 @@ async def generar_reporte_dinamico_excel(
         )
 
     except HTTPException:
-        # Re-lanzar excepciones HTTP (como el 404)
         raise
     except Exception as e:
+        import traceback
         print(f"Error crítico en reporte dinámico: {str(e)}")
         traceback.print_exc()
         raise HTTPException(
