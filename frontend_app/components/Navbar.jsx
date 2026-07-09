@@ -1,8 +1,6 @@
-// src/components/Navbar.jsx
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../src/contexts/AuthContext";
 import { Link, useLocation } from "react-router-dom";
-// import { useModal } from "../src/contexts/ModalContext"; // Solo si onAgregarDoctorClick no se pasa
 import logo from "./gobierno.png";
 import AlertasModal from "./AlertasModal";
 
@@ -87,7 +85,7 @@ const styles = {
     borderRadius: "0px", // Sin bordes redondeados si se usan separadores
     transition: "background-color 0.2s ease, color 0.2s ease",
     whiteSpace: "nowrap",
-    outline: "none", // Quitar outline al hacer foco si no se desea
+    outline: "none", 
   },
   logoutButton: {
     backgroundColor: "rgba(159, 34, 65, 0.8)",
@@ -167,12 +165,24 @@ const renderNavItems = (items) => {
   return visibleItems.map((item, index) => (
     <React.Fragment key={index}>
       {item}
-      {/* No añadir separador después del último elemento visible */}
       {index < visibleItems.length - 1 && (
         <span style={styles.separator}>|</span>
       )}
     </React.Fragment>
   ));
+};
+
+const obtenerDiasRestantes = (fechaFin) => {
+  if (!fechaFin) return null;
+  const partesFecha = fechaFin.split('-').map(Number);
+  const fin = new Date(partesFecha[0], partesFecha[1] - 1, partesFecha[2]);
+  const hoy = new Date();
+  
+  hoy.setHours(0, 0, 0, 0);
+  fin.setHours(0, 0, 0, 0);
+  
+  const diferenciaMs = fin.getTime() - hoy.getTime();
+  return Math.round(diferenciaMs / (1000 * 60 * 60 * 24));
 };
 
 function Navbar({
@@ -204,7 +214,12 @@ function Navbar({
             });
           if (response.ok) {
             const data = await response.json();
-            setAlertCount(data.length);
+            const alertasFiltradas = data.filter((alerta) => {
+              const dias = obtenerDiasRestantes(alerta.fecha_fin);
+              return dias !== null && dias <= 5;
+            });
+            
+            setAlertCount(alertasFiltradas.length);
           } else {
             setAlertCount(0);
           }
@@ -338,8 +353,6 @@ function Navbar({
         );
       }
     } else if (currentPath.startsWith("/admin") || currentPath === "/perfil") {
-      // Si estamos en cualquier página de admin O en la página de perfil
-      // Mostrar ambos botones para navegar de vuelta a la vista principal
       navActionItems.push(
         <button
           key="verTablaAdmin"
@@ -477,5 +490,4 @@ function Navbar({
     </div>
   );
 }
-
 export default Navbar;
