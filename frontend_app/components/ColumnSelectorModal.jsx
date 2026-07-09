@@ -77,6 +77,7 @@ const modalStyles = {
 const ALL_COLUMNS = [
     //DATOS PERSONALES
     { key: 'id_imss', label: 'ID IMSS' },
+    { key: 'estatus', label: 'Estatus' },
     { key: 'nombre', label: 'Nombre(s)' },
     { key: 'apellido_paterno', label: 'Apellido Paterno' },
     { key: 'apellido_materno', label: 'Apellido Materno' },
@@ -100,14 +101,11 @@ const ALL_COLUMNS = [
     //DATOS DE COOPERACIÓN
     { key: 'acuerdo', label: 'Acuerdo'},
     { key: 'fecha_vuelo', label: 'Fecha Llegada'},
-    { key: 'estatus', label: 'Estatus' },
     { key: 'fecha_estatus', label: 'Fecha de Estatus' },
     { key: 'fecha_fin', label: 'Fecha Termino'},
     { key: 'turno', label: 'Turno' },
     { key: 'despliegue', label: 'Despliegue'},
     { key: 'clues', label: 'CLUES' },
-    { key: 'motivo_baja', label: 'Motivo de Baja'},
-    { key: 'fecha_notificacion', label: 'Fecha Notificación'},
     { key: 'nombre_unidad', label: 'Unidad Médica' },
     { key: 'direccion_unidad', label: 'Dirección Unidad'},
     { key: 'nivel_atencion', label: 'Nivel de Atención' },
@@ -117,6 +115,15 @@ const ALL_COLUMNS = [
     { key: 'entidad', label: 'Entidad'},
     { key: 'municipio', label: 'Municipio'},
     { key: 'region', label: 'Región'},
+    { key: 'dias_activos_mes_actual', label: 'Días Activos (Mes Actual)'},
+    
+    //DATOS DE COOPERACIÓN BAJA
+    { key: 'motivo_baja', label: 'Motivo de Baja'},
+    { key: 'fecha_notificacion', label: 'Fecha Notificación'},
+    { key: 'forma_notificacion', label: 'Forma Notificación'},
+
+
+
     {key: 'comentarios_estatus', label: 'Comentarios'}
 ];
 
