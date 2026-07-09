@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../src/contexts/AuthContext";
 import Swal from 'sweetalert2';
+import AsistenciaChart from "./AsistenciaChart";
 
 const profileStyles = {
   container: {
@@ -2323,51 +2324,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
 
         {/*Apartado Foto y Archivos Adjuntos */}
         <div style={profileStyles.filesColumn}>
-          <div style={profileStyles.profilePicSection}>
-            <h2 style={profileStyles.sectionTitleAttachments}>
-              Foto de Perfil
-            </h2>
-            {currentProfilePicUrl ? (
-              <img
-                src={currentProfilePicUrl}
-                alt="Foto de perfil"
-                style={profileStyles.profileImage}
-              />
-            ) : (
-              <div style={profileStyles.profileImagePlaceholder}>
-                <span>Sin Foto</span>
-              </div>
-            )}
-
-            {currentUser && currentUser.role !== "consulta" && (
-              <>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleProfilePicSelect}
-                  style={profileStyles.fileInput}
-                  disabled={
-                    isLoading ||
-                    edicionGeneralBloqueada ||
-                    (isEditing && edicionGeneralBloqueada)
-                  }
-                />
-                {selectedProfilePicFile && (
-                  <button
-                    onClick={uploadProfilePic}
-                    disabled={
-                      isLoading ||
-                      edicionGeneralBloqueada ||
-                      (isEditing && edicionGeneralBloqueada)
-                    }
-                    style={profileStyles.uploadButton}
-                  >
-                    {isLoading ? "Subiendo Foto..." : "Subir Foto"}
-                  </button>
-                )}
-              </>
-            )}
-          </div>
+            <AsistenciaChart idImss={doctor.id_imss} />
 
           <div style={profileStyles.attachmentsSection}>
             <h2 style={profileStyles.sectionTitleAttachments}>
