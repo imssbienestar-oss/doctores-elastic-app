@@ -191,11 +191,6 @@ app.add_middleware(
     max_age=600
 )
 
-MESES_ES = {
-    1: "Ene", 2: "Feb", 3: "Mar", 4: "Abr", 5: "May", 6: "Jun",
-    7: "Jul", 8: "Ago", 9: "Sep", 10: "Oct", 11: "Nov", 12: "Dic"
-}
-
 # --- DEPENDENCIA BD ---
 def get_db_session():
     db = database.SessionLocal()
@@ -1075,81 +1070,6 @@ async def listar_expedientes_doctor(
         raise HTTPException(status_code=404, detail="Doctor no encontrado para listar expedientes.")
     attachments = db.query(models.DoctorAttachment).filter(models.DoctorAttachment.doctor_id == id_imss).all()
     return attachments
-
-@app.get("/api/doctores/{id_imss}/asistencia_anual", tags=["Doctores"])
-async def obtener_asistencia_anual(id_imss: str, db: Session = Depends(get_db_session)):
-    """
-    Calcula los días activos por mes de un médico.
-    Corrige el cálculo de fechas NULL consultando el siguiente estatus en el historial
-    y limita la proyección al día actual.
-    """
-    # 1. Traer TODO el historial de este médico (no solo los activos) ordenado por fecha
-    historial_completo = db.query(models.EstatusHistorico).filter(
-        models.EstatusHistorico.id_imss == id_imss
-    ).order_by(models.EstatusHistorico.fecha_inicio.asc(), models.EstatusHistorico.id.asc()).all()
-
-    meses_data = []
-    hoy = date.today()
-    
-    # 2. Iterar los últimos 12 meses
-    for i in range(11, -1, -1):
-        mes_evaluado = hoy.month - i
-        anio_evaluado = hoy.year
-        while mes_evaluado <= 0:
-            mes_evaluado += 12
-            anio_evaluado -= 1
-            
-        primer_dia = date(anio_evaluado, mes_evaluado, 1)
-        dias_del_mes = calendar.monthrange(anio_evaluado, mes_evaluado)[1]
-        ultimo_dia_mes = date(anio_evaluado, mes_evaluado, dias_del_mes)
-        
-        # EL LIMITE DIARIO: Si evaluamos el mes actual (julio 2026), el tope es HOY (8 de julio).
-        # Si evaluamos un mes pasado, el tope es el último día de ese mes.
-        limite_superior = hoy if (anio_evaluado == hoy.year and mes_evaluado == hoy.month) else ultimo_dia_mes
-        
-        nombre_mes = f"{MESES_ES[mes_evaluado]} {anio_evaluado}"
-        dias_activos_en_este_mes = 0
-        
-        # 3. Analizar el historial para este mes
-        for idx, reg in enumerate(historial_completo):
-            if reg.estatus == "01 ACTIVO":
-                inicio_real = max(primer_dia, reg.fecha_inicio)
-                
-                fin_calculado = reg.fecha_fin
-                fue_cortado_por_estatus = False
-                
-                if not fin_calculado:
-                    if idx + 1 < len(historial_completo):
-                        fin_calculado = historial_completo[idx + 1].fecha_inicio
-                        fue_cortado_por_estatus = True
-                    else:
-                        fin_calculado = limite_superior
-                else:
-                    fue_cortado_por_estatus = True
-                
-                fin_real = min(limite_superior, fin_calculado)
-                
-                if inicio_real <= fin_real:
-                    dias_tramo = (fin_real - inicio_real).days
-                    
-                    # Si el tramo se cortó por la guillotina (Hoy o Fin de Mes) 
-                    # y NO porque se haya ido de retiro, le sumamos 1 para incluir el día actual.
-                    if not fue_cortado_por_estatus or fin_calculado > limite_superior:
-                        dias_tramo += 1
-                        
-                    dias_activos_en_este_mes += dias_tramo
-                    
-        # Seguridad final (El tope visual)
-        dias_tope_visual = limite_superior.day if (anio_evaluado == hoy.year and mes_evaluado == hoy.month) else dias_del_mes
-        dias_activos_en_este_mes = min(dias_activos_en_este_mes, dias_tope_visual)
-        
-        meses_data.append({
-            "mes": nombre_mes,
-            "dias_activos": dias_activos_en_este_mes,
-            "dias_mes": dias_tope_visual # Mandamos el tope visual al frontend
-        })
-        
-    return meses_data
 
 # --- ENDPOINT (ELIMINAR ARCHIVOS FIREBASE) ---
 @app.delete("/api/doctores/{id_imss}/attachments/{attachment_id}", status_code=status.HTTP_200_OK, tags=["Doctores - Archivos"])
@@ -2511,3 +2431,22 @@ async def actualizar_fechas_historial(
     datos: schemas.HistorialUpdate, 
     db: Session = Depends(get_db_session)
 ):
+    # 1. Buscamos el registro exacto en la tabla EstatusHistorico
+    registro = db.query(models.EstatusHistorico).filter(models.EstatusHistorico.id == historial_id).first()
+    
+    if not registro:
+        raise HTTPException(status_code=404, detail="Registro de historial no encontrado")
+    
+    # 2. Actualizamos las fechas
+    # FastAPI/Pydantic ya se encargaron de convertir los strings ("2025-12-30") a objetos Date
+    registro.fecha_inicio = datos.fecha_inicio
+    registro.fecha_fin = datos.fecha_fin
+    
+    # 3. Guardamos los cambios en PostgreSQL
+    try:
+        db.commit()
+        db.refresh(registro)
+        return {"mensaje": "Fechas actualizadas correctamente", "id": registro.id}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error al guardar en la base de datos: {str(e)}")
