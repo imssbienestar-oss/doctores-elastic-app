@@ -23,7 +23,10 @@ const AsistenciaChart = ({ idImss }) => {
         if (!response.ok) throw new Error("Error al cargar la asistencia");
         
         const result = await response.json();
-        setData(result); 
+        const añoActual = new Date().getFullYear().toString();
+        const datosDelAnioActual = result.filter(item => item.mes.includes(añoActual));
+
+        setData(datosDelAnioActual);
       } catch (err) {
         console.error(err);
         setError("No se pudo cargar el historial de asistencia.");
