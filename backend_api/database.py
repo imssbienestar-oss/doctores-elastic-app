@@ -3,43 +3,48 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from dotenv import load_dotenv # Útil para desarrollo local con .env
-import sys # Para salir si hay error crítico
+from dotenv import load_dotenv 
+import sys
+from urllib.parse import urlparse 
 
-# Carga .env solo para desarrollo local, Railway inyectará la variable directamente
-load_dotenv()
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Lee la única variable que esperamos ahora, inyectada por Railway
-DATABASE_URL = os.getenv("DATABASE_URL")
+dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env') 
+project_root = os.path.dirname(os.path.abspath(__file__)) 
+dotenv_file_path = os.path.join(project_root, '.env')
 
-log_safe_db_url = "Variable DATABASE_URL no encontrada"
-if DATABASE_URL:
-    # Intenta ocultar contraseña para el log (mejor esfuerzo)
-    try:
-        from urllib.parse import urlparse, urlunparse
-        parsed = urlparse(DATABASE_URL)
-        password = parsed.password
-        log_safe_db_url = DATABASE_URL.replace(f":{password}@", ":********@") if password else DATABASE_URL
-        
-    except:
-        log_safe_db_url = "Error al parsear URL para ocultar contraseña"
+if os.path.exists(dotenv_file_path):
+    load_dotenv(dotenv_path=dotenv_file_path, override=True)
 else:
-    # Si la variable no está definida, es un error fatal en despliegue
-    print("Error Fatal: La variable de entorno DATABASE_URL no fue encontrada o inyectada por Railway.")
-    sys.exit("Configuración de base de datos ausente.")
+    print(f"DATABASE.PY: ADVERTENCIA - Archivo .env NO encontrado en: {dotenv_file_path}. Usando variables de entorno del sistema si existen.")
+
+SQLALCHEMY_DATABASE_URL_FROM_ENV = os.getenv("DATABASE_URL")
+
+log_safe_db_url = "Variable DATABASE_URL no interpretada o no encontrada"
+if SQLALCHEMY_DATABASE_URL_FROM_ENV:
+    try:
+        parsed = urlparse(SQLALCHEMY_DATABASE_URL_FROM_ENV)
+        password = parsed.password
+        log_safe_db_url = SQLALCHEMY_DATABASE_URL_FROM_ENV.replace(f":{password}@", ":********@") if password else SQLALCHEMY_DATABASE_URL_FROM_ENV
+    except Exception as parse_err:
+        print(f"DATABASE.PY - Error al parsear URL para log seguro: {parse_err}")
+        log_safe_db_url = "Error al parsear URL"
+else:
+    print("DATABASE.PY - ERROR FATAL: La variable de entorno DATABASE_URL no está configurada o es None después de intentar cargar .env.")
+    sys.exit("Configuración de base de datos ausente. Revisa tu archivo .env y las variables de entorno del sistema.")
 
 try:
-    # Crear el motor SQLAlchemy con la URL obtenida
-    engine = create_engine(SQLALCHEMY_DATABASE_URL, echo=False)
-
-    # Crear una clase SessionLocal configurada
+    engine = create_engine(
+        SQLALCHEMY_DATABASE_URL_FROM_ENV, 
+        echo=False,
+        pool_size=5,          # Límite de conexiones activas (El "escritorio" pequeño)
+        max_overflow=10,      # Si hay tráfico extremo, permite hasta 10 extra temporales
+        pool_timeout=30,      # Espera 30 seg si el pool está lleno antes de lanzar error
+        pool_recycle=1800,    # Destruye y recrea las conexiones cada 30 min para limpiar la RAM
+        pool_pre_ping=True    # Verifica que la conexión esté viva antes de usarla
+    ) 
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-    # Crear una clase Base para nuestros modelos SQLAlchemy
     Base = declarative_base()
 
-    # Función para obtener una sesión de base de datos
     def get_db():
         db = SessionLocal()
         try:
@@ -48,6 +53,7 @@ try:
             db.close()
 
 except Exception as e:
-    print(f"Error Fatal al crear el engine de SQLAlchemy o conectar: {e}")
-    print(f"Se intentó usar la URL (segura): {log_safe_db_url}")
-    sys.exit("Fallo al inicializar la conexión a la base de datos.")
+    print(f"DATABASE.PY - ERROR FATAL al crear engine de SQLAlchemy o SessionLocal: {e}")
+    print(f"Se intentó usar la URL (ocultando pass): {log_safe_db_url}")
+    print(f"URL original completa usada: {SQLALCHEMY_DATABASE_URL_FROM_ENV}")
+    sys.exit("Fallo al inicializar la conexión a la base de datos. Revisa la URL y la disponibilidad del servidor.")
