@@ -1,9 +1,7 @@
-// src/components/AlertasModal.jsx
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../src/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 
-// ... (tus estilos existentes) ...
 const styles = {
   modalBackdrop: {
     position: "fixed",
@@ -61,7 +59,7 @@ const styles = {
     padding: "6px 12px",
     fontSize: "0.875rem",
     cursor: "pointer",
-    backgroundColor: "#006657", // Color verde consistente
+    backgroundColor: "#006657",
     color: "white",
     border: "none",
     borderRadius: "4px",
@@ -79,6 +77,27 @@ const styles = {
     lineHeight: 1,
     padding: 0,
   },
+  searchInput: { // Estilo para la barra de búsqueda
+    width: '100%',
+    padding: '10px',
+    marginBottom: '15px',
+    border: '1px solid #ccc',
+    borderRadius: '4px',
+    boxSizing: 'border-box',
+    fontSize: '1em',
+  },
+  diasCellVerde: { // Verde para > 15 días
+    color: '#155724', // Verde oscuro (texto)
+    fontWeight: 'normal',
+  },
+  diasCellAmarillo: { // Amarillo para <= 3 días
+    color: '#856404', // Amarillo oscuro (texto)
+    fontWeight: 'bold',
+  },
+  diasCellRojo: { // Rojo para vencidos
+    color: '#721c24', // Rojo oscuro (texto)
+    fontWeight: 'bold',
+  }
 };
 
 const formatDate = (dateString) => {
@@ -89,10 +108,9 @@ const formatDate = (dateString) => {
   const year = date.getUTCFullYear();
   return `${day}/${month}/${year}`;
 };
-  
-// --- NUEVA FUNCIÓN PARA CALCULAR DÍAS RESTANTES ---
+
 const calcularDiasRestantes = (fechaFin) => {
-  if (!fechaFin) return { texto: "N/A", esVencido: false };
+  if (!fechaFin) return { dias: null, texto: "N/A", estado: 'na', esVencido: false };
 
   const partesFecha = fechaFin.split('-').map(Number);
   const fin = new Date(partesFecha[0], partesFecha[1] - 1, partesFecha[2]);
@@ -104,15 +122,24 @@ const calcularDiasRestantes = (fechaFin) => {
   fin.setHours(0, 0, 0, 0);
 
   const diferenciaMs = fin.getTime() - hoy.getTime();
-  const dias =  Math.round(diferenciaMs / (1000 * 60 * 60 * 24));
+  const dias = Math.round(diferenciaMs / (1000 * 60 * 60 * 24));
+
+  let estado = 'na'; // Valor por defecto
+  let texto = '';  // Valor por defecto
 
   if (dias < 0) {
-    return { texto: `Vencido hace ${Math.abs(dias)} día(s)`, esVencido: true };
-  }
-  if (dias === 0) {
-    return { texto: "Vence hoy", esVencido: false };
-  }
-  return { texto: `Vence en ${dias} día(s)`, esVencido: false };
+    estado = 'rojo'; // Asignamos valor
+    texto = `Vencido hace ${Math.abs(dias)} día(s)`; // Asignamos valor
+  } else if (dias <= 3) {
+    estado = 'amarillo'; // Asignamos valor
+    texto = dias === 0 ? "Vence hoy" : `Vence en ${dias} día(s)`; // Asignamos valor
+  } else if (dias <= 15) {
+    estado = 'amarillo'; // Asignamos valor
+    texto = `Vence en ${dias} día(s)`; // Asignamos valor
+  } else {
+    estado = 'verde'; // Asignamos valor
+    texto = `Vence en ${dias} día(s)`; // Asignamos valor 
+  } return { dias, estado, texto };
 };
 
 function AlertasModal({ isOpen, onClose }) {
@@ -144,7 +171,13 @@ function AlertasModal({ isOpen, onClose }) {
           const contentType = response.headers.get("content-type");
           if (contentType && contentType.includes("application/json")) {
             const data = await response.json();
-            setAlertas(data);
+
+            const alertasFiltradas = data.filter((alerta) => {
+              const { dias } = calcularDiasRestantes(alerta.fecha_fin);
+              return dias !== null && dias <= 5;
+            });
+
+            setAlertas(alertasFiltradas);
           } else {
             const textResponse = await response.text();
             console.error(
@@ -197,15 +230,16 @@ function AlertasModal({ isOpen, onClose }) {
                   <th style={styles.th}>Estatus Actual</th>
                   <th style={styles.th}>Fecha de Término</th>
                   <th style={styles.th}>Días Restantes</th>{" "}
-                  {/* <-- NUEVA COLUMNA */}
                   <th style={styles.th}>Acción</th>
                 </tr>
               </thead>
               <tbody>
                 {alertas.map((alerta) => {
-                  const { texto, esVencido } = calcularDiasRestantes(
+                  const { texto, estado } = calcularDiasRestantes(
                     alerta.fecha_fin
                   );
+                  const esVencido = estado === 'rojo';
+
                   return (
                     <tr key={alerta.id_imss}>
                       <td style={styles.td}>{alerta.id_imss}</td>
@@ -213,7 +247,6 @@ function AlertasModal({ isOpen, onClose }) {
                       <td style={styles.td}>{alerta.entidad}</td>
                       <td style={styles.td}>{alerta.estatus}</td>
                       <td style={styles.td}>{formatDate(alerta.fecha_fin)}</td>
-                      {/* --- NUEVA CELDA CON ESTILO CONDICIONAL --- */}
                       <td
                         style={{
                           ...styles.td,
