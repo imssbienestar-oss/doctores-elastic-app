@@ -2046,7 +2046,6 @@ async def get_clues_data(clues_code: str, db: Session = Depends(get_db_session))
         )
     return clues_info
 
-
 @app.post("/api/reporte/dinamico/xlsx", tags=["Reportes"])
 async def generar_reporte_dinamico_excel(
     request_data: schemas.ReporteDinamicoRequest,
