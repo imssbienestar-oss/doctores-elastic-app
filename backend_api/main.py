@@ -2095,15 +2095,44 @@ async def generar_reporte_dinamico_excel(
             if not columnas_validas:
                 columnas_validas = ["id_imss", "nombre", "apellido_paterno", "entidad", "estatus"]
 
-        # NUEVO: Pre-calculamos las variables de la "Guillotina" para el mes actual
         hoy = date.today()
-        primer_dia_mes_actual = date(hoy.year, hoy.month, 1)
-        limite_superior = hoy # Siempre cortamos en el día actual
+
+       # NUEVO: Pre-calculamos las variables de la "Guillotina" 
+        if request_data.mes_evaluacion:
+            # Si el usuario eligió un mes (ej. "2026-05")
+            anio_eval, mes_eval = map(int, request_data.mes_evaluacion.split("-"))
+            primer_dia_mes_evaluado = date(anio_eval, mes_eval, 1)
+            
+            # Calculamos el último día de ese mes elegido
+            import calendar
+            dias_del_mes = calendar.monthrange(anio_eval, mes_eval)[1]
+            limite_superior = date(anio_eval, mes_eval, dias_del_mes)
+            
+            # Ajuste extra: Si eligieron el mes ACTUAL, cortamos en "hoy", no a fin de mes.
+            if anio_eval == hoy.year and mes_eval == hoy.month:
+                limite_superior = hoy
+            
+            meses = ["", "ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"]
+            nombre_mes = meses[mes_eval]
+            columna_header_title = f"DÍAS ACTIVOS ({request_data.mes_evaluacion})"
+        else:
+            # Comportamiento normal (Mes Actual)
+            primer_dia_mes_evaluado = date(hoy.year, hoy.month, 1)
+            limite_superior = hoy
+            columna_header_title = "DÍAS ACTIVOS (MES ACTUAL)"
+
+        if "id_imss" in columnas_validas:
+            columnas_validas.remove("id_imss")
+            columnas_validas.insert(0, "id_imss")
+
+        if COLUMNA_VIRTUAL in columnas_validas:
+            columnas_validas.remove(COLUMNA_VIRTUAL)
+            columnas_validas.append(COLUMNA_VIRTUAL)
 
         # 6. CREAR EXCEL POR CHUNKS
         output = BytesIO()
         total_procesados = 0
-        
+
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             worksheet = writer.book.create_sheet('Registros Filtrados')
             writer.sheets['Registros Filtrados'] = worksheet
@@ -2111,7 +2140,7 @@ async def generar_reporte_dinamico_excel(
             # Escribir cabeceras
             for col_idx, col_name in enumerate(columnas_validas, 1):
                 # Cambiamos el nombre técnico por algo bonito en el Excel
-                header_title = "DÍAS ACTIVOS (MES ACTUAL)" if col_name == COLUMNA_VIRTUAL else col_name.upper()
+                header_title = columna_header_title if col_name == COLUMNA_VIRTUAL else col_name.upper()
                 worksheet.cell(row=1, column=col_idx, value=header_title)
             
             CHUNK_SIZE = 500
@@ -2147,14 +2176,13 @@ async def generar_reporte_dinamico_excel(
                 for doc in chunk:
                     doc_dict = schemas.Doctor.model_validate(doc).model_dump()
                     
-                    # --- NUEVO: CÁLCULO DE DÍAS EN VIVO PARA EL EXCEL ---
                     if COLUMNA_VIRTUAL in columnas_validas:
                         historial_doc = historial_agrupado.get(doc.id_imss, [])
                         dias_activos = 0
                         
                         for idx, reg in enumerate(historial_doc):
                             if reg.estatus == "01 ACTIVO":
-                                inicio_real = max(primer_dia_mes_actual, reg.fecha_inicio)
+                                inicio_real = max(primer_dia_mes_evaluado, reg.fecha_inicio)
                                 fin_calculado = reg.fecha_fin
                                 fue_cortado_por_estatus = False
                                 
@@ -2229,7 +2257,7 @@ async def generar_reporte_dinamico_excel(
             status_code=500, 
             detail=f"Error interno al generar el reporte: {str(e)}"
         )
-
+        
 # --- ENDPOINT (GENERA REPORTE OPCIONES FILTRO - PENDIENTE) ---
 @app.get("/api/opciones/filtros-dinamicos", response_model=schemas.OpcionesFiltro, tags=["Opciones de Filtro"])
 async def get_opciones_dinamicas(
