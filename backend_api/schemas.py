@@ -372,8 +372,8 @@ class ReporteDinamicoRequest(BaseModel):
     nombre_unidad: Optional[str] = None
     search: Optional[str] = None
     estatus: Optional[str] = None
-    
     columnas: List[str]
+    mes_evaluacion: Optional[str] = None
 
 class OpcionesFiltro(BaseModel):
     entidades: List[str] 
