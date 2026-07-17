@@ -178,7 +178,7 @@ const styles = {
 
   chartCard: {
     backgroundColor: COLORS.cardBg, borderRadius: "10px", padding: "15px", boxShadow: "0 2px 8px rgba(0,0,0,0.05)", border: "1px solid #eee",
-    display: "flex", flexDirection: "column", minWidth: 0,    
+    display: "flex", flexDirection: "column", minWidth: 0,
     overflow: "hidden"
   },
   chartTitle: { fontSize: "15px", fontWeight: "600", color: COLORS.primary, marginBottom: "15px", textAlign: "center", borderBottom: "1px solid #f0f0f0", paddingBottom: "8px" },
@@ -429,9 +429,11 @@ function GraficasPage() {
     };
   }, [token, tipoPersonal, filtroEntidad, filtroUnidad, filtroEspecialidad, filtroNivel, debouncedBusqueda, filtroEstatus]);
 
-      
   // Carga Tabla
   useEffect(() => {
+    const controller = new AbortController();
+    const signal = controller.signal;
+
     const fetchEstadisticaData = async () => {
       const skip = currentPageEstadistica * ITEMS_PER_PAGE_ESTADISTICA;
       const params = new URLSearchParams({ skip, limit: ITEMS_PER_PAGE_ESTADISTICA, tipo: tipoPersonal });
@@ -441,16 +443,24 @@ function GraficasPage() {
       if (filtroNivel) params.append("nivel_atencion", filtroNivel);
       if (debouncedBusqueda) params.append("search", debouncedBusqueda);
       if (filtroEstatus) params.append("estatus", filtroEstatus);
+
       try {
-        const response = await fetch(`${API_BASE_URL}/api/graficas/estadistica_doctores_agrupados?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
+        const response = await fetch(`${API_BASE_URL}/api/graficas/estadistica_doctores_agrupados?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` }, signal: signal });
         if (!response.ok) throw new Error("Error estadistica");
         const data = await response.json();
         setDataEstadistica(data.items || []);
         setTotalGroupsEstadistica(data.total_groups || 0);
         setTotalDoctorsInGroups(data.total_doctors_in_groups || 0);
-      } catch (err) { console.error(err); }
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.error(err);
+        }
+      }
     };
     if (token) fetchEstadisticaData();
+    return () => {
+      controller.abort();
+    };
   }, [currentPageEstadistica, filtroEntidad, filtroUnidad, filtroEspecialidad, filtroNivel, debouncedBusqueda, filtroEstatus, token, tipoPersonal]);
 
   const handleEntidadChange = (e) => { setFiltroEntidad(e.target.value); setCurrentPageEstadistica(0); };
@@ -484,9 +494,9 @@ function GraficasPage() {
 
   const handleViewProfile = (doctor) => { setIsModalOpen(false); navigate(`/?profile=${doctor.id_imss}`); };
   const handleOpenReportModal = () => { setIsReportModalOpen(true); };
-  const handleConfirmDownload = async (selectedColumns) => {
+  const handleConfirmDownload = async (selectedColumns, mesSeleccionado) => {
     setIsReportModalOpen(false);
-    const body = { tipo: tipoPersonal, entidad: filtroEntidad || null, especialidad: filtroEspecialidad || null, nivel_atencion: filtroNivel || null, nombre_unidad: filtroUnidad || null, estatus: filtroEstatus || null, search: debouncedBusqueda || null, columnas: selectedColumns };
+    const body = { tipo: tipoPersonal, entidad: filtroEntidad || null, especialidad: filtroEspecialidad || null, nivel_atencion: filtroNivel || null, nombre_unidad: filtroUnidad || null, estatus: filtroEstatus || null, search: debouncedBusqueda || null, columnas: selectedColumns, mes_evaluacion: mesSeleccionado };
     try {
       const response = await fetch(`${API_BASE_URL}/api/reporte/dinamico/xlsx`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(body) });
       if (!response.ok) throw new Error("Error descarga");
