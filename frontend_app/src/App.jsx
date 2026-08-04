@@ -33,6 +33,8 @@ import ReporteQuincenal from "../components/asistencia/ReporteQuincenal";
 import RegistroEncargadosPage from "../components/asistencia/RegistroEncargadosPage";
 import CrearAccesoMedico from "../components/asistencia/GenerarAccesoMedico";
 
+import ValidacionFormatosEstatal from '../components/asistencia/ValidacionFormatosEstatal';
+
 Modal.setAppElement("#root");
 
 const styles = {
@@ -607,7 +609,6 @@ function AppContent() {
 
   const handleDoctorHasBeenRestored = () => {
     setDoctorListRefreshKey((prevKey) => prevKey + 1);
-
   };
 
   const navbarProps = {
@@ -619,12 +620,15 @@ function AppContent() {
 
   return (
     <Routes>
+      {/* Ruta de Login */}
       <Route
         path="/login"
         element={
           isAuthenticated || isGuestMode ? (
             currentUser?.role === "asistencia" || currentUser?.role === "responsable_unidad" ? (
               <Navigate to="/asistencia" replace />
+            ) : currentUser?.role === "coordinador_estatal" ? (
+              <Navigate to="/validacion-estatal" replace />
             ) : (
               <Navigate to="/" replace />
             )
@@ -634,13 +638,18 @@ function AppContent() {
         }
       />
 
+      {/* Rutas con Layout (Navbar) */}
       <Route element={<Layout navbarProps={navbarProps} />}>
+        
+        {/* Ruta Raíz */}
         <Route
           path="/"
           element={
             isAuthenticated || isGuestMode ? (
               currentUser?.role === "asistencia" || currentUser?.role === "medico" || currentUser?.role === "responsable_unidad" ? (
                 <Navigate to="/asistencia" replace />
+              ) : currentUser?.role === "coordinador_estatal" ? (
+                <Navigate to="/validacion-estatal" replace />
               ) : (
                 <HomePageContent
                   vistaActualProp={vistaActual}
@@ -654,12 +663,12 @@ function AppContent() {
           }
         />
 
+        {/* Admin Routes */}
         <Route
           path="/admin/users"
           element={
             <ProtectedRoute adminOnly={true}>
-              {" "}
-              <AdminUsersPage />{" "}
+              <AdminUsersPage />
             </ProtectedRoute>
           }
         />
@@ -675,8 +684,7 @@ function AppContent() {
           path="/admin/audit-log"
           element={
             <ProtectedRoute adminOnly={true}>
-              {" "}
-              <AuditLogView />{" "}
+              <AuditLogView />
             </ProtectedRoute>
           }
         />
@@ -691,6 +699,7 @@ function AppContent() {
           }
         />
 
+        {/* Gestión Routes */}
         <Route
           path="/gestionar-administradores"
           element={
@@ -704,11 +713,12 @@ function AppContent() {
           path="/crear-acceso-medico"
           element={
             <ProtectedRoute adminOnly={true}>
-              <CrearAccesoMedico />  
+              <CrearAccesoMedico />
             </ProtectedRoute>
           }
         />
 
+        {/* Perfil y Contraseña */}
         <Route
           path="/cambiar-contrasena"
           element={
@@ -726,6 +736,7 @@ function AppContent() {
           }
         />
 
+        {/* Asistencia */}
         <Route
           path="/asistencia"
           element={
@@ -737,6 +748,19 @@ function AppContent() {
           }
         />
 
+        {/* Validación Estatal */}
+        <Route
+          path="/validacion-estatal"
+          element={
+            isAuthenticated || isGuestMode ? (
+              <ValidacionFormatosEstatal />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+
+        {/* Reportes */}
         <Route
           path="/reportes"
           element={
@@ -749,16 +773,14 @@ function AppContent() {
         />
       </Route>
 
-
-
+      {/* Ruta 404 */}
       <Route
         path="*"
         element={
           <div style={{ padding: "50px", textAlign: "center" }}>
-            {" "}
-            <h1>404 - Página No Encontrada</h1>{" "}
-            <p>Lo sentimos, la página que buscas no existe.</p>{" "}
-            <Link to="/">Volver a la página principal</Link>{" "}
+            <h1>404 - Página No Encontrada</h1>
+            <p>Lo sentimos, la página que buscas no existe.</p>
+            <Link to="/">Volver a la página principal</Link>
           </div>
         }
       />
