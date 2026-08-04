@@ -188,12 +188,14 @@ function Navbar({
 
   // NUEVO: Identificamos si es el encargado de unidad/asistencia
   const isEncargado = currentUser?.role === "responsable_unidad" || currentUser?.role === "asistencia";
+  const isCoordinador = currentUser?.role === "coordinador_estatal";
+
 
   const navActionItems = [];
 
   if (showViewToggleButtons && canClickVerGraficas && canClickVerTabla) {
 
-    if (!isEncargado && currentUser?.role !== "medico") {
+    if (!isEncargado && !isCoordinador && currentUser?.role !== "medico") {
 
       navActionItems.push(
         <button
@@ -263,6 +265,16 @@ function Navbar({
       navActionItems.push(
         <Link key="navReportes" to="/reportes" className={twClasses.adminButtonLink}>
           Reportes Quincenales
+        </Link>
+      );
+    }
+  }
+
+  if (isCoordinador) {
+    if (currentPath !== "/validacion-estatal") {
+      navActionItems.push(
+        <Link key="navValidacion" to="/validacion-estatal" className={twClasses.adminButtonLink}>
+          Validar Bitácoras
         </Link>
       );
     }
