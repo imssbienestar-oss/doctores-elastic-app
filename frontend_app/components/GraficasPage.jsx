@@ -12,7 +12,7 @@ import ColumnSelectorModal from "./ColumnSelectorModal";
 // ==========================================
 
 const COLORS = {
-  primary: "#006657",
+  primary: "#12312B",
   secondary: "#B08D55",
   bg: "#F4F7F6",
   cardBg: "#FFFFFF",
@@ -776,10 +776,10 @@ function GraficasPage() {
           </div>
         )}
         <div style={{ ...styles.filterGroup, justifyContent: "flex-end" }}>
-          <button onClick={handleVisualizarClick} style={{ ...styles.button, backgroundColor: "#006657" }}>Visualizar</button>
+          <button onClick={handleVisualizarClick} style={{ ...styles.button, backgroundColor: "#12312B" }}>Visualizar</button>
         </div>
         <div style={{ ...styles.filterGroup, justifyContent: "flex-end" }}>
-          <button onClick={handleOpenReportModal} style={{ ...styles.button, backgroundColor: "#006657" }}>Reporte</button>
+          <button onClick={handleOpenReportModal} style={{ ...styles.button, backgroundColor: "#12312B" }}>Reporte</button>
         </div>
       </div>
 
