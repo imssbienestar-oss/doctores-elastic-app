@@ -3,9 +3,9 @@ load_dotenv()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .config import initialize_firebase
-from .routers import doctores, auth, admin, reportes, graficas, archivos, catalogos
-from . import api_peas
+from backend_api.config import initialize_firebase
+from routers import doctores, auth, admin, reportes, graficas, archivos, catalogos
+from import api_peas
 
 app = FastAPI(title="API de Doctores IMSS Bienestar")
 
