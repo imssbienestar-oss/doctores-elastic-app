@@ -31,6 +31,7 @@ import AsistenciaPage from "../components/asistencia/AsistenciaPage";
 import AsistenciaDemo from "../components/asistencia/AsistenciaPage";
 import ReporteQuincenal from "../components/asistencia/ReporteQuincenal";
 import RegistroEncargadosPage from "../components/asistencia/RegistroEncargadosPage";
+import CrearAccesoMedico from "../components/asistencia/GenerarAccesoMedico";
 
 Modal.setAppElement("#root");
 
@@ -686,6 +687,24 @@ function AppContent() {
               <DeletedDoctorsView
                 onDoctorRestored={handleDoctorHasBeenRestored}
               />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/gestionar-administradores"
+          element={
+            <ProtectedRoute adminOnly={true}>
+              <RegistroEncargadosPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/crear-acceso-medico"
+          element={
+            <ProtectedRoute adminOnly={true}>
+              <CrearAccesoMedico />  
             </ProtectedRoute>
           }
         />
