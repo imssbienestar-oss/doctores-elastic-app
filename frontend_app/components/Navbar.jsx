@@ -12,6 +12,36 @@ const twClasses = {
   separator: "text-white/50 mx-1 !text-[20px] select-none",
   alertButton: "relative !px-5 !py-1 !text-sm cursor-pointer !bg-transparent !text-white !border-none hover:scale-110 transition-transform outline-none flex items-center",
   alertBadge: "absolute -top-1 -right-0.5 bg-red-600 text-white rounded-full px-1 py-1 !text-[12px] font-bold leading-none shadow-sm",
+  dropdownContainer: {
+    position: "relative", // Crucial para que el menú flote justo debajo
+    display: "inline-block",
+    cursor: "pointer",
+    padding: "10px 0" // Crea un área invisible para que el hover no se corte al bajar el mouse
+  },
+  dropdownMenu: {
+    position: "absolute",
+    top: "100%", // Se coloca exactamente debajo del texto
+    left: "50%",
+    transform: "translateX(-50%)", // Lo centra respecto al texto superior
+    backgroundColor: "#FFFFFF",
+    minWidth: "240px",
+    boxShadow: "0 8px 20px rgba(0,0,0,0.2)",
+    borderRadius: "4px",
+    zIndex: 1000,
+    display: "flex",
+    flexDirection: "column",
+    borderTop: "3px solid #B08D55", // Acento dorado institucional
+    overflow: "hidden"
+  },
+  dropdownItem: {
+    padding: "12px 16px",
+    color: "#10312B", // Verde institucional para el texto
+    textDecoration: "none",
+    fontSize: "13px",
+    fontWeight: "600",
+    borderBottom: "1px solid #E5E7EB",
+    textAlign: "left"
+  }
 };
 
 const renderNavItems = (items) => {
@@ -55,6 +85,7 @@ function Navbar({
 
   const [isAlertsModalOpen, setIsAlertsModalOpen] = useState(false);
   const [alertCount, setAlertCount] = useState(0);
+  const [menuUsuariosVisible, setMenuUsuariosVisible] = useState(false);
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 
   useEffect(() => {
@@ -239,13 +270,51 @@ function Navbar({
 
   // La Auditoría y Usuarios ya están protegidas automáticamente porque requieren role === "admin"
   if (isAuthenticated && currentUser && currentUser.role === "admin") {
-    if (currentPath !== "/admin/users") {
-      navActionItems.push(
-        <Link key="adminUsers" to="/admin/users" className={twClasses.adminButtonLink}>
-          Gestionar Usuarios
-        </Link>
-      );
-    }
+    navActionItems.push(
+      <div
+        key="adminDropdown"
+        style={twClasses.dropdownContainer}
+        onMouseEnter={() => setMenuUsuariosVisible(true)}
+        onMouseLeave={() => setMenuUsuariosVisible(false)}
+      >
+        <span className={twClasses.adminButtonLink}>
+          Gestionar Usuarios <span style={{ fontSize: "10px", marginLeft: "4px" }}>▼</span>
+        </span>
+
+        {menuUsuariosVisible && (
+          <div style={twClasses.dropdownMenu}>
+            <Link
+              to="/admin/users"
+              style={twClasses.dropdownItem}
+              onMouseOver={(e) => e.target.style.backgroundColor = '#F4F7F6'}
+              onMouseOut={(e) => e.target.style.backgroundColor = '#FFFFFF'}
+            >
+              Gestionar Usuarios
+            </Link>
+
+            <Link
+              to="/gestionar-administradores"
+              style={twClasses.dropdownItem}
+              onMouseOver={(e) => e.target.style.backgroundColor = '#F4F7F6'}
+              onMouseOut={(e) => e.target.style.backgroundColor = '#FFFFFF'}
+            >
+              Gestionar Administradores
+            </Link>
+
+            <Link
+              to="/crear-acceso-medico"
+              style={{ ...twClasses.dropdownItem, borderBottom: "none" }}
+              onMouseOver={(e) => e.target.style.backgroundColor = '#F4F7F6'}
+              onMouseOut={(e) => e.target.style.backgroundColor = '#FFFFFF'}
+            >
+              Registro Médicos
+            </Link>
+          </div>
+        )}
+      </div>
+    );
+
+    // 2. EL BOTÓN DE AUDITORÍA (Se queda suelto a un lado, igual que en tu foto)
     if (currentPath !== "/admin/audit-log") {
       navActionItems.push(
         <Link key="adminAudit" to="/admin/audit-log" className={twClasses.adminButtonLink}>
@@ -254,6 +323,7 @@ function Navbar({
       );
     }
   }
+
 
   if (isAuthenticated || isGuestMode) {
     navActionItems.push(
@@ -278,11 +348,13 @@ function Navbar({
       </div>
 
       {/* Barra Principal: IMSS Bienestar */}
-      <div className="bg-[#10312B] relative w-full overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-full opacity-5 bg-white transform skew-x-12 pointer-events-none"></div>
+      <div className="bg-[#10312B] relative w-full">
+
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-0 right-0 w-64 h-full opacity-5 bg-white transform skew-x-12"></div>
+        </div>
 
         <div className="container mx-auto px-4 md:px-8 py-2.5 relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-
           {/* LADO IZQUIERDO: Logo y Títulos */}
           <div className="flex items-center gap-4">
             <img
