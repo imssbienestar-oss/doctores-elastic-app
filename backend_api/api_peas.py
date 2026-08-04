@@ -435,3 +435,68 @@ async def subir_reporte_quincenal(
         "id_reporte": nuevo_reporte.id,
         "archivo": nombre_unico
     }
+
+# 1. Endpoint para traer los reportes pendientes de un Estado
+@router.get("/coordinador/reportes-pendientes/{entidad}", tags=["Coordinador Estatal"])
+async def obtener_reportes_pendientes_estado(entidad: str, db: Session = Depends(get_db)):
+    entidad = entidad.upper()
+    
+    # Hacemos un JOIN entre ReporteQuincenal y Doctor para filtrar por entidad
+    # y descartamos los que YA están en la tabla BitacoraEstatalValidada
+    subquery_validados = db.query(models.BitacoraEstatalValidada.id_reporte_quincenal)
+    
+    reportes = db.query(models.ReporteQuincenal, models.Doctor)\
+        .join(models.Doctor, models.ReporteQuincenal.id_imss == models.Doctor.id_imss)\
+        .filter(models.Doctor.entidad == entidad)\
+        .filter(models.ReporteQuincenal.id.notin_(subquery_validados))\
+        .all()
+        
+    resultado = []
+    for reporte, doctor in reportes:
+        resultado.append({
+            "id_reporte": reporte.id,
+            "id_imss": doctor.id_imss,
+            "medico": f"{doctor.nombre} {doctor.apellido_paterno or ''}".strip(),
+            "especialidad": doctor.especialidad or "No especificada",
+            "turno": doctor.turno or "Matutino",
+            "clues": doctor.clues or "Sin CLUES",
+            "unidad": doctor.nombre_unidad or "Sin Unidad",
+            "quincena": reporte.quincena,
+            "url_pdf": reporte.url_documento, # Para que el coordinador lo pueda ver
+            "subido_por": reporte.subido_por
+        })
+        
+    return resultado
+
+# 2. Endpoint para Validar y Guardar en la nueva tabla
+@router.post("/coordinador/validar-reporte", tags=["Coordinador Estatal"])
+async def validar_reporte_estatal(
+    datos_validacion: dict, # Aquí recibiremos los datos desde React
+    db: Session = Depends(get_db)
+):
+    # Verificamos que no esté validado ya
+    existe = db.query(models.BitacoraEstatalValidada).filter(
+        models.BitacoraEstatalValidada.id_reporte_quincenal == datos_validacion["id_reporte"]
+    ).first()
+    
+    if existe:
+        raise HTTPException(status_code=400, detail="Este documento ya fue validado.")
+
+    nuevo_registro = models.BitacoraEstatalValidada(
+        id_reporte_quincenal=datos_validacion["id_reporte"],
+        id_imss=datos_validacion["id_imss"],
+        quincena_validada=datos_validacion["quincena"],
+        profesional_salud=datos_validacion["medico"],
+        especialidad=datos_validacion["especialidad"],
+        turno=datos_validacion["turno"],
+        clues_ib=datos_validacion["clues"],
+        unidad_medica=datos_validacion["unidad"],
+        dias_participacion=datos_validacion["dias_participacion"], # Lo pasará el coordinador
+        entidad=datos_validacion["entidad"],
+        validado_por=datos_validacion["validado_por"]
+    )
+    
+    db.add(nuevo_registro)
+    db.commit()
+    
+    return {"mensaje": "Documento validado e insertado en la Bitácora Estatal"}
