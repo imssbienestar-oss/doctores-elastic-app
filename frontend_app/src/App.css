@@ -1,22 +1,9 @@
-#root {
-  margin: 0 auto; /* <--- CENTRA EL #root */
-  width: 100%;
-  text-align: center;
-}
-
 body {
   margin: 0; /* Correcto */
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   /* ... */
 }
 
-.container{
-  max-width: 100%; /* Define el ancho máximo del contenido principal */
-  margin: 20px auto; /* Centra horizontalmente y añade margen vertical de 20px */
-  padding: 0 2rem;  /* Añade padding SOLO a izquierda y derecha (ej: 2rem) */
-  padding-top: 70px;
-  /* text-align: left; */ /* Probablemente quieras que el texto dentro se alinee a la izq. */
-}
 
 .logo {
   height: 6em;
@@ -194,8 +181,6 @@ body {
 .doctors-table th:nth-child(1), /* Primera columna (Acciones) */
 .doctors-table td:nth-child(1) {
   width: 100px; /* Ancho fijo para botones */
-  min-width: 100px;
-  max-width: 150px;
   text-align: center; /* Centrar botones */
 }
 .doctors-table td.sticky-col.action-cell button { /* Estilos botones */
@@ -207,7 +192,10 @@ body {
 /* --- AJUSTE DE ANCHOS OTRAS COLUMNAS (Ejemplos) --- */
 /* Ajusta estos según el orden y el ancho deseado */
 /* Recuerda: nth-child(1) es Acciones ahora */
-
+.doctors-table th:nth-child(1),
+.doctors-table td:nth-child(1) {
+   width: 50px;
+}
 /* Columna 2: ej. Nombre Completo */
 .doctors-table th:nth-child(2),
 .doctors-table td:nth-child(2) {
