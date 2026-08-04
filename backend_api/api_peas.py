@@ -24,6 +24,7 @@ router = APIRouter(
     tags=["PEAS Asistencia"]
 )
 
+
 @router.post("/usuarios-acceso", response_model=schemas.UsuarioAccesoResponse, tags=["Gestión de Accesos"])
 async def registrar_usuario_acceso(
     usuario: schemas.UsuarioAccesoCreate, 
@@ -55,8 +56,6 @@ async def registrar_usuario_acceso(
     
     return nuevo_acceso
 
-# 2. Definimos el endpoint usando @router en lugar de @app
-# Fíjate que la ruta ahora solo es "/asistencia" porque el prefix ya tiene "/api/peas"
 @router.post("/asistencia")
 async def registrar_asistencia_peas(
     registro: schemas.RegistroAsistenciaPeas, 
@@ -68,14 +67,23 @@ async def registrar_asistencia_peas(
     if not doctor_db:
         raise HTTPException(status_code=404, detail=f"No se encontró al médico con ID: {id_medico}")
 
+    # 1. Definir zona horaria de México
     mx_tz = pytz.timezone('America/Mexico_City')
     fecha_hora_local = datetime.now(mx_tz)
-    hoy = fecha_hora_local.date()
+    
+    # 2. Calcular los límites exactos de "HOY" en hora de México y pasarlos a UTC
+    inicio_dia_local = fecha_hora_local.replace(hour=0, minute=0, second=0, microsecond=0)
+    fin_dia_local = fecha_hora_local.replace(hour=23, minute=59, second=59, microsecond=999999)
 
+    inicio_utc = inicio_dia_local.astimezone(pytz.utc).replace(tzinfo=None)
+    fin_utc = fin_dia_local.astimezone(pytz.utc).replace(tzinfo=None)
+
+    # 3. Buscar si YA EXISTE ese mismo registro (Entrada o Salida) el día de HOY
     registro_existente = db.query(models.PeasAsistencia).filter(
         models.PeasAsistencia.id_imss == id_medico,
         models.PeasAsistencia.tipo == registro.tipo,
-        func.date(models.PeasAsistencia.fecha_hora) == hoy
+        models.PeasAsistencia.fecha_hora >= inicio_utc,
+        models.PeasAsistencia.fecha_hora <= fin_utc
     ).first()
 
     if registro_existente:
@@ -84,10 +92,13 @@ async def registrar_asistencia_peas(
             detail=f"El médico ya tiene registrada una {registro.tipo} el día de hoy."
         )
         
+    # 4. Guardar el nuevo registro en la hora UTC pura (buena práctica de bases de datos)
+    fecha_hora_utc = datetime.utcnow()
+
     nueva_asistencia = models.PeasAsistencia(
         id_imss=id_medico,
         tipo=registro.tipo,
-        fecha_hora=fecha_hora_local
+        fecha_hora=fecha_hora_utc
     )
     
     db.add(nueva_asistencia)
@@ -102,7 +113,7 @@ async def registrar_asistencia_peas(
             "nombre": f"{doctor_db.nombre} {doctor_db.apellido_paterno or ''}".strip(),
             "unidad": doctor_db.nombre_unidad or "Unidad No Asignada",
             "tipo": nueva_asistencia.tipo,
-            "hora": fecha_hora_local.strftime("%I:%M:%S %p")
+            "hora": fecha_hora_local.strftime("%I:%M:%S %p") # Devolvemos hora de México a la alerta
         }
     }
 
