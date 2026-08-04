@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend_api.config import initialize_firebase
 from backend_api.routers import doctores, auth, admin, reportes, graficas, archivos, catalogos
-import backend_api.api_peas
+from backend_api import api_peas
 
 app = FastAPI(title="API de Doctores IMSS Bienestar")
 
