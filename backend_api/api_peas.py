@@ -214,6 +214,7 @@ async def obtener_estado_asistencia(
         "ultima_hora": hora_ultimo
     }
 
+
 @router.get("/reporte-quincenal/datos/{id_imss}", tags=["Reportes PEAS"])
 async def obtener_datos_quincena(
     id_imss: str,

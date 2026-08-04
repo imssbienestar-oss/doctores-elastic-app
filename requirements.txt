@@ -74,3 +74,5 @@ tzdata==2025.2
 uritemplate==4.2.0
 urllib3==2.5.0
 uvicorn==0.35.0
+boto3
+botocore
