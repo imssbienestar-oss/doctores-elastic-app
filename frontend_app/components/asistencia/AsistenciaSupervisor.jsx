@@ -117,7 +117,17 @@ export default function AsistenciaSupervisor() {
     useEffect(() => {
         let scanner = null;
         if (showScanner) {
-            scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: { width: 250, height: 250 } }, false);
+            scanner = new Html5QrcodeScanner(
+                "reader",
+                {
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 },
+                    videoConstraints: {
+                        facingMode: "environment"
+                    }
+                },
+                false
+            );
             scanner.render(
                 (decodedText) => {
                     setIdImss(decodedText);
