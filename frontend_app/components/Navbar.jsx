@@ -193,7 +193,7 @@ function Navbar({
 
   if (showViewToggleButtons && canClickVerGraficas && canClickVerTabla) {
 
-    if (!isEncargado) {
+    if (!isEncargado && currentUser?.role !== "medico") {
 
       navActionItems.push(
         <button
