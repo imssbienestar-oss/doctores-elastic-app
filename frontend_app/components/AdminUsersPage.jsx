@@ -1,24 +1,21 @@
 // src/components/AdminUsersPage.jsx (o src/pages/AdminUsersPage.jsx)
 
 import React, { useState, useEffect, useCallback } from "react";
-import { useAuth } from "../src/contexts/AuthContext"; // Para obtener token y datos del admin actual
+import { useAuth } from "../src/contexts/AuthContext";
 
-// Componente principal de la página de administración
 function AdminUsersPage() {
-  const { token, currentUser } = useAuth(); // Obtener token y datos del admin logueado
-  const [users, setUsers] = useState([]); // Estado para la lista de usuarios
-  const [isLoading, setIsLoading] = useState(false); // Estado de carga
-  const [error, setError] = useState(""); // Estado para mensajes de error generales
-  const [success, setSuccess] = useState(""); // Estado para mensajes de éxito generales
-
-  // Estado para el formulario de nuevo usuario
+  const { token, currentUser } = useAuth(); 
+  const [users, setUsers] = useState([]);
+  const [isLoading, setIsLoading] = useState(false); 
+  const [error, setError] = useState(""); 
+  const [success, setSuccess] = useState(""); 
   const [newUser, setNewUser] = useState({
     username: "",
     role: "user",
   });
-  const [isSubmitting, setIsSubmitting] = useState(false); // Para deshabilitar botón de crear
-  const [formError, setFormError] = useState(""); // Errores específicos del formulario
-  const [formSuccess, setFormSuccess] = useState(""); // Mensajes de éxito del formulario
+  const [isSubmitting, setIsSubmitting] = useState(false); 
+  const [formError, setFormError] = useState(""); 
+  const [formSuccess, setFormSuccess] = useState(""); 
 
   const apiUrlBase =
     import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
@@ -29,13 +26,13 @@ function AdminUsersPage() {
       setError(
         "No estás autenticado. No se puede obtener la lista de usuarios."
       );
-      setIsLoading(false); // Asegúrate de detener la carga si no hay token
+      setIsLoading(false); 
       return;
     }
 
     setIsLoading(true);
     setError("");
-    setSuccess(""); // Limpiar mensajes generales al recargar
+    setSuccess("");
 
     try {
       const response = await fetch(`${apiUrlBase}/api/admin/users`, {
@@ -68,19 +65,17 @@ function AdminUsersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [token, apiUrlBase]); // Depende del token y la URL base
+  }, [token, apiUrlBase]); 
 
   // --- Cargar usuarios al montar el componente ---
   useEffect(() => {
     fetchUsers();
-  }, [fetchUsers]); // Llamar a fetchUsers cuando cambie (al montar y si cambia token)
-
-  // --- Manejador para cambios en el formulario de nuevo usuario ---
+  }, [fetchUsers]);
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setNewUser((prev) => ({ ...prev, [name]: value }));
-    setFormError(""); // Limpiar error al escribir
-    setFormSuccess(""); // Limpiar éxito al escribir
+    setFormError(""); 
+    setFormSuccess(""); // 
   };
 
   // --- Manejador para crear un nuevo usuario ---
@@ -108,10 +103,9 @@ function AdminUsersPage() {
         body: JSON.stringify(newUser),
       });
 
-      const data = await response.json(); // Intenta leer siempre la respuesta
+      const data = await response.json(); 
 
       if (response.ok) {
-        // status 201 Created
         setFormSuccess(`Usuario '${data.username}' creado exitosamente.`);
         setNewUser({ username: "", role: "user" }); // Limpiar formulario
         setTimeout(() => setFormSuccess(""), 5000);
@@ -208,8 +202,8 @@ function AdminUsersPage() {
         throw new Error(data.detail || "Error desconocido del servidor.");
       }
 
-      setSuccess(data.detail); // Muestra el mensaje de éxito del backend
-      fetchUsers(); // Recargamos para ver el estado actualizado si lo muestras en la tabla
+      setSuccess(data.detail);
+      fetchUsers();
       
     } catch (err) {
       console.error("Error en reset de contraseña:", err);
@@ -331,7 +325,6 @@ function AdminUsersPage() {
   );
 }
 
-// --- Estilos (Puedes moverlos a un archivo CSS o mejorar estos estilos básicos) ---
 const styles = {
   section: {
     maxWidth: "50%",
@@ -352,52 +345,48 @@ const styles = {
   formGroup: {
     display: "flex",
     flexDirection: "column",
-    // alignSelf: "center" // MODIFICADO: Quitar para que el label y el input+botón se alineen al inicio
   },
   label: {
     marginBottom: "5px",
     fontWeight: "bold",
   },
   input: {
-    // Estilo para inputs que ocupan todo el ancho del formGroup
     padding: "10px",
     border: "1px solid #ccc",
     borderRadius: "4px",
     fontSize: "1em",
-    boxSizing: "border-box", // Asegura que padding no aumente el ancho total
-    width: "100%", // NUEVO: Hacer que ocupe el ancho completo del formGroup
+    boxSizing: "border-box",  
+    width: "100%",
   },
   passwordInputContainer: {
-    // NUEVO: Estilo para el div que contiene input de contraseña y botón
+    
     display: "flex",
     alignItems: "center",
-    position: "relative", // Para posicionar el botón absolutamente dentro de este div si es necesario
-    width: "100%", // Ocupar el ancho del formGroup
+    position: "relative", 
+    width: "100%", 
   },
   inputFieldInGroup: {
-    // NUEVO: Estilo para el input de contraseña cuando está junto a un botón
     padding: "10px",
     border: "1px solid #ccc",
-    borderRadius: "4px 0 0 4px", // Redondear solo esquinas izquierdas
+    borderRadius: "4px 0 0 4px", 
     fontSize: "1em",
-    flexGrow: 1, // Para que ocupe el espacio restante
+    flexGrow: 1, 
     boxSizing: "border-box",
   },
   togglePasswordButton: {
-    // NUEVO: Estilo para el botón de mostrar/ocultar
     padding: "10px",
     border: "1px solid #ccc",
-    borderLeft: "none", // Quitar borde izquierdo para que se una al input
-    borderRadius: "0 4px 4px 0", // Redondear solo esquinas derechas
+    borderLeft: "none",
+    borderRadius: "0 4px 4px 0", 
     backgroundColor: "#f0f0f0",
     cursor: "pointer",
-    fontSize: "0.9em", // Un poco más pequeño para que no sea tan prominente
-    whiteSpace: "nowrap", // Para que "Mostrar" / "Ocultar" no se parta en dos líneas
+    fontSize: "0.9em", 
+    whiteSpace: "nowrap",
   },
   button: {
     padding: "10px 15px",
     marginTop: "20px",
-    backgroundColor: "#235b4e", // Color primario (ejemplo)
+    backgroundColor: "#235b4e", 
     color: "white",
     border: "none",
     borderRadius: "4px",
@@ -408,7 +397,7 @@ const styles = {
   },
   deleteButton: {
     padding: "5px 10px",
-    backgroundColor: "#9F2241", // Color peligro (ejemplo)
+    backgroundColor: "#9F2241",
     color: "white",
     border: "none",
     borderRadius: "4px",
@@ -430,7 +419,7 @@ const styles = {
   td: {
     borderBottom: "1px solid #dee2e6",
     padding: "12px",
-    textAlign: "center", // MODIFICADO: Alineación izquierda para el contenido de las celdas
+    textAlign: "center", 
   },
   hr: {
     border: "none",
@@ -440,12 +429,12 @@ const styles = {
   errorMessage: {
     color: "red",
     marginTop: "10px",
-    textAlign: "center", // MODIFICADO: Centrar mensajes
+    textAlign: "center",
   },
   successMessage: {
     color: "green",
     marginTop: "10px",
-    textAlign: "center", // MODIFICADO: Centrar mensajes
+    textAlign: "center", 
   },
   resetButton: {
     padding: "5px 10px",
@@ -455,7 +444,7 @@ const styles = {
     borderRadius: "4px",
     cursor: "pointer",
     fontSize: "0.9em",
-    margin: "8px", // NUEVO: Añadir margen para separar de otros botones
+    margin: "8px", 
   },
 };
 
