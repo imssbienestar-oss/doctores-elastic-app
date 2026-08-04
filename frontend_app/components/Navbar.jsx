@@ -4,169 +4,23 @@ import { Link, useLocation } from "react-router-dom";
 import logo from "./gobierno.png";
 import AlertasModal from "./AlertasModal";
 
-// Estilos (deben estar definidos antes de usarlos en renderNavItems si se define fuera del componente)
-const styles = {
-  navbarContainer: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    zIndex: 1000,
-    width: "100%",
-    boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-    fontFamily: "Arial, sans-serif",
-  },
-  topGovBar: {
-    backgroundColor: "#691c32",
-    padding: "0px 35px",
-    display: "flex",
-    justifyContent: "flex-start",
-    alignItems: "center",
-    height: "65px",
-    boxSizing: "border-box",
-  },
-  gobiernoLogoContainer: {
-    display: "flex",
-    alignItems: "left",
-    marginLeft: "auto",
-    marginRight: "auto",
-    paddingLeft: "1%",
-    paddingRight: "65%",
-  },
-  gobiernoLogo: { height: "60px", width: "170px" },
-  gobiernoTexto: { display: "none", color: "white", fontSize: "12px" },
-  goldenBar: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "10px 25px",
-    backgroundColor: "#A57F2C",
-    color: "white",
-    boxSizing: "border-box",
-    height: "65px",
-  },
-  titleContainer: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "flex-start",
-  },
-  imssTitle: {
-    fontSize: "1.0em",
-    fontWeight: "bold",
-    lineHeight: "1.1",
-    color: "#FFFFFF",
-  },
-  mainTitle: {
-    fontSize: "1.0em",
-    fontWeight: "normal",
-    lineHeight: "1.1",
-    color: "#FFFFFF",
-  },
-  guestIndicator: {
-    fontSize: "0.7em",
-    fontWeight: "normal",
-    marginLeft: "8px",
-    opacity: 0.9,
-    fontStyle: "italic",
-  },
-  usernameIndicator: {
-    fontSize: "0.8em",
-    fontWeight: "normal",
-    marginLeft: "10px",
-    fontStyle: "italic",
-  },
-  actions: { display: "flex", alignItems: "center", gap: "0px" }, // Gap a 0, el separador maneja el espacio
-  button: {
-    padding: "8px 10px",
-    fontSize: "1em",
-    cursor: "pointer",
-    backgroundColor: "transparent",
-    color: "white",
-    border: "none", // Sin borde individual
-    borderRadius: "0px", // Sin bordes redondeados si se usan separadores
-    transition: "background-color 0.2s ease, color 0.2s ease",
-    whiteSpace: "nowrap",
-    outline: "none", 
-  },
-  logoutButton: {
-    backgroundColor: "rgba(159, 34, 65, 0.8)",
-  },
-  adminButtonLink: {
-    padding: "8px 10px",
-    fontSize: "1em",
-    cursor: "pointer",
-    backgroundColor: "transparent",
-    color: "white",
-    border: "none", // Sin borde individual
-    borderRadius: "0px",
-    textDecoration: "none",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    whiteSpace: "nowrap",
-    transition: "background-color 0.2s ease, color 0.2s ease",
-    outline: "none",
-  },
-  separator: {
-    color: "rgba(255, 255, 255, 0.4)", // Color del separador
-    margin: "0 8px",
-    fontSize: "1em", // Ajustado para ser menos prominente
-    lineHeight: "1",
-    userSelect: "none",
-  },
-  alertButton: {
-    padding: "8px 10px",
-    fontSize: "1.5em", // Aumenta el tamaño para el ícono
-    cursor: "pointer",
-    backgroundColor: "transparent",
-    color: "white",
-    border: "none",
-    borderRadius: "0px",
-    transition: "background-color 0.2s ease, color 0.2s ease",
-    whiteSpace: "nowrap",
-    outline: "none",
-    position: 'relative',
-  },
-   alertBadge: {
-    position: 'absolute',
-    top: '2px', // Ajusta la posición del contador
-    right: '2px',
-    backgroundColor: '#dc3545',
-    color: 'white',
-    borderRadius: '50%',
-    padding: '2px 5px',
-    fontSize: '0.6em', // Letra más pequeña para el contador
-    fontWeight: 'bold',
-    lineHeight: 1,
-  },
-  downloadStatus: {
-    color: "white",
-    marginLeft: "10px",
-    alignSelf: "center",
-    fontSize: "0.85em",
-  },
-  downloadError: {
-    color: "#ffdddd",
-    marginLeft: "10px",
-    alignSelf: "center",
-    maxWidth: "150px",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    fontSize: "0.85em",
-    backgroundColor: "rgba(159, 34, 65, 0.7)",
-    padding: "3px 6px",
-    borderRadius: "3px",
-  },
+// --- CLASES DE TAILWIND ---
+const twClasses = {
+  button: "!px-2 !py-1 !text-[13px] !font-normal uppercase tracking-wider cursor-pointer !bg-transparent !text-white !border-none hover:!text-[#B08D55] transition-colors outline-none whitespace-nowrap",
+  logoutButton: "!px-4 !py-2 !text-[13px] !font-normal uppercase tracking-wider cursor-pointer !bg-[#8c1d39] hover:!bg-[#691C32] !text-white !border-none rounded-sm transition-colors outline-none whitespace-nowrap ml-2 shadow-sm",
+  adminButtonLink: "!px-2 !py-1 !text-[13px] !font-normal uppercase tracking-wider cursor-pointer !bg-transparent !text-white !border-none hover:!text-[#B08D55] transition-colors outline-none whitespace-nowrap inline-flex items-center",
+  separator: "text-white/50 mx-1 !text-[20px] select-none",
+  alertButton: "relative !px-5 !py-1 !text-sm cursor-pointer !bg-transparent !text-white !border-none hover:scale-110 transition-transform outline-none flex items-center",
+  alertBadge: "absolute -top-1 -right-0.5 bg-red-600 text-white rounded-full px-1 py-1 !text-[12px] font-bold leading-none shadow-sm",
 };
 
-// Función auxiliar para renderizar items con separadores
 const renderNavItems = (items) => {
-  const visibleItems = items.filter(Boolean); // Filtrar elementos nulos o falsos
+  const visibleItems = items.filter(Boolean);
   return visibleItems.map((item, index) => (
     <React.Fragment key={index}>
       {item}
       {index < visibleItems.length - 1 && (
-        <span style={styles.separator}>|</span>
+        <span className={twClasses.separator}>|</span>
       )}
     </React.Fragment>
   ));
@@ -177,10 +31,10 @@ const obtenerDiasRestantes = (fechaFin) => {
   const partesFecha = fechaFin.split('-').map(Number);
   const fin = new Date(partesFecha[0], partesFecha[1] - 1, partesFecha[2]);
   const hoy = new Date();
-  
+
   hoy.setHours(0, 0, 0, 0);
   fin.setHours(0, 0, 0, 0);
-  
+
   const diferenciaMs = fin.getTime() - hoy.getTime();
   return Math.round(diferenciaMs / (1000 * 60 * 60 * 24));
 };
@@ -192,14 +46,12 @@ function Navbar({
   vistaActual,
   onAgregarDoctorClick,
 }) {
-  const { isAuthenticated, isGuestMode, token, logout, currentUser,dataRefreshKey } =
-    useAuth();
+  const { isAuthenticated, isGuestMode, token, logout, currentUser, dataRefreshKey } = useAuth();
   const location = useLocation();
   const currentPath = location.pathname;
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState("");
-  const [reportTypeBeingDownloaded, setReportTypeBeingDownloaded] =
-    useState(null);
+  const [reportTypeBeingDownloaded, setReportTypeBeingDownloaded] = useState(null);
 
   const [isAlertsModalOpen, setIsAlertsModalOpen] = useState(false);
   const [alertCount, setAlertCount] = useState(0);
@@ -210,15 +62,14 @@ function Navbar({
       if (isAuthenticated && token) {
         try {
           const response = await fetch(`${API_BASE_URL}/api/doctores/alertas-vencimiento`, {
-              headers: { Authorization: `Bearer ${token}` },
-            });
+            headers: { Authorization: `Bearer ${token}` },
+          });
           if (response.ok) {
             const data = await response.json();
             const alertasFiltradas = data.filter((alerta) => {
               const dias = obtenerDiasRestantes(alerta.fecha_fin);
               return dias !== null && dias <= 5;
             });
-            
             setAlertCount(alertasFiltradas.length);
           } else {
             setAlertCount(0);
@@ -230,22 +81,18 @@ function Navbar({
       }
     };
     fetchAlertCount();
-  }, [isAuthenticated, token, location.pathname,dataRefreshKey]); // Se recarga al cambiar de página
+  }, [isAuthenticated, token, location.pathname, dataRefreshKey]);
 
   const handleDownload = async (reportType) => {
+    // ... Lógica de descarga intacta ...
     setDownloading(true);
     setDownloadError("");
     setReportTypeBeingDownloaded(reportType);
-    const backendUrl =
-      import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+    const backendUrl = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
     let urlPath = "";
     switch (reportType) {
-      case "xlsx":
-        urlPath = "/api/reporte/xlsx";
-        break;
-      case "pdf":
-        urlPath = "/api/reporte/pdf";
-        break;
+      case "xlsx": urlPath = "/api/reporte/xlsx"; break;
+      case "pdf": urlPath = "/api/reporte/pdf"; break;
       default:
         setDownloadError("Tipo de reporte no válido.");
         setDownloading(false);
@@ -288,9 +135,7 @@ function Navbar({
         try {
           const errorData = await response.json();
           if (errorData.detail) errorMsg += `: ${errorData.detail}`;
-        } catch (e) {
-          /* No hacer nada */
-        }
+        } catch (e) { }
         setDownloadError(errorMsg);
         if (response.status === 401 && isAuthenticated) logout();
       }
@@ -310,184 +155,187 @@ function Navbar({
   const canClickVerGraficas = typeof onVerGraficasClick === "function";
   const canClickVerTabla = typeof onVerTablaClick === "function";
 
-  // Construir el array de items de acción
+  // NUEVO: Identificamos si es el encargado de unidad/asistencia
+  const isEncargado = currentUser?.role === "responsable_unidad" || currentUser?.role === "asistencia";
+
   const navActionItems = [];
 
-  // Botones de Ver Tabla / Ver Gráficas
   if (showViewToggleButtons && canClickVerGraficas && canClickVerTabla) {
-    navActionItems.push(
-      <button
-        key="alertas"
-        onClick={() => setIsAlertsModalOpen(true)}
-        style={styles.alertButton}
-        title="Ver alertas de vencimiento"
-      >
-            <span role="img" aria-label="alertas">🔔</span>
-            {alertCount > 0 && <span style={styles.alertBadge}>{alertCount}</span>}
-      </button>
-    );
-    if (currentPath === "/") {
-      // Si estamos en la página principal de doctores
-      if (vistaActual === "tabla") {
+
+    if (!isEncargado) {
+
+      navActionItems.push(
+        <button
+          key="alertas"
+          onClick={() => setIsAlertsModalOpen(true)}
+          className={twClasses.alertButton}
+          title="Ver alertas de vencimiento"
+        >
+          <span role="img" aria-label="alertas">🔔</span>
+          {alertCount > 0 && <span className={twClasses.alertBadge}>{alertCount}</span>}
+        </button>
+      );
+      if (currentPath === "/") {
+        if (vistaActual === "tabla") {
+          navActionItems.push(
+            <button key="verGraficas" onClick={onVerGraficasClick} className={twClasses.button}>
+              Ver Gráficas
+            </button>
+          );
+        } else {
+          navActionItems.push(
+            <button key="verTabla" onClick={onVerTablaClick} className={twClasses.button}>
+              Ver Tabla
+            </button>
+          );
+        }
+      } else if (currentPath.startsWith("/admin") || currentPath === "/perfil") {
         navActionItems.push(
-          <button
-            key="verGraficas"
-            onClick={onVerGraficasClick}
-            style={styles.button}
-            title="Ir a la vista de gráficas de doctores"
-          >
-            Ver Gráficas
-          </button>
-        );
-      } else {
-        // vistaActual es 'graficas'
-        navActionItems.push(
-          <button
-            key="verTabla"
-            onClick={onVerTablaClick}
-            style={styles.button}
-            title="Ir a la vista de tabla de doctores"
-          >
+          <button key="verTablaAdmin" onClick={onVerTablaClick} className={twClasses.button}>
             Ver Tabla
           </button>
         );
+        navActionItems.push(
+          <button key="verGraficasAdmin" onClick={onVerGraficasClick} className={twClasses.button}>
+            Ver Gráficas
+          </button>
+        );
       }
-    } else if (currentPath.startsWith("/admin") || currentPath === "/perfil") {
-      navActionItems.push(
-        <button
-          key="verTablaAdmin"
-          onClick={onVerTablaClick}
-          style={styles.button}
-          title="Ir a la vista de tabla de doctores"
-        >
-          Ver Tabla
-        </button>
-      );
-      navActionItems.push(
-        <button
-          key="verGraficasAdmin"
-          onClick={onVerGraficasClick}
-          style={styles.button}
-          title="Ir a la vista de gráficas de doctores"
-        >
-          Ver Gráficas
-        </button>
-      );
     }
   }
 
-  // Botón Agregar Doctor
+  // NUEVO: Agregamos !isEncargado para que tampoco pueda ver el botón "Agregar Doctor"
   if (
     currentPath === "/" &&
     vistaActual === "tabla" &&
     isAuthenticated &&
     currentUser?.role !== "guest" &&
+    !isEncargado &&
     typeof onAgregarDoctorClick === "function"
   ) {
     navActionItems.push(
-      <button
-        key="agregarDoctor"
-        onClick={onAgregarDoctorClick}
-        style={styles.button}
-      >
+      <button key="agregarDoctor" onClick={onAgregarDoctorClick} className={twClasses.button}>
         Agregar Doctor
       </button>
     );
   }
 
-  // Enlaces de Admin
+  if (isEncargado) {
+    if (currentPath !== "/asistencia") {
+      navActionItems.push(
+        <Link key="navAsistencia" to="/asistencia" className={twClasses.adminButtonLink}>
+          Registro de Asistencia
+        </Link>
+      );
+    }
+    if (currentPath !== "/reportes") {
+      navActionItems.push(
+        <Link key="navReportes" to="/reportes" className={twClasses.adminButtonLink}>
+          Reportes Quincenales
+        </Link>
+      );
+    }
+  }
+
+  // La Auditoría y Usuarios ya están protegidas automáticamente porque requieren role === "admin"
   if (isAuthenticated && currentUser && currentUser.role === "admin") {
     if (currentPath !== "/admin/users") {
       navActionItems.push(
-        <Link key="adminUsers" to="/admin/users" style={styles.adminButtonLink}>
+        <Link key="adminUsers" to="/admin/users" className={twClasses.adminButtonLink}>
           Gestionar Usuarios
         </Link>
       );
     }
     if (currentPath !== "/admin/audit-log") {
       navActionItems.push(
-        <Link
-          key="adminAudit"
-          to="/admin/audit-log"
-          style={styles.adminButtonLink}
-        >
+        <Link key="adminAudit" to="/admin/audit-log" className={twClasses.adminButtonLink}>
           Auditoría
         </Link>
       );
     }
   }
-  // Botón de Logout (siempre se añade si está autenticado o es invitado)
+
   if (isAuthenticated || isGuestMode) {
     navActionItems.push(
-      <button
-        key="logout"
-        onClick={handleLogoutOrExitGuest}
-        style={{ ...styles.button, ...styles.logoutButton }}
-      >
-        {isAuthenticated ? "Cerrar Sesión" : "Salir de Invitado"}
+      <button key="logout" onClick={handleLogoutOrExitGuest} className={twClasses.logoutButton}>
+        {isAuthenticated ? "Cerrar Sesión" : "Salir"}
       </button>
     );
   }
 
   return (
-    <div style={styles.navbarContainer}>
-      <div style={styles.topGovBar}>
-        <div style={styles.gobiernoLogoContainer}>
+    <header className="sticky top-0 z-1000 w-full shadow-md font-sans bg-white">
+      {/* Barra Superior: Gobierno */}
+      <div className="bg-[#691C32] w-full">
+        <div className="container mx-auto px-4 md:px-8 py-2 flex items-center">
           <img
             src={logo}
             alt="Gobierno de México"
-            style={styles.gobiernoLogo}
-            onError={(e) => {
-              e.target.style.display = "none";
-              if (e.target.nextSibling)
-                e.target.nextSibling.style.display = "inline";
-            }}
+            className="h-8 md:h-10 object-contain"
+            onError={(e) => { e.target.style.display = "none"; }}
           />
-          <span style={{ ...styles.gobiernoTexto, display: "none" }}>
-            {" "}
-            Gobierno de México{" "}
-          </span>
         </div>
       </div>
-      <nav style={styles.goldenBar}>
-        <div style={styles.titleContainer}>
-          <span style={styles.imssTitle}>IMSS BIENESTAR</span>
-          <span style={styles.mainTitle}>
-            {title || "Sistema Doctores"}
-            {isGuestMode && !isAuthenticated && (
-              <span style={styles.guestIndicator}> (Invitado)</span>
-            )}
-            {isAuthenticated && currentUser && currentUser.username && (
-              <Link
-                to="/perfil"
-                title="Ir a mi perfil"
-                style={{ textDecoration: "none", color: "inherit" }}
-              >
-                <span style={styles.usernameIndicator}>
-                  {" "}
-                  ({currentUser.username} - {currentUser.role})
-                </span>{" "}
-              </Link>
-            )}
-          </span>
-        </div>
 
-        <div style={styles.actions}>
-          {renderNavItems(navActionItems)}
+      {/* Barra Principal: IMSS Bienestar */}
+      <div className="bg-[#10312B] relative w-full overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-full opacity-5 bg-white transform skew-x-12 pointer-events-none"></div>
 
-          {downloading && downloadError === "" && (
-            <span style={styles.downloadStatus}>Generando...</span>
-          )}
-          {downloadError && (
-            <span style={styles.downloadError}>Error: {downloadError}</span>
-          )}
+        <div className="container mx-auto px-4 md:px-8 py-2.5 relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+
+          {/* LADO IZQUIERDO: Logo y Títulos */}
+          <div className="flex items-center gap-4">
+            <img
+              src="/fotos/imss-bienestar-blanco.png"
+              alt="IMSS Bienestar"
+              className="h-9 md:h-11 w-auto object-contain border-r border-white/20 pr-4 hidden sm:block"
+            />
+            <div className="flex flex-col">
+              <h2 className="text-white text-sm md:text-lg font-light opacity-90">Sistema del Programa de Personal Extranjero de Atención a la Salud</h2>
+              <div className="text-[#DDC9A3] text-[10px] md:text-[11px] uppercase mt-0.5 flex items-center gap-2">
+                <span>IMSS BIENESTAR</span>
+
+                {isGuestMode && !isAuthenticated && (
+                  <span className="text-white/70 italic normal-case font-normal">(Invitado)</span>
+                )}
+                {isAuthenticated && currentUser && currentUser.username && (
+                  <Link
+                    to="/perfil"
+                    title="Ir a mi perfil"
+                    className="text-white/70 hover:text-white transition-colors italic normal-case font-normal text-[10px] md:text-[11px]"
+                  >
+                    ({currentUser.username} - {currentUser.role})
+                  </Link>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* LADO DERECHO: Botones de Acción */}
+          <div className="flex items-center flex-wrap md:flex-nowrap gap-1 justify-end">
+            {renderNavItems(navActionItems)}
+
+            {downloading && downloadError === "" && (
+              <span className="text-white/80 ml-2 text-xs font-medium">Generando...</span>
+            )}
+            {downloadError && (
+              <span className="bg-[#9F2241]/80 text-[#ffdddd] ml-2 px-2 py-1 rounded text-[10px] max-w-37.5 truncate">
+                Error: {downloadError}
+              </span>
+            )}
+          </div>
         </div>
-      </nav>
+      </div>
+
+      {/* Franja Dorada Inferior */}
+      <div className="h-1 w-full bg-[#B08D55]"></div>
+
       <AlertasModal
         isOpen={isAlertsModalOpen}
         onClose={() => setIsAlertsModalOpen(false)}
       />
-    </div>
+    </header>
   );
 }
+
 export default Navbar;

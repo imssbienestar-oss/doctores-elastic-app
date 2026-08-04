@@ -1,6 +1,5 @@
-# backend_api/security.py
 import os
-from datetime import datetime, timedelta, timezone # Asegúrate de importar timezone
+from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -8,44 +7,43 @@ from dotenv import load_dotenv
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
-from database import get_db # Importa la función para obtener sesión de DB
-import models # El punto indica una importación desde el mismo paquete (backend_api)
-import schemas # Asegúrate que tus esquemas Pydantic estén aquí (ej. schemas.TokenData)
+from sqlalchemy import or_, func
 
-load_dotenv() # Cargar variables de .env
+from database import get_db ¿
+import models 
+import schemas¿
 
-# --- Configuración de Seguridad ---
+load_dotenv()
+
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 43200))
-REFRESH_TOKEN_EXPIRE_DAYS = 30   
 
 pwd_context = CryptContext(schemes=["argon2", "bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/token")
 
-# --- VERIFICACION DE CONTRASEÑAS ---
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     try:
         return pwd_context.verify(plain_password, hashed_password)
     except Exception:
-        # Evita que el backend explote si el hash es inválido o corrupto
         return False
-    
+
+
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
-# --- Creación de Tokens JWT ---
+
 def create_access_token(data: dict):
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-# --- Dependencia para obtener el usuario actual ---
+
 async def get_current_user(
-    token: str = Depends(oauth2_scheme), 
-    db: Session = Depends(get_db) 
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
 ):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -60,18 +58,32 @@ async def get_current_user(
     except JWTError:
         raise credentials_exception
 
-    # Busca al usuario
-    user = db.query(models.User).filter(models.User.username == username).first()
+    user = db.query(models.User).filter(
+        func.lower(models.User.username) == func.lower(username)
+    ).first()
+
+    if user is None:
+        user = db.query(models.UsuarioAcceso).filter(
+            or_(
+                func.lower(models.UsuarioAcceso.correo) == func.lower(username),
+                func.lower(models.UsuarioAcceso.id_imss) == func.lower(username)
+            )
+        ).first()
+
+    # Si no existe en ninguna de las dos tablas, bloqueamos
     if user is None:
         raise credentials_exception
         
     return user
 
-# --- Dependencia para obtener un usuario Administrador ---
-async def get_current_admin_user(current_user: models.User = Depends(get_current_user)):
-    if not current_user or current_user.role != "admin":
+
+async def get_current_admin_user(current_user = Depends(get_current_user)):
+    rol_usuario = getattr(current_user, "role", getattr(current_user, "rol", ""))
+    
+    if not current_user or rol_usuario != "admin":
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, 
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="No tiene permisos de administrador."
         )
+        
     return current_user
