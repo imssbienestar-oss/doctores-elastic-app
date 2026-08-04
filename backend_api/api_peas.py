@@ -156,13 +156,17 @@ async def obtener_estado_asistencia(
     id_imss: str, 
     db: Session = Depends(get_db)
 ):
-    # 1. Buscar los datos básicos del doctor
+   # 1. Buscar los datos básicos del doctor
     doctor = db.query(models.Doctor).filter(models.Doctor.id_imss == id_imss).first()
     if not doctor:
         raise HTTPException(status_code=404, detail="Médico no encontrado")
 
-    # 2. Buscar el último movimiento registrado hoy para este usuario
-    hoy = date.today()
+    # 2. Definir la zona horaria de México
+    mx_tz = pytz.timezone('America/Mexico_City')
+
+    # Obtener el día de "hoy" exacto en México (evita fallos en la tarde/noche)
+    hoy = datetime.now(mx_tz).date()
+# 3. Buscar el último movimiento registrado hoy para este usuario
     ultimo_registro = db.query(models.PeasAsistencia).filter(
         models.PeasAsistencia.id_imss == id_imss,
         func.date(models.PeasAsistencia.fecha_hora) == hoy
@@ -173,8 +177,18 @@ async def obtener_estado_asistencia(
     
     if ultimo_registro:
         estado_actual = ultimo_registro.tipo # "Entrada" o "Salida"
-        # Formatear la hora de manera ligera
-        hora_ultimo = ultimo_registro.fecha_hora.strftime("%H:%M:%S")
+        
+        # 4. Ajustar la hora extraída de la base de datos a la zona horaria de México
+        dt = ultimo_registro.fecha_hora
+        if dt.tzinfo is None:
+            # Si SQLAlchemy la trae sin zona horaria, asumimos que es UTC y la convertimos
+            dt = pytz.utc.localize(dt).astimezone(mx_tz)
+        else:
+            # Si ya trae zona horaria, solo la convertimos
+            dt = dt.astimezone(mx_tz)
+
+        # Formatear la hora al estilo 12 horas con AM/PM (Ej. 04:58:31 PM)
+        hora_ultimo = dt.strftime("%I:%M:%S %p")
 
     return {
         "id_imss": doctor.id_imss,
