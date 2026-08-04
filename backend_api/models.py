@@ -211,3 +211,24 @@ class ReporteQuincenal(Base):
     # Auditoría
     fecha_subida = Column(DateTime(timezone=True), server_default=func.now())
     subido_por = Column(String(50)) # El ID del supervisor que lo subió
+
+class BitacoraEstatalValidada(Base):
+    __tablename__ = "bitacora_estatal_validada"
+
+    id = Column(Integer, primary_key=True, index=True)
+    id_reporte_quincenal = Column(Integer, ForeignKey("reportes_quincenales.id"), unique=True) # Para no validar dos veces el mismo
+    id_imss = Column(String, index=True)
+    quincena_validada = Column(String) # Ej. "2026-08-Q1"
+    
+    # Datos extraídos para el Formato 2
+    profesional_salud = Column(String)
+    especialidad = Column(String)
+    turno = Column(String)
+    clues_ib = Column(String)
+    unidad_medica = Column(String)
+    dias_participacion = Column(Integer)
+    entidad = Column(String, index=True) # Fundamental para filtrar por estado
+    
+    # Datos de auditoría
+    validado_por = Column(String) # ID o correo del coordinador que dio el clic
+    fecha_validacion = Column(DateTime(timezone=True), server_default=func.now())
