@@ -26,6 +26,11 @@ import ChangePasswordPage from "../components/ChangePasswordPage";
 import ProfilePage from "../components/ProfilePage";
 import { useSearchParams } from "react-router-dom";
 
+//Asistencia Médicos Cubanos
+import AsistenciaPage from "../components/asistencia/AsistenciaPage";
+import AsistenciaDemo from "../components/asistencia/AsistenciaPage";
+import ReporteQuincenal from "../components/asistencia/ReporteQuincenal";
+import RegistroEncargadosPage from "../components/asistencia/RegistroEncargadosPage";
 
 Modal.setAppElement("#root");
 
@@ -73,7 +78,7 @@ const styles = {
     padding: "10px 18px",
     fontSize: "0.95em",
     cursor: "pointer",
-    backgroundColor: "#006657",
+    backgroundColor: "#12312B",
     color: "white",
     border: "none",
     borderRadius: "6px",
@@ -143,8 +148,12 @@ function Layout({ navbarProps }) {
     <>
       {showNavbar && <Navbar {...navbarProps} />}
       <div
-        className="container"
-        style={{ paddingTop: showNavbar ? "100px" : "20px" }}
+        className="w-[95%] max-w-[1800px] mx-auto"
+        style={{
+          paddingTop: "25px",
+          paddingBottom: "40px",
+          zoom: "1.1"
+        }}
       >
         <Outlet />
       </div>
@@ -358,7 +367,6 @@ function HomePageContent({ vistaActualProp, doctorListRefreshKey, onSwitchToTabl
   const handleBackToTable = () => {
     setViewMode("tabla");
     setSelectedDoctorProfile(null);
-    // Ya no necesitas llamar a fetchDoctores() manualmente porque el useEffect lo hará al cambiar viewMode a "table"
   };
 
   const handleDoctorProfileWasUpdated = (doctorId) => {
@@ -614,7 +622,11 @@ function AppContent() {
         path="/login"
         element={
           isAuthenticated || isGuestMode ? (
-            <Navigate to="/" replace />
+            currentUser?.role === "asistencia" || currentUser?.role === "responsable_unidad" ? (
+              <Navigate to="/asistencia" replace />
+            ) : (
+              <Navigate to="/" replace />
+            )
           ) : (
             <LoginPage />
           )
@@ -626,22 +638,35 @@ function AppContent() {
           path="/"
           element={
             isAuthenticated || isGuestMode ? (
-              <HomePageContent
-                vistaActualProp={vistaActual}
-                onSwitchToTableView={handleVerTabla}
-                doctorListRefreshKey={doctorListRefreshKey}
-              />
+              currentUser?.role === "asistencia" || currentUser?.role === "medico" || currentUser?.role === "responsable_unidad" ? (
+                <Navigate to="/asistencia" replace />
+              ) : (
+                <HomePageContent
+                  vistaActualProp={vistaActual}
+                  onSwitchToTableView={handleVerTabla}
+                  doctorListRefreshKey={doctorListRefreshKey}
+                />
+              )
             ) : (
               <Navigate to="/login" replace />
             )
           }
         />
+
         <Route
           path="/admin/users"
           element={
             <ProtectedRoute adminOnly={true}>
               {" "}
               <AdminUsersPage />{" "}
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/encargados"
+          element={
+            <ProtectedRoute adminOnly={true}>
+              <RegistroEncargadosPage />
             </ProtectedRoute>
           }
         />
@@ -681,7 +706,31 @@ function AppContent() {
             </ProtectedRoute>
           }
         />
+
+        <Route
+          path="/asistencia"
+          element={
+            isAuthenticated || isGuestMode ? (
+              <AsistenciaDemo />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+
+        <Route
+          path="/reportes"
+          element={
+            isAuthenticated || isGuestMode ? (
+              <ReporteQuincenal />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
       </Route>
+
+
 
       <Route
         path="*"
