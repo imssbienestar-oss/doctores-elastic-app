@@ -58,7 +58,7 @@ const profileStyles = {
     padding: "8px 15px",
     fontSize: "0.9em",
     cursor: "pointer",
-    backgroundColor: "#006657",
+    backgroundColor: "#12312B",
     color: "white",
     border: "none",
     borderRadius: "4px",
@@ -80,7 +80,7 @@ const profileStyles = {
     padding: "10px 18px",
     fontSize: "0.95em",
     cursor: "pointer",
-    backgroundColor: "#006657",
+    backgroundColor: "#12312B",
     color: "white",
     border: "none",
     borderRadius: "6px",
@@ -105,18 +105,19 @@ const profileStyles = {
   },
   sectionTitle: {
     fontSize: "24px",
-    color: "#235b4e",
+    color: "#12312B",
     fontWeight: "bold",
     marginTop: "30px",
     marginBottom: "15px",
     borderBottom: "1px solid #e0e0e0",
     paddingBottom: "5px",
+    textAlign: "center"
   },
   sectionTitleAttachments: {
     fontSize: "24px",
-    color: "#235b4e",
+    color: "#12312B",
     fontWeight: "bold",
-    marginTop: "30px",
+    marginTop: "50px",
   },
   fieldLabel: {
     fontWeight: "bold",
@@ -170,7 +171,9 @@ const profileStyles = {
     marginBottom: "30px",
     textAlign: "center",
   },
-  attachmentsSection: {},
+  attachmentsSection: {
+    paddingTop: "30px",
+  },
   profileImage: {
     width: "150px",
     height: "150px",
@@ -311,7 +314,7 @@ const profileStyles = {
     padding: "10px 18px",
     fontSize: "0.95em",
     cursor: "pointer",
-    backgroundColor: "#006657",
+    backgroundColor: "#12312B",
     color: "white",
     border: "none",
     borderRadius: "6px",
@@ -379,7 +382,7 @@ const profileStyles = {
     marginTop: "20px", // Espacio arriba de la tabla
   },
   dataTableTh: {
-    backgroundColor: "#006657", // Fondo verde oscuro
+    backgroundColor: "#12312B", // Fondo verde oscuro
     color: "white",
     padding: "10px 12px",
     textAlign: "center",
@@ -664,7 +667,7 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
         icon: 'success',
         title: '¡Actualizado!',
         text: 'Fechas actualizadas correctamente',
-        confirmButtonColor: '#006657',
+        confirmButtonColor: '#12312B',
         timer: 2000,
         showConfirmButton: false
       });
@@ -2324,7 +2327,9 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
 
         {/*Apartado Foto y Archivos Adjuntos */}
         <div style={profileStyles.filesColumn}>
+          
             <AsistenciaChart idImss={doctor.id_imss} />
+
 
           <div style={profileStyles.attachmentsSection}>
             <h2 style={profileStyles.sectionTitleAttachments}>
