@@ -24,6 +24,7 @@ router = APIRouter(
     tags=["PEAS Asistencia"]
 )
 
+
 @router.post("/usuarios-acceso", response_model=schemas.UsuarioAccesoResponse, tags=["Gestión de Accesos"])
 async def registrar_usuario_acceso(
     usuario: schemas.UsuarioAccesoCreate, 
@@ -55,8 +56,6 @@ async def registrar_usuario_acceso(
     
     return nuevo_acceso
 
-# 2. Definimos el endpoint usando @router en lugar de @app
-# Fíjate que la ruta ahora solo es "/asistencia" porque el prefix ya tiene "/api/peas"
 @router.post("/asistencia")
 async def registrar_asistencia_peas(
     registro: schemas.RegistroAsistenciaPeas, 
@@ -68,14 +67,23 @@ async def registrar_asistencia_peas(
     if not doctor_db:
         raise HTTPException(status_code=404, detail=f"No se encontró al médico con ID: {id_medico}")
 
+    # 1. Definir zona horaria de México
     mx_tz = pytz.timezone('America/Mexico_City')
     fecha_hora_local = datetime.now(mx_tz)
-    hoy = fecha_hora_local.date()
+    
+    # 2. Calcular los límites exactos de "HOY" en hora de México y pasarlos a UTC
+    inicio_dia_local = fecha_hora_local.replace(hour=0, minute=0, second=0, microsecond=0)
+    fin_dia_local = fecha_hora_local.replace(hour=23, minute=59, second=59, microsecond=999999)
 
+    inicio_utc = inicio_dia_local.astimezone(pytz.utc).replace(tzinfo=None)
+    fin_utc = fin_dia_local.astimezone(pytz.utc).replace(tzinfo=None)
+
+    # 3. Buscar si YA EXISTE ese mismo registro (Entrada o Salida) el día de HOY
     registro_existente = db.query(models.PeasAsistencia).filter(
         models.PeasAsistencia.id_imss == id_medico,
         models.PeasAsistencia.tipo == registro.tipo,
-        func.date(models.PeasAsistencia.fecha_hora) == hoy
+        models.PeasAsistencia.fecha_hora >= inicio_utc,
+        models.PeasAsistencia.fecha_hora <= fin_utc
     ).first()
 
     if registro_existente:
@@ -84,10 +92,13 @@ async def registrar_asistencia_peas(
             detail=f"El médico ya tiene registrada una {registro.tipo} el día de hoy."
         )
         
+    # 4. Guardar el nuevo registro en la hora UTC pura (buena práctica de bases de datos)
+    fecha_hora_utc = datetime.utcnow()
+
     nueva_asistencia = models.PeasAsistencia(
         id_imss=id_medico,
         tipo=registro.tipo,
-        fecha_hora=fecha_hora_local
+        fecha_hora=fecha_hora_utc
     )
     
     db.add(nueva_asistencia)
@@ -102,7 +113,7 @@ async def registrar_asistencia_peas(
             "nombre": f"{doctor_db.nombre} {doctor_db.apellido_paterno or ''}".strip(),
             "unidad": doctor_db.nombre_unidad or "Unidad No Asignada",
             "tipo": nueva_asistencia.tipo,
-            "hora": fecha_hora_local.strftime("%I:%M:%S %p")
+            "hora": fecha_hora_local.strftime("%I:%M:%S %p") # Devolvemos hora de México a la alerta
         }
     }
 
@@ -156,38 +167,43 @@ async def obtener_estado_asistencia(
     id_imss: str, 
     db: Session = Depends(get_db)
 ):
-   # 1. Buscar los datos básicos del doctor
     doctor = db.query(models.Doctor).filter(models.Doctor.id_imss == id_imss).first()
     if not doctor:
         raise HTTPException(status_code=404, detail="Médico no encontrado")
 
-    # 2. Definir la zona horaria de México
+    # 1. Definir la zona horaria de México
     mx_tz = pytz.timezone('America/Mexico_City')
+    ahora_local = datetime.now(mx_tz)
+    
+    # 2. Calcular los límites exactos de "HOY" en hora de México
+    inicio_dia_local = ahora_local.replace(hour=0, minute=0, second=0, microsecond=0)
+    fin_dia_local = ahora_local.replace(hour=23, minute=59, second=59, microsecond=999999)
 
-    # Obtener el día de "hoy" exacto en México (evita fallos en la tarde/noche)
-    hoy = datetime.now(mx_tz).date()
-# 3. Buscar el último movimiento registrado hoy para este usuario
+    # 3. Convertir esos límites a UTC para que la base de datos los entienda
+    # Le quitamos la zona horaria (replace tzinfo=None) para evitar conflictos con SQLAlchemy
+    inicio_utc = inicio_dia_local.astimezone(pytz.utc).replace(tzinfo=None)
+    fin_utc = fin_dia_local.astimezone(pytz.utc).replace(tzinfo=None)
+
+    # 4. Buscar el último registro que caiga EXACTAMENTE dentro del rango de HOY
     ultimo_registro = db.query(models.PeasAsistencia).filter(
         models.PeasAsistencia.id_imss == id_imss,
-        func.date(models.PeasAsistencia.fecha_hora) == hoy
+        models.PeasAsistencia.fecha_hora >= inicio_utc,
+        models.PeasAsistencia.fecha_hora <= fin_utc
     ).order_by(desc(models.PeasAsistencia.fecha_hora)).first()
 
     estado_actual = "Sin registro hoy"
     hora_ultimo = None
     
     if ultimo_registro:
-        estado_actual = ultimo_registro.tipo # "Entrada" o "Salida"
+        estado_actual = ultimo_registro.tipo 
         
-        # 4. Ajustar la hora extraída de la base de datos a la zona horaria de México
+        # Volvemos a formatear a hora de México para mostrarlo en la credencial
         dt = ultimo_registro.fecha_hora
         if dt.tzinfo is None:
-            # Si SQLAlchemy la trae sin zona horaria, asumimos que es UTC y la convertimos
             dt = pytz.utc.localize(dt).astimezone(mx_tz)
         else:
-            # Si ya trae zona horaria, solo la convertimos
             dt = dt.astimezone(mx_tz)
 
-        # Formatear la hora al estilo 12 horas con AM/PM (Ej. 04:58:31 PM)
         hora_ultimo = dt.strftime("%I:%M:%S %p")
 
     return {
