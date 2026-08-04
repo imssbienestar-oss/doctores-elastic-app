@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Html5QrcodeScanner } from 'html5-qrcode';
 
 const COLORS = {
@@ -50,25 +50,32 @@ export default function AsistenciaSupervisor() {
     const [isScanning, setIsScanning] = useState(false);
     const [showScanner, setShowScanner] = useState(false);
 
+
     // Unificamos la URL para que sirva en todo el componente
     const API_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
     const token = localStorage.getItem("token") || ""; // Borra esto si usas useAuth arriba
 
-    const handleRegistrar = async (tipo) => {
-        if (!idImss.trim()) {
+    const bitacoraRef = useRef([]);
+    useEffect(() => {
+        bitacoraRef.current = bitacora;
+    }, [bitacora]);
+
+    const handleRegistrar = async (tipo, idDirecto = null) => {
+        const idFinal = (idDirecto || idImss).trim().toUpperCase();
+
+        if (!idFinal) {
             mostrarMensaje("Ingresa o escanea un ID IMSS.", "error");
             return;
         }
         setIsScanning(true);
-
         try {
             const response = await fetch(`${API_URL}/api/peas/asistencia`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}` // Agregamos seguridad
+                    "Authorization": `Bearer ${token}`
                 },
-                body: JSON.stringify({ id_imss: idImss.toUpperCase(), tipo: tipo })
+                body: JSON.stringify({ id_imss: idFinal, tipo: tipo })
             });
             const data = await response.json();
 
@@ -76,14 +83,12 @@ export default function AsistenciaSupervisor() {
                 throw new Error(data.detail || "Error al registrar la asistencia");
             }
 
-            // Si es exitoso, agregamos el nuevo registro al inicio de la bitácora
             await cargarBitacora();
-
             mostrarMensaje(`¡${tipo} registrada para ${data.registro.nombre}!`, "success");
-            setIdImss("");
+            setIdImss(""); // Limpiamos el input visual
         } catch (error) {
             console.error(error);
-            mostrarMensaje(error.message, "error"); // Muestra la alerta roja al usuario
+            mostrarMensaje(error.message, "error");
         } finally {
             setIsScanning(false);
         }
@@ -130,10 +135,33 @@ export default function AsistenciaSupervisor() {
             );
             scanner.render(
                 (decodedText) => {
-                    setIdImss(decodedText);
+                    const idEscaneado = decodedText.toUpperCase();
+
+                    // Apagamos la cámara apenas lea el código
                     setShowScanner(false);
                     scanner.clear();
-                    mostrarMensaje("Código escaneado correctamente", "success");
+                    setIdImss(idEscaneado);
+
+                    // 🧠 LÓGICA AUTOMÁTICA: ¿Es Entrada o Salida?
+                    let tipoAutomatico = "Entrada";
+
+                    // Buscamos si el médico ya pasó por aquí hoy
+                    const registroPrevio = bitacoraRef.current.find(r => r.idImss === idEscaneado);
+
+                    if (registroPrevio) {
+                        if (registroPrevio.horaEntrada !== "--:--" && registroPrevio.horaSalida === "--:--") {
+                            // Si ya tiene entrada pero no salida, el sistema deduce que va saliendo
+                            tipoAutomatico = "Salida";
+                        } else if (registroPrevio.horaEntrada !== "--:--" && registroPrevio.horaSalida !== "--:--") {
+                            // Si ya tiene ambas, le avisamos que su turno ya se completó
+                            mostrarMensaje("Este médico ya tiene Entrada y Salida registradas el día de hoy.", "error");
+                            return; // Cortamos la función para que no lance la petición al backend
+                        }
+                    }
+
+                    // Lanzamos la petición al backend en automático sin que el usuario presione nada
+                    mostrarMensaje(`Registrando ${tipoAutomatico}...`, "success");
+                    handleRegistrar(tipoAutomatico, idEscaneado);
                 },
                 (error) => { }
             );
@@ -144,7 +172,6 @@ export default function AsistenciaSupervisor() {
             }
         };
     }, [showScanner]);
-
     return (
         <div>
             <div style={styles.headerCard}>
