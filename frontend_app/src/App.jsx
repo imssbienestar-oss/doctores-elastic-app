@@ -33,7 +33,10 @@ import ReporteQuincenal from "../components/asistencia/ReporteQuincenal";
 import RegistroEncargadosPage from "../components/asistencia/RegistroEncargadosPage";
 import CrearAccesoMedico from "../components/asistencia/GenerarAccesoMedico";
 
+//Asistencia
 import ValidacionFormatosEstatal from '../components/asistencia/ValidacionFormatosEstatal';
+import GenerarFormatoEstatal from "../components/asistencia/GenerarFormatoEstatal";
+import FormatosNacionales from "../components/asistencia/FormatosNacionales";
 
 Modal.setAppElement("#root");
 
@@ -625,8 +628,8 @@ function AppContent() {
         path="/login"
         element={
           isAuthenticated || isGuestMode ? (
-            currentUser?.role === "asistencia" || currentUser?.role === "responsable_unidad" ? (
-              <Navigate to="/asistencia" replace />
+            currentUser?.role === "responsable_unidad" ? (
+              <Navigate to="/reportes" replace />
             ) : currentUser?.role === "coordinador_estatal" ? (
               <Navigate to="/validacion-estatal" replace />
             ) : (
@@ -640,14 +643,14 @@ function AppContent() {
 
       {/* Rutas con Layout (Navbar) */}
       <Route element={<Layout navbarProps={navbarProps} />}>
-        
+
         {/* Ruta Raíz */}
         <Route
           path="/"
           element={
             isAuthenticated || isGuestMode ? (
-              currentUser?.role === "asistencia" || currentUser?.role === "medico" || currentUser?.role === "responsable_unidad" ? (
-                <Navigate to="/asistencia" replace />
+              currentUser?.role === "responsable_unidad" ? (
+                <Navigate to="/reportes" replace />
               ) : currentUser?.role === "coordinador_estatal" ? (
                 <Navigate to="/validacion-estatal" replace />
               ) : (
@@ -688,6 +691,16 @@ function AppContent() {
             </ProtectedRoute>
           }
         />
+
+        <Route
+          path="/admin/nacionales"
+          element={
+            <ProtectedRoute adminOnly={true}>
+              <FormatosNacionales />
+            </ProtectedRoute>
+          }
+        />
+
         <Route
           path="/admin/deleted-doctors"
           element={
@@ -754,6 +767,17 @@ function AppContent() {
           element={
             isAuthenticated || isGuestMode ? (
               <ValidacionFormatosEstatal />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+
+        <Route
+          path="/validacion-reporte"
+          element={
+            isAuthenticated || isGuestMode ? (
+              <GenerarFormatoEstatal />
             ) : (
               <Navigate to="/login" replace />
             )
