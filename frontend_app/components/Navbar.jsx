@@ -254,13 +254,14 @@ function Navbar({
   }
 
   if (isEncargado) {
+    {/* 
     if (currentPath !== "/asistencia") {
       navActionItems.push(
         <Link key="navAsistencia" to="/asistencia" className={twClasses.adminButtonLink}>
           Registro de Asistencia
         </Link>
       );
-    }
+    }*/}
     if (currentPath !== "/reportes") {
       navActionItems.push(
         <Link key="navReportes" to="/reportes" className={twClasses.adminButtonLink}>
@@ -275,6 +276,13 @@ function Navbar({
       navActionItems.push(
         <Link key="navValidacion" to="/validacion-estatal" className={twClasses.adminButtonLink}>
           Validar Bitácoras
+        </Link>
+      );
+    }
+    if (currentPath !== "/validacion-reporte") {
+      navActionItems.push(
+        <Link key="navValidacion" to="/validacion-reporte" className={twClasses.adminButtonLink}>
+          Reporte
         </Link>
       );
     }
@@ -331,6 +339,14 @@ function Navbar({
       navActionItems.push(
         <Link key="adminAudit" to="/admin/audit-log" className={twClasses.adminButtonLink}>
           Auditoría
+        </Link>
+      );
+    }
+
+    if (currentPath !== "/admin/nacionales") {
+      navActionItems.push(
+        <Link key="adminAudit" to="/admin/nacionales" className={twClasses.adminButtonLink}>
+          Formatos Nacionales
         </Link>
       );
     }
