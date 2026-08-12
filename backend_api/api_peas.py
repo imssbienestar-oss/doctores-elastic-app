@@ -5,6 +5,9 @@ from sqlalchemy import desc, func
 from calendar import monthrange
 from fastapi import File, UploadFile, Form
 from botocore.config import Config
+import pandas as pd
+from io import BytesIO
+from pydantic import BaseModel
 
 
 # Importa tus módulos locales (ajusta los puntos si tu estructura es distinta)
