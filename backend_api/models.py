@@ -205,8 +205,10 @@ class ReporteQuincenal(Base):
     
     # Aquí es donde guardaremos la URL de Backblaze
     url_documento = Column(String(500), nullable=True) 
+    url_excel = Column(String(500), nullable=True)
     
     estado = Column(Enum(EstadoReporte), default=EstadoReporte.PENDIENTE)
+    observaciones = Column(String(1000))
     
     # Auditoría
     fecha_subida = Column(DateTime(timezone=True), server_default=func.now())
@@ -232,3 +234,25 @@ class BitacoraEstatalValidada(Base):
     # Datos de auditoría
     validado_por = Column(String) # ID o correo del coordinador que dio el clic
     fecha_validacion = Column(DateTime(timezone=True), server_default=func.now())
+
+class FormatoEstatalFirmado(Base):
+    __tablename__ = "formatos_estatales_firmados"
+
+    id = Column(Integer, primary_key=True, index=True)
+    entidad = Column(String(50), index=True) # Ej. "BC"
+    quincena = Column(String(20), index=True) # Ej. "2026-08-Q1"
+    url_documento = Column(String(500), nullable=False) # Ruta en Backblaze B2
+    fecha_subida = Column(DateTime(timezone=True), server_default=func.now())
+    subido_por = Column(String(100)) # ID del coordinador
+    estado = Column(Enum(EstadoReporte), default=EstadoReporte.PENDIENTE)
+    observaciones = Column(String(1000))
+        
+
+class FormatoNacionalFirmado(Base):
+    __tablename__ = "formatos_nacionales_firmados"
+
+    id = Column(Integer, primary_key=True, index=True)
+    quincena = Column(String(20), index=True, unique=True) # Solo puede haber UNO por quincena a nivel nacional
+    url_documento = Column(String(500), nullable=False)
+    fecha_subida = Column(DateTime(timezone=True), server_default=func.now())
+    subido_por = Column(String(100))
