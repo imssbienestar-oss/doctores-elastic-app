@@ -1,10 +1,14 @@
 # api_peas.py
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, func
+from sqlalchemy import desc, func, or_
 from calendar import monthrange
 from fastapi import File, UploadFile, Form
 from botocore.config import Config
+import pandas as pd
+from io import BytesIO
+from pydantic import BaseModel
+from fastapi.responses import FileResponse
 
 
 # Importa tus módulos locales (ajusta los puntos si tu estructura es distinta)
@@ -24,8 +28,31 @@ router = APIRouter(
     tags=["PEAS Asistencia"]
 )
 
+
+s3_client = boto3.client(
+   's3',
+    endpoint_url=os.getenv('B2_ENDPOINT'),
+    aws_access_key_id=os.getenv('B2_KEY_ID'),
+    aws_secret_access_key=os.getenv('B2_APPLICATION_KEY'),
+    config=Config(
+        signature_version='s3v4',
+        s3={'addressing_style': 'virtual'}
+    )
+)
+
 class RechazoRequest(BaseModel):
     observaciones: str
+
+import pytz
+mx_tz = pytz.timezone('America/Mexico_City')
+utc_tz = pytz.utc
+
+def formatear_fecha_local(fecha_utc):
+    if not fecha_utc:
+        return "Sin fecha"
+    if fecha_utc.tzinfo is None:
+        fecha_utc = utc_tz.localize(fecha_utc)
+    return fecha_utc.astimezone(mx_tz).strftime("%Y-%m-%d %H:%M")
 
 @router.post("/usuarios-acceso", response_model=schemas.UsuarioAccesoResponse, tags=["Gestión de Accesos"])
 async def registrar_usuario_acceso(
@@ -169,7 +196,8 @@ async def obtener_reportes_pendientes_estado(entidad: str, db: Session = Depends
             "unidad": doctor.nombre_unidad or "Sin Unidad",
             "quincena": reporte.quincena,
             "url_pdf": reporte.url_documento,
-            "subido_por": reporte.subido_por
+            "subido_por": reporte.subido_por,
+            "dias": reporte.total_dias
         })
         
     return resultado
@@ -232,25 +260,13 @@ async def subir_reporte_y_excel(
         raise HTTPException(status_code=404, detail="Médico no encontrado")
 
     # 2. Subir ambos archivos a Backblaze B2
-    bucket_name = os.getenv('B2_BUCKET_NAME')
-    nombre_pdf = f"reportes/{anio}/{mes:02d}/Q{quincena}/{id_imss}_FIRMADO.pdf"
-    nombre_excel = f"reportes/{anio}/{mes:02d}/Q{quincena}/{id_imss}_DATOS.xlsx"
-
-    try:
-        # Subir PDF
-        s3_client.upload_fileobj(archivo_pdf.file, bucket_name, nombre_pdf, ExtraArgs={"ContentType": "application/pdf"})
-        
-        # Subir Excel (necesitamos leerlo en memoria primero para procesarlo y luego subirlo)
-        excel_contents = await archivo_excel.read()
-        s3_client.upload_fileobj(BytesIO(excel_contents), bucket_name, nombre_excel, ExtraArgs={"ContentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"})
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al subir archivos a la nube: {str(e)}")
-
-    # 3. Guardar el registro principal del Reporte en la BD
     periodo_str = f"{anio}-{mes:02d}-Q{quincena}"
     fecha_ini = date(anio, mes, 1) if quincena == 1 else date(anio, mes, 16)
     fecha_fin = date(anio, mes, 15) if quincena == 1 else date(anio, mes, monthrange(anio, mes)[1])
     
+    bucket_name = os.getenv('B2_BUCKET_NAME')
+    nombre_pdf = f"reportes/{anio}/{mes:02d}/Q{quincena}/{id_imss}_FIRMADO.pdf"
+    nombre_excel = f"reportes/{anio}/{mes:02d}/Q{quincena}/{id_imss}_DATOS.xlsx"
 
     reporte_existente = db.query(models.ReporteQuincenal).filter(
         models.ReporteQuincenal.id_imss == id_imss,
@@ -264,12 +280,15 @@ async def subir_reporte_y_excel(
                 detail=f"La quincena {periodo_str} ya fue APROBADA por el Coordinador Estatal. Si necesitas corregirla, contáctalo directamente."
             )
         else:
+            # Borramos los archivos viejos de Backblaze PRIMERO
             if reporte_existente.url_documento:
                 try: s3_client.delete_object(Bucket=bucket_name, Key=reporte_existente.url_documento)
                 except: pass
             if getattr(reporte_existente, 'url_excel', None):
                 try: s3_client.delete_object(Bucket=bucket_name, Key=reporte_existente.url_excel)
                 except: pass
+            
+            # Borramos de la BD las asistencias y el reporte viejo
             db.delete(reporte_existente)
             db.query(models.PeasAsistencia).filter(
                 models.PeasAsistencia.id_imss == id_imss,
@@ -278,13 +297,26 @@ async def subir_reporte_y_excel(
             ).delete(synchronize_session=False)
             db.commit()
 
+    # 3. Ahora sí, subimos los archivos NUEVOS a la nube con el camino totalmente libre
+    try:
+        excel_contents = await archivo_excel.read() # Leemos el excel primero para tenerlo listo
+        
+        # Subir PDF
+        s3_client.upload_fileobj(archivo_pdf.file, bucket_name, nombre_pdf, ExtraArgs={"ContentType": "application/pdf"})
+        
+        # Subir Excel
+        s3_client.upload_fileobj(BytesIO(excel_contents), bucket_name, nombre_excel, ExtraArgs={"ContentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al subir archivos a la nube: {str(e)}")
+
+    # 4. Crear el nuevo registro principal en la BD
     nuevo_reporte = models.ReporteQuincenal(
         id_imss=id_imss,
         quincena=periodo_str,
         fecha_inicio=fecha_ini,
         fecha_fin=fecha_fin,
         url_documento=nombre_pdf,
-        url_excel=nombre_excel, # Asegúrate de haber agregado este campo en models.py
+        url_excel=nombre_excel,
         subido_por=subido_por
     )
     db.add(nuevo_reporte)
@@ -295,6 +327,7 @@ async def subir_reporte_y_excel(
     mx_tz = pytz.timezone('America/Mexico_City')
     
     asistencias_a_guardar = []
+    dias_validos = 0 
 
     for index, row in df.iterrows():
         if pd.isna(row.get('FECHA (DD/MM/AAAA)')):
@@ -302,34 +335,45 @@ async def subir_reporte_y_excel(
 
         fecha_cruda = pd.to_datetime(row['FECHA (DD/MM/AAAA)'], dayfirst=True)
         
-        entrada_val = str(row.get('HORA_ENTRADA (HH:MM)', '')).strip()[:5]
-        salida_val = str(row.get('HORA_SALIDA (HH:MM)', '')).strip()[:5]
+        # Leemos los valores crudos exactamente igual que en tu previsualizador
+        entrada_val = row.get('HORA_ENTRADA (HH:MM)')
+        salida_val = row.get('HORA_SALIDA (HH:MM)')
 
-        # Si hay hora de entrada válida
-        if entrada_val and entrada_val != "nan" and entrada_val != "--:--":
-            # Combinar fecha y hora, y convertir a UTC para guardar en BD
-            dt_entrada_local = mx_tz.localize(datetime.strptime(f"{fecha_cruda.strftime('%Y-%m-%d')} {entrada_val}", "%Y-%m-%d %H:%M"))
+        # Validamos de forma segura con Pandas
+        hora_entrada = str(entrada_val).strip() if pd.notnull(entrada_val) and str(entrada_val).strip() != "" else "--:--"
+        hora_salida = str(salida_val).strip() if pd.notnull(salida_val) and str(salida_val).strip() != "" else "--:--"
+
+        # Sumamos 1 día si hay registro de entrada o salida
+        if hora_entrada != "--:--" or hora_salida != "--:--":
+            dias_validos += 1
+
+        # Formateo y guardado de Entradas
+        if hora_entrada != "--:--":
+            entrada_limpia = hora_entrada[:5] # Extraemos solo HH:MM por seguridad
+            dt_entrada_local = mx_tz.localize(datetime.strptime(f"{fecha_cruda.strftime('%Y-%m-%d')} {entrada_limpia}", "%Y-%m-%d %H:%M"))
             dt_entrada_utc = dt_entrada_local.astimezone(pytz.utc).replace(tzinfo=None)
-            
             asistencias_a_guardar.append(models.PeasAsistencia(id_imss=id_imss, tipo="Entrada", fecha_hora=dt_entrada_utc))
 
-        # Si hay hora de salida válida
-        if salida_val and salida_val != "nan" and salida_val != "--:--":
-            dt_salida_local = mx_tz.localize(datetime.strptime(f"{fecha_cruda.strftime('%Y-%m-%d')} {salida_val}", "%Y-%m-%d %H:%M"))
+        # Formateo y guardado de Salidas
+        if hora_salida != "--:--":
+            salida_limpia = hora_salida[:5]
+            dt_salida_local = mx_tz.localize(datetime.strptime(f"{fecha_cruda.strftime('%Y-%m-%d')} {salida_limpia}", "%Y-%m-%d %H:%M"))
             dt_salida_utc = dt_salida_local.astimezone(pytz.utc).replace(tzinfo=None)
-            
             asistencias_a_guardar.append(models.PeasAsistencia(id_imss=id_imss, tipo="Salida", fecha_hora=dt_salida_utc))
 
     # Guardamos todas las asistencias de golpe (Bulk Insert)
     if asistencias_a_guardar:
         db.add_all(asistencias_a_guardar)
 
+    # 👇 LE ASIGNAMOS EL CONTEO EXACTO
+    nuevo_reporte.total_dias = dias_validos
+
     # Confirmamos todos los cambios en la base de datos
     db.commit()
 
     return {
         "mensaje": "Archivos subidos y asistencias registradas exitosamente.",
-        "dias_procesados": len(asistencias_a_guardar) // 2
+        "dias_procesados": dias_validos
     }
 
 @router.get("/reporte-quincenal/ver-documento", tags=["Reportes PEAS"])
@@ -422,15 +466,18 @@ async def subir_formato_estatal(
     nombre_unico = f"formatos_estatales/{anio}/{mes:02d}/Q{quincena}/{entidad}_FORMATO2.pdf"
 
     try:
-        # Subimos el nuevo archivo
+        # 1. SI YA HABÍA UNO VIEJO, LO BORRAMOS DE B2 PRIMERO 
+        # (Esto libera el nombre exacto en la nube antes de subir el nuevo)
+        if formato_existente and formato_existente.url_documento:
+            try: 
+                s3_client.delete_object(Bucket=bucket_name, Key=formato_existente.url_documento)
+            except Exception: 
+                pass
+
+        # 2. SUBIMOS EL NUEVO ARCHIVO CON EL CAMINO TOTALMENTE LIBRE
         s3_client.upload_fileobj(
             archivo.file, bucket_name, nombre_unico, ExtraArgs={"ContentType": "application/pdf"}
         )
-        
-        # Si ya había uno viejo, lo borramos de B2 para no hacer basura
-        if formato_existente and formato_existente.url_documento:
-            try: s3_client.delete_object(Bucket=bucket_name, Key=formato_existente.url_documento)
-            except: pass
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al subir a la nube: {str(e)}")
@@ -440,7 +487,6 @@ async def subir_formato_estatal(
         formato_existente.url_documento = nombre_unico
         formato_existente.fecha_subida = func.now()
         formato_existente.subido_por = subido_por
-
         formato_existente.estado = models.EstadoReporte.PENDIENTE 
         formato_existente.observaciones = None
     else:
@@ -471,7 +517,7 @@ async def obtener_historial_formatos(entidad: str, db: Session = Depends(get_db)
         historial.append({
             "id": f.id,
             "quincena": f.quincena,
-            "fecha_subida": f.fecha_subida.strftime("%Y-%m-%d %H:%M") if f.fecha_subida else "Sin fecha",
+            "fecha_subida": formatear_fecha_local(f.fecha_subida),
             "subido_por": f.subido_por,
             "url_documento": f.url_documento,
             "estado": f.estado.value if hasattr(f.estado, 'value') else f.estado, 
@@ -644,7 +690,7 @@ async def obtener_historial_nacional(db: Session = Depends(get_db)):
         historial.append({
             "id": f.id,
             "quincena": f.quincena,
-            "fecha_subida": f.fecha_subida.strftime("%Y-%m-%d %H:%M") if f.fecha_subida else "Sin fecha",
+            "fecha_subida": formatear_fecha_local(f.fecha_subida),
             "subido_por": f.subido_por,
             "url_documento": f.url_documento
         })
@@ -656,16 +702,25 @@ async def obtener_estado_subidos(anio: str, mes: str, quincena: str, db: Session
     mes_formateado = mes.zfill(2) 
     periodo_buscado = f"{anio}-{mes_formateado}-Q{quincena}"
     
-    reportes = db.query(models.ReporteQuincenal).filter(
-        models.ReporteQuincenal.quincena == periodo_buscado
-    ).all()
+    # 1. Hacemos un JOIN con models.Doctor para traer sus datos
+    reportes = db.query(models.ReporteQuincenal, models.Doctor)\
+        .outerjoin(models.Doctor, models.ReporteQuincenal.id_imss == models.Doctor.id_imss)\
+        .filter(models.ReporteQuincenal.quincena == periodo_buscado)\
+        .all()
     
     estado_reportes = {}
-    for rep in reportes:
-        # Extraemos el valor del enum (PENDIENTE, APROBADO, RECHAZADO)
+    for rep, doc in reportes:
+        # 2. Armamos el nombre completo aquí en el servidor
+        if doc:
+            nombre_completo = f"{doc.nombre} {doc.apellido_paterno or ''} {doc.apellido_materno or ''}".strip()
+        else:
+            nombre_completo = f"Médico ID: {rep.id_imss}"
+
+        # 3. Extraemos el valor del enum e inyectamos el nombre
         estado_reportes[rep.id_imss] = {
             "estado": rep.estado.value if hasattr(rep.estado, 'value') else rep.estado,
-            "observaciones": rep.observaciones
+            "observaciones": rep.observaciones,
+            "nombre_medico": nombre_completo # <-- AQUÍ VA EL NOMBRE REAL
         }
         
     return estado_reportes
@@ -717,7 +772,7 @@ async def obtener_estado_formatos_estatales(anio: int, mes: str, quincena: int, 
             "url_documento": f.url_documento,
             "estado": f.estado.value if hasattr(f.estado, 'value') else f.estado,
             "observaciones": f.observaciones,
-            "fecha_subida": f.fecha_subida.strftime("%Y-%m-%d %H:%M") if f.fecha_subida else "Sin fecha"
+            "fecha_subida": formatear_fecha_local(f.fecha_subida)
         })
         
     return resultado
@@ -746,6 +801,9 @@ async def obtener_reportes_validados(entidad: str, periodo: str, db: Session = D
     
     validados = []
     for reg in registros:
+        reporte_orig = db.query(models.ReporteQuincenal).filter(
+            models.ReporteQuincenal.id == reg.id_reporte_quincenal
+        ).first()
         validados.append({
             "id_bitacora": reg.id,
             "id_reporte": reg.id_reporte_quincenal,
@@ -756,7 +814,8 @@ async def obtener_reportes_validados(entidad: str, periodo: str, db: Session = D
             "id_imss": reg.id_imss,
             "especialidad": reg.especialidad,
             "turno": reg.turno,
-            "dias": reg.dias_participacion
+            "dias": reg.dias_participacion,
+            "url_pdf": reporte_orig.url_documento if reporte_orig else None
         })
         
     return validados
@@ -782,6 +841,37 @@ async def revocar_reporte(id_reporte: int, req: RevocarRequest, db: Session = De
     
     db.commit()
     return {"mensaje": "Reporte revocado exitosamente y devuelto a la unidad."}
+
+@router.get("/coordinador/descargar-plantilla-excel", tags=["Reportes PEAS"])
+async def descargar_plantilla_excel():
+    # Obtenemos la ruta absoluta de la carpeta donde vive este archivo (api_peas.py)
+    directorio_actual = os.path.dirname(os.path.abspath(__file__))
+    
+    # Apuntamos exactamente al nombre que tienes en tu captura: asistencia_prueba.xlsx
+    ruta_archivo = os.path.join(directorio_actual, "asistencia_prueba.xlsx")
+    
+    if not os.path.exists(ruta_archivo):
+        raise HTTPException(status_code=404, detail="La plantilla oficial no se encuentra en el servidor.")
+        
+    return FileResponse(
+        path=ruta_archivo, 
+        filename="Plantilla_Asistencia_Formato1.xlsx",
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+@router.get("/coordinador/descargar-instructivo-pdf", tags=["Reportes PEAS"])
+async def descargar_instructivo_pdf():
+    directorio_actual = os.path.dirname(os.path.abspath(__file__))
+    ruta_archivo = os.path.join(directorio_actual, "formato1.pdf")
+    
+    if not os.path.exists(ruta_archivo):
+        raise HTTPException(status_code=404, detail="El documento PDF no se encuentra en el servidor.")
+        
+    return FileResponse(
+        path=ruta_archivo, 
+        filename="Formato1.pdf",
+        media_type="application/pdf"
+    )
 
 """
 @router.post("/asistencia")
