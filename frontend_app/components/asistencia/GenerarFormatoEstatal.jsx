@@ -218,23 +218,9 @@ export default function GenerarFormatoEstatal() {
                     <button
                         onClick={abrirHistorial}
                         style={{ backgroundColor: COLORS.white, color: COLORS.primary, border: `1px solid ${COLORS.primary}`, padding: "8px 16px", borderRadius: "4px", cursor: "pointer", fontWeight: "bold", boxShadow: "0 2px 4px rgba(0,0,0,0.05)", transition: "0.2s" }}>
-                        📂 Ver Historial de Resguardos
+                        Ver Historial de Resguardos
                     </button>
                 </div>
-
-                {String(estadoActual).toUpperCase().includes("RECHAZADO") && (
-                    <div className="no-print" style={{ backgroundColor: "#fde8e8", border: "1px solid #9F2241", borderLeft: "5px solid #9F2241", padding: "15px 20px", borderRadius: "4px", marginBottom: "25px", display: "flex", flexDirection: "column", gap: "5px" }}>
-                        <h4 style={{ color: "#9F2241", margin: 0, display: "flex", alignItems: "center", gap: "8px", fontSize: "15px" }}>
-                            ⚠️ ATENCIÓN: FORMATO RECHAZADO POR NIVEL NACIONAL
-                        </h4>
-                        <p style={{ margin: "5px 0 0 0", color: "#374151", fontSize: "14px" }}>
-                            <strong>Motivo del rechazo:</strong> {observacionesRechazo}
-                        </p>
-                        <p style={{ margin: "10px 0 0 0", color: "#6b7280", fontSize: "12px", fontStyle: "italic" }}>
-                            Por favor, revise y corrija la información en el Paso 1, recabe nuevamente las firmas, y vuelva a subir el documento corregido en el Paso 2 para continuar con su validación.
-                        </p>
-                    </div>
-                )}
 
                 {/* PASO 1: GENERACIÓN */}
                 <div className="no-print" style={{ background: COLORS.white, padding: "25px", borderRadius: "8px", boxShadow: "0 4px 6px rgba(0,0,0,0.05)", marginBottom: "30px", border: `1px solid ${COLORS.border}` }}>
@@ -398,6 +384,7 @@ export default function GenerarFormatoEstatal() {
                             <h3 style={{ fontSize: "12px", margin: 0, textTransform: "uppercase", color: "#111" }}>
                                 BITÁCORA ESTATAL DE COOPERACIÓN TÉCNICA, CIENTÍFICA Y ACADÉMICA DE LOS PROFESIONALES DE LA SALUD DE LA BRIGADA MÉDICA CUBANA
                             </h3>
+                            <div style={{ fontSize: "11px", fontWeight: "bold", color: COLORS.primary, margin: "4px 0" }}>FORMATO 2</div>
                         </div>
                         <div style={{ width: "200px", textAlign: "right", fontSize: "10px", fontWeight: "bold", color: "#111" }}>
                             MINISTERIO DE SALUD PÚBLICA<br />República de Cuba
