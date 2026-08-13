@@ -38,11 +38,21 @@ export default function FormatosNacionales() {
     const [formatosEstatales, setFormatosEstatales] = useState([]);
     const [cargandoFormatos, setCargandoFormatos] = useState(false);
 
+    const [filtroQuincena, setFiltroQuincena] = useState("completo");
+
     const getTextoPeriodo = () => {
         const meses = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"];
         const nombreMes = meses[parseInt(mes) - 1];
-        if (quincena === "1") return `01 AL 15 DE ${nombreMes} DE ${anio}`;
-        return `16 AL FIN DE ${nombreMes} DE ${anio}`;
+
+        const ultimoDia = new Date(parseInt(anio), parseInt(mes), 0).getDate();
+
+        if (quincena === "completo") {
+            return `1 AL ${ultimoDia} DE ${nombreMes} DE ${anio}`;
+        } else if (quincena === "1") {
+            return `1 AL 15 DE ${nombreMes} DE ${anio}`;
+        } else {
+            return `16 AL ${ultimoDia} DE ${nombreMes} DE ${anio}`;
+        }
     };
 
     const cargarYDescargar = async (tipoFormato) => {
@@ -303,8 +313,9 @@ export default function FormatosNacionales() {
                             </select>
                         </div>
                         <div>
-                            <label style={{ fontSize: "12px", fontWeight: "bold", color: "#374151", display: "block", marginBottom: "6px" }}>Quincena:</label>
+                            <label style={{ fontSize: "12px", fontWeight: "bold", color: "#374151", display: "block", marginBottom: "6px" }}>Periodo a Descargar:</label>
                             <select value={quincena} onChange={(e) => setQuincena(e.target.value)} style={{ width: "100%", padding: "10px", borderRadius: "4px", border: `1px solid ${COLORS.border}` }}>
+                                <option value="completo">Mes Completo (Q1 y Q2)</option>
                                 <option value="1">1ra Quincena (01-15)</option>
                                 <option value="2">2da Quincena (16-Fin)</option>
                             </select>
@@ -482,8 +493,12 @@ export default function FormatosNacionales() {
                         <div style={{ width: "200px", color: COLORS.primary, fontWeight: "bold", fontSize: "16px" }}>IMSS-BIENESTAR<br /><span style={{ fontSize: "10px", fontWeight: "normal" }}>SERVICIOS PÚBLICOS DE SALUD</span></div>
                         <div style={{ textAlign: "center", flex: 1, padding: "0 20px" }}>
                             <h3 style={{ fontSize: "11px", margin: 0, textTransform: "uppercase" }}>BITÁCORA NACIONAL DE COOPERACIÓN TÉCNICA, CIENTÍFICA Y ACADÉMICA DE LOS PROFESIONALES DE LA SALUD DE LA BRIGADA MÉDICA CUBANA</h3>
-                            <div style={{ fontSize: "11px", fontWeight: "bold", color: COLORS.primary, margin: "4px 0" }}>FORMATO 3</div>
-                            <h4 style={{ fontSize: "10px", margin: "5px 0" }}>{getTextoPeriodo()}</h4>
+                            <div style={{ textAlign: "center", marginBottom: "20px" }}>
+                                <div style={{ fontSize: "11px", fontWeight: "bold", color: COLORS.primary, marginBottom: "4px" }}>FORMATO 3</div>
+                                <div style={{ fontSize: "11px", fontWeight: "bold", textTransform: "uppercase" }}>
+                                    PERIODO &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; {getTextoPeriodo()}
+                                </div>
+                            </div>
                         </div>
                         <div style={{ width: "200px", textAlign: "right", fontSize: "10px", fontWeight: "bold" }}>MINISTERIO DE SALUD PÚBLICA<br />República de Cuba</div>
                     </div>
@@ -546,7 +561,7 @@ export default function FormatosNacionales() {
                     <div style={{ textAlign: "center", marginBottom: "20px" }}>
                         <div style={{ fontSize: "11px", fontWeight: "bold", color: COLORS.primary, marginBottom: "4px" }}>FORMATO 4</div>
                         <div style={{ fontSize: "11px", fontWeight: "bold", textTransform: "uppercase" }}>
-                            PERIODO &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; {getTextoPeriodo()}
+                            PERIODO &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; {getTextoPeriodo()}
                         </div>
                     </div>
 
