@@ -43,6 +43,8 @@ export default function ReporteQuincenal() {
     const [estadoReportes, setEstadoReportes] = useState({});
     const [refreshKey, setRefreshKey] = useState(0);
 
+    const [autorizado, setAutorizado] = useState(false);
+
     // 1. Cargar los médicos de la unidad
     useEffect(() => {
         const fetchMedicosUnidad = async () => {
@@ -151,7 +153,7 @@ export default function ReporteQuincenal() {
 
             Swal.fire({
                 title: "¡Proceso Completado!",
-                text: `${data.mensaje} (${data.dias_procesados} días extraídos)`,
+                text: `${data.mensaje} (${data.dias_procesados} días registrados)`,
                 icon: "success",
                 confirmButtonColor: COLORS.primary
             });
@@ -190,6 +192,29 @@ export default function ReporteQuincenal() {
         if (token) fetchEstadoSubidos();
     }, [anioSeleccionado, mesSeleccionado, quincenaSeleccionada, token, refreshKey]);
 
+    const reportesRechazados = Object.entries(estadoReportes)
+        .filter(([id_imss, rep]) => String(rep.estado).toUpperCase().includes("RECHAZADO"))
+        .map(([id_imss, rep]) => {
+            // Ya no buscamos en el array local de 'medicos', usamos el nombre exacto de la base de datos
+            const nombreMostrar = rep.nombre_medico || `Médico ID: ${id_imss}`;
+            return { id_imss, nombre: nombreMostrar, observaciones: rep.observaciones };
+        });
+
+    // 2. Función mágica para scrollear hacia el médico
+    const irAlMedico = (id_imss) => {
+        const fila = document.getElementById(`fila-${id_imss}`);
+        if (fila) {
+            // Bajamos la pantalla suavemente
+            fila.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Iluminamos la fila de amarillo temporalmente
+            const colorOriginal = fila.style.backgroundColor;
+            fila.style.backgroundColor = "#fff3cd";
+            setTimeout(() => { fila.style.backgroundColor = colorOriginal; }, 2000);
+        } else {
+            Swal.fire("Paginación", "Este médico se encuentra en otra página de la lista. Usa los botones de Siguiente/Anterior abajo.", "info");
+        }
+    };
+
     return (
         <div style={{ backgroundColor: COLORS.bg, minHeight: "100vh", padding: "20px", fontFamily: "Arial, sans-serif" }}>
 
@@ -197,6 +222,99 @@ export default function ReporteQuincenal() {
                 <h2 style={{ color: COLORS.primary, fontSize: "24px", marginBottom: "15px", borderBottom: `2px solid ${COLORS.secondary}`, paddingBottom: "10px" }}>
                     Carga de Asistencia Quincenal (Dual)
                 </h2>
+
+                <div style={{
+                    backgroundColor: "#ffffff",
+                    border: `1px solid ${COLORS.border}`,
+                    borderLeft: `4px solid ${COLORS.secondary}`,
+                    padding: "16px 20px",
+                    borderRadius: "6px",
+                    marginBottom: "20px",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: "15px",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.02)"
+                }}>
+                    <div>
+                        <h4 style={{ color: COLORS.primary, margin: "0 0 4px 0", fontSize: "14px", fontWeight: "bold", textTransform: "uppercase", letterSpacing: "0.3px" }}>
+                            Documentación de Apoyo y Plantillas
+                        </h4>
+                        <p style={{ margin: 0, fontSize: "13px", color: "#4b5563" }}>
+                            Descargue la plantilla oficial en Excel y el instructivo en PDF para el llenado correcto de las asistencias.
+                        </p>
+                    </div>
+                    <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                        <a
+                            href={`${API_BASE_URL}/api/peas/coordinador/descargar-plantilla-excel`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                                backgroundColor: COLORS.primary,
+                                color: "white",
+                                padding: "9px 14px",
+                                borderRadius: "4px",
+                                textDecoration: "none",
+                                fontSize: "12px",
+                                fontWeight: "bold",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "6px",
+                                boxShadow: "0 1px 2px rgba(0,0,0,0.1)"
+                            }}
+                        >
+                            <span>📄</span> Descargar Excel (Formato 1)
+                        </a>
+                        <a
+                            href={`${API_BASE_URL}/api/peas/coordinador/descargar-instructivo-pdf`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                                backgroundColor: "#9F2241", // Guinda institucional para diferenciar el PDF
+                                color: "white",
+                                padding: "9px 14px",
+                                borderRadius: "4px",
+                                textDecoration: "none",
+                                fontSize: "12px",
+                                fontWeight: "bold",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "6px",
+                                boxShadow: "0 1px 2px rgba(0,0,0,0.1)"
+                            }}
+                        >
+                            <span>📕</span> Descargar Instructivo PDF
+                        </a>
+                    </div>
+                </div>
+
+                {reportesRechazados.length > 0 && (
+                    <div className="no-print" style={{ backgroundColor: "#fde8e8", border: "1px solid #9F2241", borderLeft: "5px solid #9F2241", padding: "15px 20px", borderRadius: "4px", marginBottom: "20px" }}>
+                        <h4 style={{ color: "#9F2241", margin: 0, display: "flex", alignItems: "center", gap: "8px", fontSize: "15px" }}>
+                            ⚠️ ATENCIÓN: FORMATOS DEVUELTOS POR COORDINACIÓN ESTATAL
+                        </h4>
+                        <p style={{ margin: "10px 0 5px 0", color: "#374151", fontSize: "14px" }}>
+                            Se encontraron inconsistencias en los siguientes registros:
+                        </p>
+                        <ul style={{ margin: "0 0 10px 0", paddingLeft: "25px", color: "#9F2241", fontSize: "13px" }}>
+                            {reportesRechazados.map((rep, idx) => (
+                                <li key={idx} style={{ marginBottom: "6px" }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => irAlMedico(rep.id_imss)}
+                                        style={{ background: 'none', border: 'none', color: '#9F2241', fontWeight: 'bold', textDecoration: 'underline', cursor: 'pointer', padding: 0, fontSize: '13px' }}>
+                                        {rep.nombre}
+                                    </button>
+                                    <span style={{ color: "#374151" }}> — {rep.observaciones}</span>
+                                </li>
+                            ))}
+                        </ul>
+                        <p style={{ margin: "0", color: "#6b7280", fontSize: "12px", fontStyle: "italic" }}>
+                            Por favor, genera las correcciones necesarias y utiliza el botón "Corregir Formatos" en las filas resaltadas.
+                        </p>
+                    </div>
+                )}
 
                 {/* Controles globales de periodo */}
                 <div style={{ display: "flex", gap: "15px", marginBottom: "20px", background: "#f8f9fa", padding: "12px", borderRadius: "6px", alignItems: "center" }}>
@@ -248,13 +366,13 @@ export default function ReporteQuincenal() {
                                         const reporte = estadoReportes[doc.id_imss];
                                         const estaSubido = !!reporte;
                                         const esRechazado = String(reporte?.estado).toUpperCase().trim() === "RECHAZADO" || String(reporte?.estado).toUpperCase().includes("RECHAZADO");
-                                        const estaAprobado = reporte?.estado === "APROBADO";
+                                        const estaAprobado = String(reporte?.estado).toUpperCase() === "APROBADO" || String(reporte?.estado).toUpperCase() === "VALIDADO";
 
                                         // Definimos el color de fondo (Rojo claro si está rechazado)
                                         const bgColor = esRechazado ? "#fde8e8" : (index % 2 === 0 ? "#ffffff" : "#f9fafb");
 
                                         return (
-                                            <tr key={doc.id_imss} style={{ borderBottom: "1px solid #e5e7eb", backgroundColor: bgColor, transition: "background-color 0.2s" }}>
+                                            <tr id={`fila-${doc.id_imss}`} key={doc.id_imss} style={{ borderBottom: "1px solid #e5e7eb", backgroundColor: bgColor, transition: "background-color 0.5s ease" }}>
                                                 <td style={{ padding: "14px 15px", fontWeight: "bold", color: "#374151" }}>{doc.id_imss}</td>
                                                 <td style={{ padding: "14px 15px", color: "#111827" }}>
                                                     {doc.nombre} {doc.apellido_paterno} {doc.apellido_materno}
@@ -273,63 +391,25 @@ export default function ReporteQuincenal() {
                                                 </td>
                                                 <td style={{ padding: "14px 15px", textAlign: "center", verticalAlign: "middle" }}>
 
-                                                    {/* SI ESTÁ RECHAZADO, MOSTRAMOS LA ALERTA Y EL MOTIVO */}
-                                                    {esRechazado && (
-                                                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "10px" }}>
-                                                            <span style={{
-                                                                color: COLORS.danger,
-                                                                fontWeight: "800",
-                                                                fontSize: "11px",
-                                                                letterSpacing: "0.5px",
-                                                                backgroundColor: "#fff",
-                                                                padding: "2px 6px",
-                                                                borderRadius: "4px",
-                                                                border: `1px solid ${COLORS.danger}`
-                                                            }}>
-                                                                ❌ RECHAZADO
-                                                            </span>
-                                                            <button
-                                                                onClick={() => Swal.fire({
-                                                                    title: 'Motivo de Rechazo',
-                                                                    text: reporte.observaciones,
-                                                                    icon: 'warning',
-                                                                    confirmButtonColor: COLORS.primary
-                                                                })}
-                                                                style={{
-                                                                    background: 'none',
-                                                                    border: 'none',
-                                                                    color: COLORS.secondary, // Usamos el color dorado/café
-                                                                    cursor: 'pointer',
-                                                                    fontSize: '12px',
-                                                                    fontWeight: 'bold',
-                                                                    textDecoration: 'underline',
-                                                                    marginTop: "6px"
-                                                                }}>
-                                                                Leer observaciones
-                                                            </button>
-                                                        </div>
-                                                    )}
-
-                                                    {/* BOTÓN DE ACCIÓN DINÁMICO */}
                                                     <button
                                                         onClick={() => setDoctorSubida(doc)}
                                                         disabled={estaAprobado}
                                                         style={{
-                                                            backgroundColor: esRechazado ? COLORS.danger : (estaSubido ? "#10312B" : "#B08D55"),
+                                                            backgroundColor: estaAprobado ? "#15803d" : (esRechazado ? COLORS.danger : (estaSubido ? "#10312B" : "#B08D55")),
                                                             color: "white",
                                                             border: "none",
                                                             padding: "8px 12px",
                                                             borderRadius: "4px",
                                                             cursor: estaAprobado ? "not-allowed" : "pointer",
                                                             fontWeight: "bold",
-                                                            width: "140px",
+                                                            width: "160px",
                                                             whiteSpace: "nowrap",
                                                             fontSize: "11px",
-                                                            boxShadow: esRechazado ? "0 2px 4px rgba(159, 34, 65, 0.3)" : "none", // Sombra sutil al botón rojo
-                                                            opacity: estaAprobado ? 0.6 : 1,
+                                                            boxShadow: esRechazado ? "0 2px 4px rgba(159, 34, 65, 0.3)" : "none",
+                                                            opacity: estaAprobado ? 0.9 : 1,
                                                             transition: "all 0.2s"
                                                         }}>
-                                                        {estaAprobado ? "✅ Aprobado" : (esRechazado ? "Corregir Formatos" : (estaSubido ? "Actualizar Formatos" : "Subir Formatos"))}
+                                                        {estaAprobado ? "Validado por Coordinador" : (esRechazado ? "Corregir Formatos" : (estaSubido ? "Actualizar Formatos" : "Subir Formatos"))}
                                                     </button>
                                                 </td>
                                             </tr>
@@ -412,7 +492,7 @@ export default function ReporteQuincenal() {
                             )}
 
                             {/* CAJA 2: EL PDF FIRMADO */}
-                            <div style={{ border: `2px dashed ${COLORS.primary}`, padding: "20px", borderRadius: "6px", marginBottom: "25px", backgroundColor: "#f4f7f6" }}>
+                            <div style={{ border: `2px dashed ${COLORS.primary}`, padding: "20px", borderRadius: "6px", marginBottom: "20px", backgroundColor: "#f4f7f6" }}>
                                 <label style={{ fontWeight: "bold", fontSize: "14px", color: COLORS.primary, display: "block", marginBottom: "10px" }}>2. Documento Legal (PDF Firmado)</label>
                                 <input
                                     type="file"
@@ -423,10 +503,39 @@ export default function ReporteQuincenal() {
                                 />
                             </div>
 
+                            <div style={{
+                                marginBottom: "20px",
+                                backgroundColor: autorizado ? "#f0fdf4" : "#f9fafb",
+                                padding: "14px 16px",
+                                borderRadius: "6px",
+                                border: `1px solid ${autorizedBorder => autorizado ? COLORS.primary : "#e5e7eb"}`,
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "12px",
+                                transition: "all 0.2s ease"
+                            }}>
+                                <input
+                                    type="checkbox"
+                                    id="check-autorizacion"
+                                    checked={autorizado}
+                                    onChange={(e) => setAutorizado(e.target.checked)}
+                                    style={{
+                                        width: "18px",
+                                        height: "18px",
+                                        cursor: "pointer",
+                                        accentColor: COLORS.primary, // Cambia el color nativo del check al verde institucional
+                                        flexShrink: 0
+                                    }}
+                                />
+                                <label htmlFor="check-autorizacion" style={{ fontSize: "12px", color: "#1f2937", cursor: "pointer", lineHeight: "1.4", fontWeight: "500" }}>
+                                    Bajo protesta de decir verdad, <strong>valido</strong> que el profesional de la salud laboró los días y horarios especificados en la documentación adjunta.
+                                </label>
+                            </div>
+
                             <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
                                 <button
                                     type="button"
-                                    onClick={cerrarModal}
+                                    onClick={() => { setAutorizado(false); cerrarModal(); }}
                                     style={{ backgroundColor: "transparent", border: "none", color: "#6b7280", fontWeight: "bold", cursor: "pointer", padding: "8px 15px" }}
                                     disabled={subiendo}
                                 >
@@ -434,8 +543,17 @@ export default function ReporteQuincenal() {
                                 </button>
                                 <button
                                     type="submit"
-                                    style={{ backgroundColor: COLORS.primary, color: "white", border: "none", borderRadius: "4px", fontWeight: "bold", cursor: subiendo ? "not-allowed" : "pointer", padding: "10px 20px" }}
-                                    disabled={subiendo || !previewData} // No deja guardar si no ha validado el Excel
+                                    style={{
+                                        backgroundColor: (subiendo || !previewData || !archivoPDF || !autorizado) ? "#9ca3af" : COLORS.primary,
+                                        color: "white",
+                                        border: "none",
+                                        borderRadius: "4px",
+                                        fontWeight: "bold",
+                                        cursor: (subiendo || !previewData || !archivoPDF || !autorizado) ? "not-allowed" : "pointer",
+                                        padding: "10px 20px",
+                                        transition: "background-color 0.2s"
+                                    }}
+                                    disabled={subiendo || !previewData || !archivoPDF || !autorizado}
                                 >
                                     {subiendo ? "Guardando en BD..." : "Guardar Documentos"}
                                 </button>
