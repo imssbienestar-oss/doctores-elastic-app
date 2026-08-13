@@ -275,7 +275,7 @@ export default function FormatosNacionales() {
                     <button
                         onClick={abrirHistorial}
                         style={{ backgroundColor: COLORS.white, color: COLORS.primary, border: `1px solid ${COLORS.primary}`, padding: "8px 16px", borderRadius: "4px", cursor: "pointer", fontWeight: "bold", boxShadow: "0 2px 4px rgba(0,0,0,0.05)", transition: "0.2s" }}>
-                        📂 Ver Historial de Resguardos
+                        Ver Historial de Resguardos
                     </button>
                 </div>
 
@@ -390,22 +390,22 @@ export default function FormatosNacionales() {
                                         <td style={{ padding: "12px", color: COLORS.textLight }}>{formato.fecha_subida}</td>
 
                                         <td style={{ padding: "12px", textAlign: "center", fontWeight: "bold", color: esAprobado ? "#15803d" : (esRechazado ? "#9F2241" : COLORS.secondary) }}>
-                                            {esAprobado ? "✅ APROBADO" : (esRechazado ? "❌ RECHAZADO" : "⏳ PENDIENTE")}
+                                            {esAprobado ? "APROBADO" : (esRechazado ? "RECHAZADO" : "PENDIENTE POR VALIDAR")}
                                         </td>
 
                                         <td style={{ padding: "12px", display: "flex", gap: "8px", justifyContent: "center" }}>
                                             {/* Ajustado a tu función verDocumentoDeNube */}
                                             <button onClick={() => verDocumentoDeNube(formato.url_documento)} style={{ backgroundColor: "#6c757d", color: "white", border: "none", padding: "6px 10px", borderRadius: "4px", cursor: "pointer", fontWeight: "bold", fontSize: "11px" }}>
-                                                 Ver PDF
+                                                Ver PDF
                                             </button>
 
                                             {!esAprobado && !esRechazado && (
                                                 <>
                                                     <button onClick={() => handleAprobarEstatal(formato.id)} style={{ backgroundColor: COLORS.primary, color: "white", border: "none", padding: "6px 10px", borderRadius: "4px", cursor: "pointer", fontWeight: "bold", fontSize: "11px" }}>
-                                                         Aprobar
+                                                        Aprobar
                                                     </button>
                                                     <button onClick={() => handleRechazarEstatal(formato)} style={{ backgroundColor: "#9F2241", color: "white", border: "none", padding: "6px 10px", borderRadius: "4px", cursor: "pointer", fontWeight: "bold", fontSize: "11px" }}>
-                                                         Rechazar
+                                                        Rechazar
                                                     </button>
                                                 </>
                                             )}
@@ -482,6 +482,7 @@ export default function FormatosNacionales() {
                         <div style={{ width: "200px", color: COLORS.primary, fontWeight: "bold", fontSize: "16px" }}>IMSS-BIENESTAR<br /><span style={{ fontSize: "10px", fontWeight: "normal" }}>SERVICIOS PÚBLICOS DE SALUD</span></div>
                         <div style={{ textAlign: "center", flex: 1, padding: "0 20px" }}>
                             <h3 style={{ fontSize: "11px", margin: 0, textTransform: "uppercase" }}>BITÁCORA NACIONAL DE COOPERACIÓN TÉCNICA, CIENTÍFICA Y ACADÉMICA DE LOS PROFESIONALES DE LA SALUD DE LA BRIGADA MÉDICA CUBANA</h3>
+                            <div style={{ fontSize: "11px", fontWeight: "bold", color: COLORS.primary, margin: "4px 0" }}>FORMATO 3</div>
                             <h4 style={{ fontSize: "10px", margin: "5px 0" }}>{getTextoPeriodo()}</h4>
                         </div>
                         <div style={{ width: "200px", textAlign: "right", fontSize: "10px", fontWeight: "bold" }}>MINISTERIO DE SALUD PÚBLICA<br />República de Cuba</div>
@@ -542,8 +543,11 @@ export default function FormatosNacionales() {
                         </div>
                         <div style={{ width: "200px", textAlign: "right", fontSize: "9px", fontWeight: "bold", color: "#111" }}>MINISTERIO DE SALUD PÚBLICA<br />República de Cuba</div>
                     </div>
-                    <div style={{ textAlign: "center", fontSize: "11px", fontWeight: "bold", marginBottom: "20px", textTransform: "uppercase" }}>
-                        PERIODO &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; {getTextoPeriodo()}
+                    <div style={{ textAlign: "center", marginBottom: "20px" }}>
+                        <div style={{ fontSize: "11px", fontWeight: "bold", color: COLORS.primary, marginBottom: "4px" }}>FORMATO 4</div>
+                        <div style={{ fontSize: "11px", fontWeight: "bold", textTransform: "uppercase" }}>
+                            PERIODO &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; {getTextoPeriodo()}
+                        </div>
                     </div>
 
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "10px", textAlign: "center", border: "1px solid black", color: "#111" }}>

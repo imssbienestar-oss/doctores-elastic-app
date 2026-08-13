@@ -202,6 +202,7 @@ class ReporteQuincenal(Base):
     quincena = Column(String(20)) # Ejemplo: "2026-08-Q1" (Año-Mes-Quincena 1 o 2)
     fecha_inicio = Column(Date)
     fecha_fin = Column(Date)
+    total_dias = Column(Integer)
     
     # Aquí es donde guardaremos la URL de Backblaze
     url_documento = Column(String(500), nullable=True) 

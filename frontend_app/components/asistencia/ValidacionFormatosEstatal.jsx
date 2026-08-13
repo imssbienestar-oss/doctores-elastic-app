@@ -32,6 +32,40 @@ export default function ValidacionFormatosEstatal() {
     const [mes, setMes] = useState("8");
     const [quincena, setQuincena] = useState("1");
     const [busqueda, setBusqueda] = useState("");
+    const [alertaNacional, setAlertaNacional] = useState({ rechazado: false, observaciones: "" });
+
+
+    useEffect(() => {
+        const verificarEstadoNacional = async () => {
+            try {
+                // Usamos el endpoint que YA EXISTE en tu sistema
+                const res = await fetch(`${API_BASE_URL}/api/peas/coordinador/historial-formatos/${entidadCoordinador}`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+
+                    // Buscamos si hay algún formato estatal que esté RECHAZADO
+                    const formatoRechazado = data.find(f => String(f.estado).toUpperCase().includes("RECHAZADO"));
+
+                    if (formatoRechazado) {
+                        setAlertaNacional({
+                            rechazado: true,
+                            observaciones: formatoRechazado.observaciones || "Sin observaciones registradas."
+                        });
+                    } else {
+                        setAlertaNacional({ rechazado: false, observaciones: "" });
+                    }
+                }
+            } catch (error) {
+                console.error("Error al verificar el estado nacional", error);
+            }
+        };
+
+        if (token && entidadCoordinador) {
+            verificarEstadoNacional();
+        }
+    }, [token, entidadCoordinador, API_BASE_URL]);
 
     // ==========================================
     // LÓGICA DE PENDIENTES
@@ -92,14 +126,19 @@ export default function ValidacionFormatosEstatal() {
     };
 
     const validarDocumento = async (reporte) => {
-        const dias = diasParticipacion[reporte.id_reporte];
+        const dias = reporte.dias;
         if (!dias || dias <= 0) {
-            Swal.fire("Faltan Días", "Por favor, ingresa los días de participación válidos para este médico.", "warning");
+            Swal.fire("Faltan Días", "El reporte no tiene días válidos registrados por la unidad.", "warning");
             return;
         }
 
         try {
-            const payload = { ...reporte, dias_participacion: parseInt(dias), entidad: entidadCoordinador, validado_por: currentUser?.username || "Coordinador" };
+            const payload = {
+                ...reporte,
+                dias_participacion: parseInt(dias),
+                entidad: entidadCoordinador,
+                validado_por: currentUser?.username || "Coordinador"
+            };
             const response = await fetch(`${API_BASE_URL}/api/peas/coordinador/validar-reporte`, {
                 method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` }, body: JSON.stringify(payload)
             });
@@ -160,7 +199,7 @@ export default function ValidacionFormatosEstatal() {
     const buscarValidados = async () => {
         setIsLoadingValidados(true);
         const periodoStr = `${anio}-${mes.padStart(2, '0')}-Q${quincena}`;
-        
+
         try {
             const response = await fetch(`${API_BASE_URL}/api/peas/coordinador/reportes-validados/${entidadCoordinador}/${periodoStr}`, {
                 headers: { "Authorization": `Bearer ${token}` }
@@ -218,8 +257,8 @@ export default function ValidacionFormatosEstatal() {
     // Buscador en tiempo real
     const validadosFiltrados = useMemo(() => {
         if (!busqueda) return validados;
-        return validados.filter(item => 
-            item.medico.toLowerCase().includes(busqueda.toLowerCase()) || 
+        return validados.filter(item =>
+            item.medico.toLowerCase().includes(busqueda.toLowerCase()) ||
             item.id_imss.toLowerCase().includes(busqueda.toLowerCase())
         );
     }, [validados, busqueda]);
@@ -237,21 +276,63 @@ export default function ValidacionFormatosEstatal() {
 
                 {/* TABS (PESTAÑAS) */}
                 <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
-                    <button 
+                    <button
                         onClick={() => setActiveTab("pendientes")}
-                        style={{ padding: "10px 20px", border: "none", borderRadius: "6px 6px 0 0", fontWeight: "bold", cursor: "pointer", backgroundColor: activeTab === "pendientes" ? COLORS.primary : "#e5e7eb", color: activeTab === "pendientes" ? "white" : "#4b5563", transition: "0.2s" }}>
-                        ⏳ Bandeja de Pendientes
+                        style={{
+                            padding: "10px 20px",
+                            border: "none",
+                            borderRadius: "6px 6px 0 0",
+                            fontWeight: "bold",
+                            cursor: "pointer",
+                            backgroundColor: activeTab === "pendientes" ? COLORS.primary : "#e5e7eb",
+                            color: activeTab === "pendientes" ? "white" : "#4b5563",
+                            transition: "0.2s"
+                        }}>
+                        Bandeja de Pendientes
                     </button>
-                    <button 
-                        onClick={() => setActiveTab("validados")}
-                        style={{ padding: "10px 20px", border: "none", borderRadius: "6px 6px 0 0", fontWeight: "bold", cursor: "pointer", backgroundColor: activeTab === "validados" ? COLORS.primary : "#e5e7eb", color: activeTab === "validados" ? "white" : "#4b5563", transition: "0.2s" }}>
-                        ✅ Historial de Validados
-                    </button>
+                    <div style={{ position: "relative" }}>
+                        <button
+                            onClick={() => setActiveTab("validados")}
+                            style={{
+                                padding: "10px 20px",
+                                border: "none",
+                                borderRadius: "6px 6px 0 0",
+                                fontWeight: "bold",
+                                cursor: "pointer",
+                                backgroundColor: activeTab === "validados" ? COLORS.primary : "#e5e7eb",
+                                color: activeTab === "validados" ? "white" : "#4b5563",
+                                transition: "0.2s"
+                            }}>
+                            Historial de Validados
+                        </button>
+
+                        {alertaNacional.rechazado && (
+                            <span style={{
+                                position: "absolute",
+                                top: "-8px",
+                                right: "-8px",
+                                backgroundColor: "#9F2241", // Guinda institucional
+                                color: "white",
+                                borderRadius: "50%",
+                                width: "22px",
+                                height: "22px",
+                                display: "flex",
+                                justifyContent: "center",
+                                alignItems: "center",
+                                fontSize: "12px",
+                                fontWeight: "bold",
+                                boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                                animation: "pulse 2s infinite" // Opcional: una pequeña animación
+                            }}>
+                                !
+                            </span>
+                        )}
+                    </div>
                 </div>
 
                 {/* CONTENIDO PRINCIPAL */}
                 <div style={{ background: "#ffffff", borderRadius: "0 8px 8px 8px", boxShadow: "0 4px 6px rgba(0,0,0,0.05)", border: `1px solid #d1d5db`, overflow: "hidden" }}>
-                    
+
                     {/* VISTA 1: PENDIENTES */}
                     {activeTab === "pendientes" && (
                         isLoading ? (
@@ -280,8 +361,8 @@ export default function ValidacionFormatosEstatal() {
                                                     <div style={{ fontWeight: "bold" }}>{rep.medico}</div>
                                                     <div style={{ fontSize: "12px", color: "#666" }}>{rep.id_imss}</div>
                                                 </td>
-                                                <td style={{ padding: "12px 10px" }}>
-                                                    <input type="number" min="0" max="16" value={diasParticipacion[rep.id_reporte] || ""} onChange={(e) => handleDiasChange(rep.id_reporte, e.target.value)} placeholder="Ej.15" style={{ width: "60px", padding: "6px", textAlign: "center", border: "1px solid #ccc", borderRadius: "4px" }} />
+                                                <td style={{ padding: "12px 10px", fontWeight: "bold", color: COLORS.primary }}>
+                                                    {rep.dias} días
                                                 </td>
                                                 <td style={{ padding: "12px 10px", display: "flex", gap: "8px", justifyContent: "center" }}>
                                                     <button onClick={() => verDocumento(rep.url_pdf)} style={{ backgroundColor: "#6c757d", color: "white", border: "none", padding: "6px 12px", borderRadius: "4px", cursor: "pointer", fontWeight: "bold", fontSize: "12px" }}>Ver PDF</button>
@@ -302,6 +383,27 @@ export default function ValidacionFormatosEstatal() {
                     {activeTab === "validados" && (
                         <div style={{ padding: "20px" }}>
                             {/* Filtros */}
+                            {alertaNacional.rechazado && (
+                                <div style={{
+                                    backgroundColor: "#fde8e8",
+                                    border: "1px solid #9F2241",
+                                    borderLeft: "5px solid #9F2241",
+                                    padding: "15px 20px",
+                                    borderRadius: "4px",
+                                    marginBottom: "20px"
+                                }}>
+                                    <h4 style={{ color: "#9F2241", margin: 0, display: "flex", alignItems: "center", gap: "8px", fontSize: "15px", fontWeight: "bold" }}>
+                                        ⚠️ ATENCIÓN: FORMATO ESTATAL RECHAZADO POR NIVEL NACIONAL
+                                    </h4>
+                                    <p style={{ margin: "10px 0 5px 0", color: "#374151", fontSize: "14px" }}>
+                                        <strong>Motivo del rechazo:</strong> {alertaNacional.observaciones}
+                                    </p>
+                                    <p style={{ margin: "5px 0 0 0", color: "#6b7280", fontSize: "13px", fontStyle: "italic" }}>
+                                        <strong>Instrucciones:</strong> Por favor, busque la quincena en curso y utilice la opción "Revocar y Rechazar" en el registro del médico con inconsistencias para devolverlo a la unidad. Una vez que la unidad corrija, valide de nuevo los registros, genere el nuevo PDF estatal en el apartado de Reportes (Bitácora Estatal), recabe las firmas y súbalo firmado para completar el proceso.
+                                    </p>
+                                </div>
+                            )}
+
                             <div style={{ display: "flex", gap: "15px", marginBottom: "20px", background: "#f9fafb", padding: "15px", borderRadius: "6px", alignItems: "flex-end", flexWrap: "wrap", border: "1px solid #e5e7eb" }}>
                                 <div>
                                     <label style={{ fontSize: "12px", fontWeight: "bold", color: "#374151", display: "block", marginBottom: "6px" }}>Año:</label>
@@ -325,16 +427,16 @@ export default function ValidacionFormatosEstatal() {
                                     </select>
                                 </div>
                                 <button onClick={buscarValidados} disabled={isLoadingValidados} style={{ backgroundColor: COLORS.primary, color: "white", padding: "9px 16px", border: "none", borderRadius: "4px", cursor: isLoadingValidados ? "wait" : "pointer", fontWeight: "bold" }}>
-                                    {isLoadingValidados ? "Buscando..." : "🔍 Buscar"}
+                                    {isLoadingValidados ? "Buscando..." : " Buscar"}
                                 </button>
                             </div>
 
                             {/* Buscador y Tabla */}
                             {validados.length > 0 ? (
                                 <>
-                                    <input 
-                                        type="text" 
-                                        placeholder="Buscar por nombre o ID del médico..." 
+                                    <input
+                                        type="text"
+                                        placeholder="Buscar por nombre o ID del médico..."
                                         value={busqueda}
                                         onChange={(e) => setBusqueda(e.target.value)}
                                         style={{ width: "100%", padding: "10px", marginBottom: "15px", borderRadius: "4px", border: "1px solid #d1d5db", boxSizing: "border-box" }}
@@ -363,8 +465,15 @@ export default function ValidacionFormatosEstatal() {
                                                         <td style={{ padding: "12px", fontWeight: "bold", color: COLORS.primary }}>
                                                             {rep.dias} días
                                                         </td>
-                                                        <td style={{ padding: "12px" }}>
-                                                            <button onClick={() => handleRevocar(rep)} style={{ backgroundColor: "#9F2241", color: "white", border: "none", padding: "6px 12px", borderRadius: "4px", cursor: "pointer", fontWeight: "bold", fontSize: "12px" }}>
+                                                        <td style={{ padding: "12px", display: "flex", gap: "8px", justifyContent: "center", alignItems: "center" }}>
+                                                            <button
+                                                                onClick={() => verDocumento(rep.url_pdf)}
+                                                                style={{ backgroundColor: "#6c757d", color: "white", border: "none", padding: "6px 12px", borderRadius: "4px", cursor: "pointer", fontWeight: "bold", fontSize: "12px" }}>
+                                                                Ver PDF
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleRevocar(rep)}
+                                                                style={{ backgroundColor: "#9F2241", color: "white", border: "none", padding: "6px 12px", borderRadius: "4px", cursor: "pointer", fontWeight: "bold", fontSize: "12px" }}>
                                                                 ❌ Revocar y Rechazar
                                                             </button>
                                                         </td>
