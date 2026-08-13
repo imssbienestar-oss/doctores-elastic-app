@@ -95,6 +95,9 @@ export default function ReporteQuincenal() {
 
         const formData = new FormData();
         formData.append("archivo", file);
+        formData.append("anio", anioSeleccionado);
+        formData.append("mes", mesSeleccionado);
+        formData.append("quincena", quincenaSeleccionada);
 
         try {
             const response = await fetch(`${API_BASE_URL}/api/peas/reporte-quincenal/previsualizar-excel`, {
@@ -108,7 +111,7 @@ export default function ReporteQuincenal() {
 
             setPreviewData(data); // Guardamos la data limpia para mostrarla
         } catch (error) {
-            Swal.fire("Error en Excel", error.message, "error");
+            Swal.fire("Inconsistencia en el Documento", error.message, "error");
             setArchivoExcel(null);
             e.target.value = null;
         } finally {
@@ -246,10 +249,35 @@ export default function ReporteQuincenal() {
                         </p>
                     </div>
                     <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                        <a
-                            href={`${API_BASE_URL}/api/peas/coordinador/descargar-plantilla-excel`}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const url = `${API_BASE_URL}/api/peas/reporte-quincenal/descargar-plantilla-dinamica?anio=${anioSeleccionado}&mes=${mesSeleccionado}&quincena=${quincenaSeleccionada}`;
+                                window.open(url, "_blank");
+                            }}
+                            style={{
+                                backgroundColor: COLORS.primary,
+                                color: "white",
+                                padding: "9px 14px",
+                                borderRadius: "4px",
+                                border: "none",
+                                cursor: "pointer",
+                                fontSize: "12px",
+                                fontWeight: "bold",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "6px",
+                                boxShadow: "0 1px 2px rgba(0,0,0,0.1)"
+                            }}
+                        >
+                            <span>📄</span> Descargar Excel (Formato 1)
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const url = `${API_BASE_URL}/api/peas/reporte-quincenal/descargar-formato-impresion?anio=${anioSeleccionado}&mes=${mesSeleccionado}&quincena=${quincenaSeleccionada}`;
+                                window.open(url, "_blank");
+                            }}
                             style={{
                                 backgroundColor: COLORS.primary,
                                 color: "white",
@@ -264,28 +292,8 @@ export default function ReporteQuincenal() {
                                 boxShadow: "0 1px 2px rgba(0,0,0,0.1)"
                             }}
                         >
-                            <span>📄</span> Descargar Excel (Formato 1)
-                        </a>
-                        <a
-                            href={`${API_BASE_URL}/api/peas/coordinador/descargar-instructivo-pdf`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{
-                                backgroundColor: "#9F2241", // Guinda institucional para diferenciar el PDF
-                                color: "white",
-                                padding: "9px 14px",
-                                borderRadius: "4px",
-                                textDecoration: "none",
-                                fontSize: "12px",
-                                fontWeight: "bold",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: "6px",
-                                boxShadow: "0 1px 2px rgba(0,0,0,0.1)"
-                            }}
-                        >
-                            <span>📕</span> Descargar Instructivo PDF
-                        </a>
+                            <span>🖨️</span> Descargar Formato Firmas
+                        </button>
                     </div>
                 </div>
 
@@ -437,7 +445,7 @@ export default function ReporteQuincenal() {
 
             {/* MODAL MULTI-SUBIDA (EXCEL Y PDF) */}
             {doctorSubida && (
-                <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", backgroundColor: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+                <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", backgroundColor: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1050 }}>
                     <div style={{ backgroundColor: "white", padding: "30px", borderRadius: "8px", width: "90%", maxWidth: previewData ? "700px" : "450px", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 10px 25px rgba(0,0,0,0.2)", transition: "all 0.3s ease" }}>
 
                         <h3 style={{ margin: "0 0 10px 0", color: COLORS.primary }}>Cargar Asistencias</h3>
