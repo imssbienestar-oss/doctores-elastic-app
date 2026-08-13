@@ -391,7 +391,7 @@ function Navbar({
               className="h-9 md:h-11 w-auto object-contain border-r border-white/20 pr-4 hidden sm:block"
             />
             <div className="flex flex-col">
-              <h2 className="text-white text-sm md:text-lg font-light opacity-90">Sistema del Programa de Personal Extranjero de Atención a la Salud</h2>
+              <h2 className="text-white text-sm md:text-lg font-light opacity-90">Sistema de Información Institucional del Personal Extranjero de Atención a la Salud</h2>
               <div className="text-[#DDC9A3] text-[10px] md:text-[11px] uppercase mt-0.5 flex items-center gap-2">
                 <span>IMSS BIENESTAR</span>
 

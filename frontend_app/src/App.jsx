@@ -615,7 +615,7 @@ function AppContent() {
   };
 
   const navbarProps = {
-    title: "Sistema del Programa de Personal Extranjero de Atención a la Salud",
+    title: "Sistema de Información Institucional del Personal Extranjero de Atención a la Salud",
     vistaActual: vistaActual,
     onVerGraficasClick: handleVerGraficas,
     onVerTablaClick: handleVerTabla,
