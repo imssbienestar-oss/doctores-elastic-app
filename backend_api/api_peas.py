@@ -643,34 +643,43 @@ async def subir_formato_nacional(
         raise HTTPException(status_code=400, detail="El formato final debe ser un archivo PDF.")
 
     periodo_str = f"{anio}-{mes:02d}-Q{quincena}"
+    bucket_name = os.getenv('B2_BUCKET_NAME')
+    nombre_unico = f"formatos_nacionales/{anio}/{mes:02d}/Q{quincena}/NACIONAL_FORMATO3y4.pdf"
 
-    # Verificamos si ya existe uno subido
+    # 1. Verificamos si existe en la BD
     formato_existente = db.query(models.FormatoNacionalFirmado).filter(
         models.FormatoNacionalFirmado.quincena == periodo_str
     ).first()
 
-    # Generar ruta única
-    bucket_name = os.getenv('B2_BUCKET_NAME')
-    nombre_unico = f"formatos_nacionales/{anio}/{mes:02d}/Q{quincena}/NACIONAL_FORMATO3y4.pdf"
-    
+    # 2. ELIMINAMOS PRIMERO: Si ya hay un archivo en la nube, lo borramos antes de subir el nuevo
+    # Esto evita conflictos de sobrescritura en B2
+    if formato_existente and formato_existente.url_documento:
+        try:
+            s3_client.delete_object(Bucket=bucket_name, Key=formato_existente.url_documento)
+        except Exception:
+            pass # Si falla el borrado, no detenemos el proceso
 
+    # 3. SUBIMOS EL NUEVO: Ahora que el camino está limpio
     try:
-        s3_client.upload_fileobj(archivo.file, bucket_name, nombre_unico, ExtraArgs={"ContentType": "application/pdf"})
-        
-        if formato_existente and formato_existente.url_documento:
-            try: s3_client.delete_object(Bucket=bucket_name, Key=formato_existente.url_documento)
-            except: pass
-            
+        s3_client.upload_fileobj(
+            archivo.file, 
+            bucket_name, 
+            nombre_unico, 
+            ExtraArgs={"ContentType": "application/pdf"}
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al subir a la nube: {str(e)}")
 
+    # 4. ACTUALIZAMOS LA BD
     if formato_existente:
         formato_existente.url_documento = nombre_unico
         formato_existente.fecha_subida = func.now()
         formato_existente.subido_por = subido_por
     else:
         nuevo_formato = models.FormatoNacionalFirmado(
-            quincena=periodo_str, url_documento=nombre_unico, subido_por=subido_por
+            quincena=periodo_str, 
+            url_documento=nombre_unico, 
+            subido_por=subido_por
         )
         db.add(nuevo_formato)
 
