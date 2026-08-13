@@ -9,7 +9,9 @@ import pandas as pd
 from io import BytesIO
 from pydantic import BaseModel
 from fastapi.responses import FileResponse
-
+import openpyxl
+import calendar
+from fastapi.responses import StreamingResponse
 
 # Importa tus módulos locales (ajusta los puntos si tu estructura es distinta)
 from . import models, schemas
@@ -27,7 +29,6 @@ router = APIRouter(
     prefix="/api/peas",
     tags=["PEAS Asistencia"]
 )
-
 
 s3_client = boto3.client(
    's3',
@@ -86,33 +87,39 @@ async def registrar_usuario_acceso(
     return nuevo_acceso
 
 @router.post("/reporte-quincenal/previsualizar-excel", tags=["Reportes PEAS"])
-async def previsualizar_excel_asistencia(archivo: UploadFile = File(...)):
-    # 1. Validar que sea un archivo de Excel
+async def previsualizar_excel_asistencia(
+    anio: int = Form(...),
+    mes: int = Form(...),
+    quincena: int = Form(...),
+    archivo: UploadFile = File(...)):
+
     if not archivo.filename.endswith(('.xls', '.xlsx')):
         raise HTTPException(status_code=400, detail="El archivo debe ser un formato de Excel (.xlsx)")
 
+    fecha_ini = date(anio, mes, 1) if quincena == 1 else date(anio, mes, 16)
+    fecha_fin = date(anio, mes, 15) if quincena == 1 else date(anio, mes, monthrange(anio, mes)[1])
+
     try:
-        # 2. Leer el archivo directamente desde la memoria
         contents = await archivo.read()
         df = pd.read_excel(BytesIO(contents))
-
-        # 3. Limpieza: quitar filas que estén completamente en blanco
         df = df.dropna(how='all')
 
         asistencias_extraidas = []
         dias_validos = 0
 
-        # 4. Recorrer el Excel fila por fila usando los encabezados acordados
-        for index, row in df.iterrows():
-            # Extraemos la fecha (si viene vacía o es error, la saltamos)
+        for index, row in df.iterrows():    
             if pd.isna(row.get('FECHA (DD/MM/AAAA)')):
                 continue
 
-            # Convertimos la fecha a formato string estándar (YYYY-MM-DD)
             fecha_cruda = pd.to_datetime(row['FECHA (DD/MM/AAAA)'], dayfirst=True)
-            fecha_str = fecha_cruda.strftime('%Y-%m-%d')
 
-            # Extraemos los demás datos, limpiando posibles errores de tipeo
+            if not (fecha_ini <= fecha_cruda.date() <= fecha_fin):
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Error en fila {index + 2}: La fecha {fecha_cruda.strftime('%d/%m/%Y')} no pertenece a la Quincena {quincena} del mes {mes}/{anio}. Por favor, corrige el Excel."
+                )
+            
+            fecha_str = fecha_cruda.strftime('%Y-%m-%d')
             turno = str(row.get('TIPO_TURNO', 'No especificado')).strip()
             
             entrada_val = row.get('HORA_ENTRADA (HH:MM)')
@@ -133,13 +140,14 @@ async def previsualizar_excel_asistencia(archivo: UploadFile = File(...)):
                 "observaciones": str(row.get('OBSERVACIONES', '')).strip() if pd.notnull(row.get('OBSERVACIONES')) else ""
             })
 
-        # 5. Le devolvemos a React un JSON ordenado
         return {
             "mensaje": "Excel procesado exitosamente",
             "total_dias_registrados": dias_validos,
             "detalle_asistencias": asistencias_extraidas
         }
 
+    except HTTPException as http_exc:
+        raise http_exc 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno al leer el Excel. Verifica que tenga las columnas correctas. Error: {str(e)}")
 
@@ -643,34 +651,43 @@ async def subir_formato_nacional(
         raise HTTPException(status_code=400, detail="El formato final debe ser un archivo PDF.")
 
     periodo_str = f"{anio}-{mes:02d}-Q{quincena}"
+    bucket_name = os.getenv('B2_BUCKET_NAME')
+    nombre_unico = f"formatos_nacionales/{anio}/{mes:02d}/Q{quincena}/NACIONAL_FORMATO3y4.pdf"
 
-    # Verificamos si ya existe uno subido
+    # 1. Verificamos si existe en la BD
     formato_existente = db.query(models.FormatoNacionalFirmado).filter(
         models.FormatoNacionalFirmado.quincena == periodo_str
     ).first()
 
-    # Generar ruta única
-    bucket_name = os.getenv('B2_BUCKET_NAME')
-    nombre_unico = f"formatos_nacionales/{anio}/{mes:02d}/Q{quincena}/NACIONAL_FORMATO3y4.pdf"
-    
+    # 2. ELIMINAMOS PRIMERO: Si ya hay un archivo en la nube, lo borramos antes de subir el nuevo
+    # Esto evita conflictos de sobrescritura en B2
+    if formato_existente and formato_existente.url_documento:
+        try:
+            s3_client.delete_object(Bucket=bucket_name, Key=formato_existente.url_documento)
+        except Exception:
+            pass # Si falla el borrado, no detenemos el proceso
 
+    # 3. SUBIMOS EL NUEVO: Ahora que el camino está limpio
     try:
-        s3_client.upload_fileobj(archivo.file, bucket_name, nombre_unico, ExtraArgs={"ContentType": "application/pdf"})
-        
-        if formato_existente and formato_existente.url_documento:
-            try: s3_client.delete_object(Bucket=bucket_name, Key=formato_existente.url_documento)
-            except: pass
-            
+        s3_client.upload_fileobj(
+            archivo.file, 
+            bucket_name, 
+            nombre_unico, 
+            ExtraArgs={"ContentType": "application/pdf"}
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al subir a la nube: {str(e)}")
 
+    # 4. ACTUALIZAMOS LA BD
     if formato_existente:
         formato_existente.url_documento = nombre_unico
         formato_existente.fecha_subida = func.now()
         formato_existente.subido_por = subido_por
     else:
         nuevo_formato = models.FormatoNacionalFirmado(
-            quincena=periodo_str, url_documento=nombre_unico, subido_por=subido_por
+            quincena=periodo_str, 
+            url_documento=nombre_unico, 
+            subido_por=subido_por
         )
         db.add(nuevo_formato)
 
@@ -842,404 +859,99 @@ async def revocar_reporte(id_reporte: int, req: RevocarRequest, db: Session = De
     db.commit()
     return {"mensaje": "Reporte revocado exitosamente y devuelto a la unidad."}
 
-@router.get("/coordinador/descargar-plantilla-excel", tags=["Reportes PEAS"])
-async def descargar_plantilla_excel():
-    # Obtenemos la ruta absoluta de la carpeta donde vive este archivo (api_peas.py)
+@router.get("/reporte-quincenal/descargar-formato-impresion", tags=["Reportes PEAS"])
+async def descargar_formato_impresion(anio: int, mes: int, quincena: int):
+    # 1. Cargamos tu plantilla base
     directorio_actual = os.path.dirname(os.path.abspath(__file__))
+    ruta_plantilla = os.path.join(directorio_actual, "plantilla_firma_manual.xlsx")
     
-    # Apuntamos exactamente al nombre que tienes en tu captura: asistencia_prueba.xlsx
-    ruta_archivo = os.path.join(directorio_actual, "asistencia_prueba.xlsx")
+    if not os.path.exists(ruta_plantilla):
+        raise HTTPException(status_code=404, detail="Plantilla base no encontrada.")
+
+    wb = openpyxl.load_workbook(ruta_plantilla)
+    ws = wb.active
+
+    # 2. Configuramos el rango de días según el mes y quincena elegidos
+    meses = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+    nombre_mes = meses[mes]
+
+    if quincena == 1:
+        dia_inicio = 1
+        dia_fin = 15
+    else:
+        dia_inicio = 16
+        dia_fin = calendar.monthrange(anio, mes)[1] 
+
+    # 3. Escribir el "Periodo" dinámico en el encabezado
+    # SUSTITUYE 'G4' por la celda real donde está tu texto de "Periodo: 16 al 30..."
+    ws['I4'] = f"{dia_inicio} al {dia_fin} de {nombre_mes} de {anio}"
+
+    # 4. Escribir las fechas fila por fila
+    fila_inicio = 8 
+    dias_totales = range(dia_inicio, dia_fin + 1)
     
-    if not os.path.exists(ruta_archivo):
-        raise HTTPException(status_code=404, detail="La plantilla oficial no se encuentra en el servidor.")
+    for i in range(16): # 16 es el máximo de filas necesarias (ej. meses con 31 días en Q2)
+        celda = ws.cell(row=fila_inicio + i, column=2) # Asumiendo que la Fecha está en la Columna A (1)
         
-    return FileResponse(
-        path=ruta_archivo, 
-        filename="Plantilla_Asistencia_Formato1.xlsx",
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        if i < len(dias_totales):
+            dia = dias_totales[i]
+            # Formato estricto DD/MM/AAAA
+            celda.value = f"{dia:02d}/{mes:02d}/{anio}"
+        else:
+            # Si sobran filas (ej. la primera quincena solo usa 15), las dejamos en blanco
+            celda.value = ""
+
+    # 5. Guardar en memoria virtual (StreamingResponse no gasta disco de tu servidor)
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    nombre_archivo = f"Registro_Firmas_{nombre_mes}_Q{quincena}.xlsx"
+    
+    return StreamingResponse(
+        output, 
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={nombre_archivo}"}
     )
 
-@router.get("/coordinador/descargar-instructivo-pdf", tags=["Reportes PEAS"])
-async def descargar_instructivo_pdf():
+@router.get("/reporte-quincenal/descargar-plantilla-dinamica", tags=["Reportes PEAS"])
+async def descargar_plantilla_dinamica(anio: int, mes: int, quincena: int):
     directorio_actual = os.path.dirname(os.path.abspath(__file__))
-    ruta_archivo = os.path.join(directorio_actual, "formato1.pdf")
+    ruta_plantilla = os.path.join(directorio_actual, "formato_asistencias.xlsx")
     
-    if not os.path.exists(ruta_archivo):
-        raise HTTPException(status_code=404, detail="El documento PDF no se encuentra en el servidor.")
-        
-    return FileResponse(
-        path=ruta_archivo, 
-        filename="Formato1.pdf",
-        media_type="application/pdf"
-    )
+    if not os.path.exists(ruta_plantilla):
+        raise HTTPException(status_code=404, detail="Plantilla base no encontrada.")
 
-"""
-@router.post("/asistencia")
-async def registrar_asistencia_peas(
-    registro: schemas.RegistroAsistenciaPeas, 
-    db: Session = Depends(get_db)
-):
-    id_medico = registro.id_imss.strip().upper()
-    doctor_db = db.query(models.Doctor).filter(models.Doctor.id_imss == id_medico).first()
-    
-    if not doctor_db:
-        raise HTTPException(status_code=404, detail=f"No se encontró al médico con ID: {id_medico}")
+    wb = openpyxl.load_workbook(ruta_plantilla)
+    ws = wb.active
 
-    # 1. Definir zona horaria de México
-    mx_tz = pytz.timezone('America/Mexico_City')
-    fecha_hora_local = datetime.now(mx_tz)
-    
-    # 2. Calcular los límites exactos de "HOY" en hora de México y pasarlos a UTC
-    inicio_dia_local = fecha_hora_local.replace(hour=0, minute=0, second=0, microsecond=0)
-    fin_dia_local = fecha_hora_local.replace(hour=23, minute=59, second=59, microsecond=999999)
-
-    inicio_utc = inicio_dia_local.astimezone(pytz.utc).replace(tzinfo=None)
-    fin_utc = fin_dia_local.astimezone(pytz.utc).replace(tzinfo=None)
-
-    # 3. Buscar si YA EXISTE ese mismo registro (Entrada o Salida) el día de HOY
-    registro_existente = db.query(models.PeasAsistencia).filter(
-        models.PeasAsistencia.id_imss == id_medico,
-        models.PeasAsistencia.tipo == registro.tipo,
-        models.PeasAsistencia.fecha_hora >= inicio_utc,
-        models.PeasAsistencia.fecha_hora <= fin_utc
-    ).first()
-
-    if registro_existente:
-        raise HTTPException(
-            status_code=400,
-            detail=f"El médico ya tiene registrada una {registro.tipo} el día de hoy."
-        )
-        
-    # 4. Guardar el nuevo registro en la hora UTC pura (buena práctica de bases de datos)
-    fecha_hora_utc = datetime.utcnow()
-
-    nueva_asistencia = models.PeasAsistencia(
-        id_imss=id_medico,
-        tipo=registro.tipo,
-        fecha_hora=fecha_hora_utc
-    )
-    
-    db.add(nueva_asistencia)
-    db.commit()
-    db.refresh(nueva_asistencia)
-    
-    return {
-        "mensaje": f"{registro.tipo} registrada exitosamente",
-        "registro": {
-            "id": nueva_asistencia.id,
-            "idImss": doctor_db.id_imss,
-            "nombre": f"{doctor_db.nombre} {doctor_db.apellido_paterno or ''}".strip(),
-            "unidad": doctor_db.nombre_unidad or "Unidad No Asignada",
-            "tipo": nueva_asistencia.tipo,
-            "hora": fecha_hora_local.strftime("%I:%M:%S %p") # Devolvemos hora de México a la alerta
-        }
-    }
-
-@router.get("/asistencia/bitacora-hoy", tags=["Asistencia PEAS"])
-async def obtener_bitacora_hoy(db: Session = Depends(get_db)):
-    mx_tz = pytz.timezone('America/Mexico_City')
-    hoy = datetime.now(mx_tz).date()
-    
-    # Traemos todos los registros de hoy cronológicamente
-    registros = db.query(models.PeasAsistencia).filter(
-        func.date(models.PeasAsistencia.fecha_hora) == hoy
-    ).order_by(models.PeasAsistencia.fecha_hora).all()
-    
-    agrupados = {}
-    
-    for r in registros:
-        # Si es la primera vez que vemos a este médico hoy, creamos su fila
-        if r.id_imss not in agrupados:
-            doctor = db.query(models.Doctor).filter(models.Doctor.id_imss == r.id_imss).first()
-            if not doctor:
-                continue
-                
-            agrupados[r.id_imss] = {
-                "idImss": r.id_imss,
-                "nombre": f"{doctor.nombre} {doctor.apellido_paterno or ''}".strip(),
-                "unidad": doctor.nombre_unidad or "Unidad No Asignada",
-                "horaEntrada": "--:--",
-                "horaSalida": "--:--"
-            }
-            
-        # Ajuste de zona horaria
-        dt = r.fecha_hora
-        if dt.tzinfo is None:
-            dt = pytz.utc.localize(dt).astimezone(mx_tz)
-        else:
-            dt = dt.astimezone(mx_tz)
-            
-        hora_formateada = dt.strftime("%I:%M:%S %p")
-        
-        # Llenamos la columna correspondiente
-        if r.tipo == "Entrada":
-            agrupados[r.id_imss]["horaEntrada"] = hora_formateada
-        elif r.tipo == "Salida":
-            agrupados[r.id_imss]["horaSalida"] = hora_formateada
-
-    # Convertimos el diccionario a una lista y la invertimos para ver los movimientos más recientes arriba
-    return list(agrupados.values())[::-1]
-
-@router.get("/mi-estado-asistencia/{id_imss}", tags=["Asistencia PEAS"])
-async def obtener_estado_asistencia(
-    id_imss: str, 
-    db: Session = Depends(get_db)
-):
-    doctor = db.query(models.Doctor).filter(models.Doctor.id_imss == id_imss).first()
-    if not doctor:
-        raise HTTPException(status_code=404, detail="Médico no encontrado")
-
-    # 1. Definir la zona horaria de México
-    mx_tz = pytz.timezone('America/Mexico_City')
-    ahora_local = datetime.now(mx_tz)
-    
-    # 2. Calcular los límites exactos de "HOY" en hora de México
-    inicio_dia_local = ahora_local.replace(hour=0, minute=0, second=0, microsecond=0)
-    fin_dia_local = ahora_local.replace(hour=23, minute=59, second=59, microsecond=999999)
-
-    # 3. Convertir esos límites a UTC para que la base de datos los entienda
-    # Le quitamos la zona horaria (replace tzinfo=None) para evitar conflictos con SQLAlchemy
-    inicio_utc = inicio_dia_local.astimezone(pytz.utc).replace(tzinfo=None)
-    fin_utc = fin_dia_local.astimezone(pytz.utc).replace(tzinfo=None)
-
-    # 4. Buscar el último registro que caiga EXACTAMENTE dentro del rango de HOY
-    ultimo_registro = db.query(models.PeasAsistencia).filter(
-        models.PeasAsistencia.id_imss == id_imss,
-        models.PeasAsistencia.fecha_hora >= inicio_utc,
-        models.PeasAsistencia.fecha_hora <= fin_utc
-    ).order_by(desc(models.PeasAsistencia.fecha_hora)).first()
-
-    estado_actual = "Sin registro hoy"
-    hora_ultimo = None
-    
-    if ultimo_registro:
-        estado_actual = ultimo_registro.tipo 
-        
-        # Volvemos a formatear a hora de México para mostrarlo en la credencial
-        dt = ultimo_registro.fecha_hora
-        if dt.tzinfo is None:
-            dt = pytz.utc.localize(dt).astimezone(mx_tz)
-        else:
-            dt = dt.astimezone(mx_tz)
-
-        hora_ultimo = dt.strftime("%I:%M:%S %p")
-
-    return {
-        "id_imss": doctor.id_imss,
-        "nombre_completo": f"{doctor.nombre} {doctor.apellido_paterno or ''} {doctor.apellido_materno or ''}".strip(),
-        "unidad": doctor.nombre_unidad or "Unidad Médica Asignada",
-        "estado_actual": estado_actual,
-        "ultima_hora": hora_ultimo
-    }
-
-@router.get("/reporte-quincenal/datos/{id_imss}", tags=["Reportes PEAS"])
-async def obtener_datos_quincena(
-    id_imss: str,
-    anio: int,
-    mes: int,
-    quincena: int,
-    db: Session = Depends(get_db)
-):
-    # 1. Validar doctor
-    doctor = db.query(models.Doctor).filter(models.Doctor.id_imss == id_imss).first()
-    if not doctor:
-        raise HTTPException(status_code=404, detail="Médico no encontrado")
-
-    turno_raw = doctor.turno or "Matutino"
-    turno = turno_raw.strip().lower()
-
-    # 2. Calcular fechas
     if quincena == 1:
-        fecha_inicio = date(anio, mes, 1)
-        fecha_fin = date(anio, mes, 15)
+        dia_inicio = 1
+        dia_fin = 15
     else:
-        fecha_inicio = date(anio, mes, 16)
-        ultimo_dia = monthrange(anio, mes)[1]
-        fecha_fin = date(anio, mes, ultimo_dia)
+        dia_inicio = 16
+        dia_fin = calendar.monthrange(anio, mes)[1]
 
-    # 3. Traer asistencias reales de la BD
-    asistencias = db.query(models.PeasAsistencia).filter(
-        models.PeasAsistencia.id_imss == id_imss,
-        func.date(models.PeasAsistencia.fecha_hora) >= fecha_inicio,
-        func.date(models.PeasAsistencia.fecha_hora) <= fecha_fin
-    ).order_by(models.PeasAsistencia.fecha_hora).all()
-
-    historial = db.query(models.EstatusHistorico).filter(
-        models.EstatusHistorico.id_imss == id_imss
-    ).order_by(desc(models.EstatusHistorico.fecha_inicio)).all()
-
-    def obtener_estatus_en_fecha(fecha_buscada, estatus_actual_bd):
-        # Buscamos en memoria RAM (rapidísimo) si la fecha cae dentro de un periodo histórico
-        for registro in historial:
-            inicio_valido = registro.fecha_inicio <= fecha_buscada
-            # Si fecha_fin es None, significa que es su estatus actual/vigente
-            fin_valido = registro.fecha_fin is None or registro.fecha_fin >= fecha_buscada
-            
-            if inicio_valido and fin_valido:
-                return registro.estatus
-                
-        return estatus_actual_bd
-
-    mx_tz = pytz.timezone('America/Mexico_City')
-    mapa_asistencias = {}
-
-    for a in asistencias:
-        # 1. Ajustar la zona horaria del registro de la base de datos
-        dt = a.fecha_hora
-        if dt.tzinfo is None:
-            # Si la base de datos lo devuelve sin zona horaria, asumimos UTC y lo pasamos a México
-            dt = pytz.utc.localize(dt).astimezone(mx_tz)
-        else:
-            # Si ya trae zona horaria (UTC), lo convertimos directamente a México
-            dt = dt.astimezone(mx_tz)
-
-        # 2. Extraer el día y la hora ya corregidos
-        dia_str = dt.strftime("%Y-%m-%d")
-        hora_str = dt.strftime("%H:%M")
-        
-        # 3. Guardarlo en el diccionario
-        if dia_str not in mapa_asistencias:
-            mapa_asistencias[dia_str] = {"entrada": None, "salida": None}
-            
-        if a.tipo == "Entrada" and not mapa_asistencias[dia_str]["entrada"]:
-            mapa_asistencias[dia_str]["entrada"] = hora_str
-        elif a.tipo == "Salida":
-            mapa_asistencias[dia_str]["salida"] = hora_str
-
-    # 4. CONSTRUIR EL CALENDARIO IDEAL QUINCENAL
-    registros_quincena = []
-    dia_actual = fecha_inicio
-
-    while dia_actual <= fecha_fin:
-        dia_semana = dia_actual.weekday() # 0=Lunes, ..., 6=Domingo
-        dia_str = dia_actual.strftime("%Y-%m-%d")
-        es_laborable = False
-        horario_esperado = ""
-
-        # Lógica de turnos (ahora compara en minúsculas y tolera variaciones)
-        if "matutino" in turno:
-            if dia_semana < 5: # Lunes a Viernes
-                es_laborable = True
-                horario_esperado = "07:00 a 15:00"
-        
-        elif "vespertino" in turno:
-            if dia_semana < 5: # Lunes a Viernes
-                es_laborable = True
-                horario_esperado = "13:00 a 21:00"
-                
-        elif "nocturno" in turno:
-            if dia_semana in [0, 2, 4]: # Lunes(0), Miércoles(2), Viernes(4)
-                es_laborable = True
-                horario_esperado = "21:00 a 09:00"
-                
-        elif "jornada" in turno or "acumulada" in turno:
-            if dia_semana == 5: # Sábado
-                es_laborable = True
-                horario_esperado = "07:00 a 22:00"
-            elif dia_semana == 6: # Domingo
-                es_laborable = True
-                horario_esperado = "08:00 a 20:00"
-
-        # Si el día es laborable, cruzamos los datos
-        if es_laborable:
-            asistencia_real = mapa_asistencias.get(dia_str, {"entrada": None, "salida": None})
-
-            estatus_del_dia = obtener_estatus_en_fecha(dia_actual, doctor.estatus)
-            registros_quincena.append({
-                "fecha": dia_str,
-                "horario_esperado": horario_esperado,
-                "hora_ingreso": asistencia_real.get("entrada") or "--:--",
-                "hora_egreso": asistencia_real.get("salida") or "--:--",
-                "falta": asistencia_real.get("entrada") is None,
-                "estatus_dia": estatus_del_dia
-            })
-
-        dia_actual += timedelta(days=1)
-
-    # 5. Respuesta lista para React (le devolvemos el turno original para mostrarlo bonito)
-    return {
-        "medico": {
-            "nombre": f"{doctor.nombre} {doctor.apellido_paterno or ''} {doctor.apellido_materno or ''}".strip(),
-            "especialidad": doctor.especialidad or "Médico General",
-            "unidad": doctor.nombre_unidad or "Unidad Médica Asignada",
-            "turno": turno_raw
-        },
-        "periodo": {
-            "quincena": quincena,
-            "mes": mes,
-            "anio": anio,
-            "fecha_inicio": str(fecha_inicio),
-            "fecha_fin": str(fecha_fin)
-        },
-        "dias_laborables": registros_quincena
-    }
-
-@router.post("/reporte-quincenal/subir", tags=["Reportes PEAS"])
-async def subir_reporte_quincenal(
-    id_imss: str = Form(...),
-    anio: int = Form(...),
-    mes: int = Form(...),
-    quincena: int = Form(...),
-    subido_por: str = Form(...), # El ID del coordinador/responsable que lo sube
-    archivo: UploadFile = File(...),
-    db: Session = Depends(get_db)
-):
-    # 1. Validar que sea un PDF
-    if not archivo.filename.endswith('.pdf'):
-        raise HTTPException(status_code=400, detail="El archivo debe ser un documento PDF")
-
-    # 2. Validar que el médico exista
-    doctor = db.query(models.Doctor).filter(models.Doctor.id_imss == id_imss).first()
-    if not doctor:
-        raise HTTPException(status_code=404, detail="Médico no encontrado")
-
-    # 3. Generar un nombre único para el archivo en el bucket
-    # Ejemplo: reportes/2026/08/Q1/MC_0001_asdasd123.pdf
-    extension = archivo.filename.split('.')[-1]
-    nombre_unico = f"reportes/{anio}/{mes:02d}/Q{quincena}/{id_imss}_{uuid.uuid4().hex[:8]}.{extension}"
-    bucket_name = os.getenv('B2_BUCKET_NAME')
-
-    try:
-        # 4. Subir el archivo "al vuelo" a Backblaze B2
-        s3_client.upload_fileobj(
-            archivo.file,
-            bucket_name,
-            nombre_unico,
-            ExtraArgs={"ContentType": archivo.content_type}
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al subir archivo a la nube: {str(e)}")
-
-    # 5. Guardar el registro en la Base de Datos
-    # Construimos el periodo (ej. 2026-08-Q1)
-    periodo_str = f"{anio}-{mes:02d}-Q{quincena}"
+    dias_totales = range(dia_inicio, dia_fin + 1)
+    fila_inicio = 2 
     
-    # Calculamos fechas igual que en el otro endpoint
-    if quincena == 1:
-        fecha_ini = date(anio, mes, 1)
-        fecha_fin = date(anio, mes, 15)
-    else:
-        fecha_ini = date(anio, mes, 16)
-        fecha_fin = date(anio, mes, monthrange(anio, mes)[1])
+    for i in range(16): 
+        celda = ws.cell(row=fila_inicio + i, column=1) 
+        
+        if i < len(dias_totales):
+            dia = dias_totales[i]
+            celda.value = f"{dia:02d}/{mes:02d}/{anio}"
+        else:
+            celda.value = ""
 
-    # El bucket es privado, pero guardamos la ruta interna para que el backend la firme después
-    nuevo_reporte = models.ReporteQuincenal(
-        id_imss=id_imss,
-        quincena=periodo_str,
-        fecha_inicio=fecha_ini,
-        fecha_fin=fecha_fin,
-        url_documento=nombre_unico, # Guardamos el "Key" del objeto en B2
-        subido_por=subido_por
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    nombre_archivo = f"Plantilla_Asistencia_{anio}_{mes:02d}_Q{quincena}.xlsx"
+    
+    return StreamingResponse(
+        output, 
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={nombre_archivo}"}
     )
-
-    db.add(nuevo_reporte)
-    db.commit()
-    db.refresh(nuevo_reporte)
-
-    return {
-        "mensaje": "Reporte subido y registrado exitosamente",
-        "id_reporte": nuevo_reporte.id,
-        "archivo": nombre_unico
-    }
-
-"""
