@@ -1,7 +1,7 @@
 # api_peas.py
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, func, or_
+from sqlalchemy import desc, func, or_, distinct
 from calendar import monthrange
 from fastapi import File, UploadFile, Form
 from botocore.config import Config
@@ -86,7 +86,7 @@ async def registrar_usuario_acceso(
     
     return nuevo_acceso
 
-@router.post("/reporte-quincenal/previsualizar-excel", tags=["Reportes PEAS"])
+@router.post("/reporte-quincenal/previsualizar-excel", tags=["Encargado Unidad"])
 async def previsualizar_excel_asistencia(
     anio: int = Form(...),
     mes: int = Form(...),
@@ -246,7 +246,7 @@ async def validar_reporte_estatal(
     
     return {"mensaje": "Documento validado e insertado en la Bitácora Estatal"}
 
-@router.post("/reporte-quincenal/subir", tags=["Reportes PEAS"])
+@router.post("/reporte-quincenal/subir", tags=["Encargado Unidad"])
 async def subir_reporte_y_excel(
     id_imss: str = Form(...),
     anio: int = Form(...),
@@ -384,7 +384,7 @@ async def subir_reporte_y_excel(
         "dias_procesados": dias_validos
     }
 
-@router.get("/reporte-quincenal/ver-documento", tags=["Reportes PEAS"])
+@router.get("/reporte-quincenal/ver-documento", tags=["Encargado Unidad"])
 async def obtener_url_documento(ruta: str):
     """
     Genera una URL temporal y segura (válida por 1 hora) 
@@ -535,33 +535,67 @@ async def obtener_historial_formatos(entidad: str, db: Session = Depends(get_db)
     return historial
 
 @router.get("/nacional/formato3/{anio}/{mes}/{quincena}", tags=["Nacional"])
-async def obtener_formato_3_nacional(anio: int, mes: int, quincena: int, db: Session = Depends(get_db)):
-    periodo_str = f"{anio}-{mes:02d}-Q{quincena}"
+async def obtener_formato_3_nacional(anio: int, mes: int, quincena: str, db: Session = Depends(get_db)):
     
-    # 1. Buscamos qué estados ya fueron APROBADOS por el nivel Nacional
-    formatos_aprobados = db.query(models.FormatoEstatalFirmado.entidad).filter(
-        models.FormatoEstatalFirmado.quincena == periodo_str,
+    # 1. Configuración dinámica del texto para el Excel
+    meses_nombres = ["", "ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"]
+    nombre_mes = meses_nombres[mes]
+    ultimo_dia = calendar.monthrange(anio, mes)[1] # Detecta automáticamente si el mes trae 28, 30 o 31 días
+    
+    if quincena == "completo":
+        periodos = [f"{anio}-{mes:02d}-Q1", f"{anio}-{mes:02d}-Q2"]
+        texto_periodo_excel = f"1 AL {ultimo_dia} DE {nombre_mes} DE {anio}"
+    elif quincena == "1":
+        periodos = [f"{anio}-{mes:02d}-Q1"]
+        texto_periodo_excel = f"1 AL 15 DE {nombre_mes} DE {anio}"
+    elif quincena == "2":
+        periodos = [f"{anio}-{mes:02d}-Q2"]
+        texto_periodo_excel = f"16 AL {ultimo_dia} DE {nombre_mes} DE {anio}"
+    else:
+        raise HTTPException(status_code=400, detail="Quincena inválida")
+    
+    # 2. Buscamos formatos APROBADOS
+    formatos_aprobados = db.query(models.FormatoEstatalFirmado).filter(
+        models.FormatoEstatalFirmado.quincena.in_(periodos),
         models.FormatoEstatalFirmado.estado == models.EstadoReporte.APROBADO
     ).all()
     
-    # Extraemos solo los nombres de los estados en una lista (Ej. ["BAJA CALIFORNIA", "SONORA"])
-    estados_aprobados = [f[0] for f in formatos_aprobados]
-    
-    if not estados_aprobados:
-        raise HTTPException(
-            status_code=400, 
-            detail="No se puede generar el reporte: Aún no hay ningún estado con Formato 2 APROBADO para esta quincena."
-        )
+    if not formatos_aprobados:
+        raise HTTPException(status_code=400, detail="No se encontraron registros aprobados para este periodo.")
 
-    # 2. Traemos los registros SOLO de los estados aprobados
-    registros = db.query(models.BitacoraEstatalValidada).filter(
-        models.BitacoraEstatalValidada.quincena_validada == periodo_str,
-        models.BitacoraEstatalValidada.entidad.in_(estados_aprobados) # <-- AQUÍ ESTÁ EL CANDADO
+    # 3. Candado de seguridad
+    condiciones_aprobadas = [
+        and_(
+            models.BitacoraEstatalValidada.entidad == f.entidad,
+            models.BitacoraEstatalValidada.quincena_validada == f.quincena
+        ) for f in formatos_aprobados
+    ]
+
+    # 4. LA MAGIA ESTÁ AQUÍ: Agrupamos por médico y sumamos los días
+    registros = db.query(
+        models.BitacoraEstatalValidada.entidad,
+        models.BitacoraEstatalValidada.unidad_medica,
+        models.BitacoraEstatalValidada.clues_ib,
+        models.BitacoraEstatalValidada.especialidad,
+        models.BitacoraEstatalValidada.turno,
+        models.BitacoraEstatalValidada.profesional_salud,
+        func.sum(models.BitacoraEstatalValidada.dias_participacion).label("dias_totales") # Sumamos los días
+    ).filter(
+        or_(*condiciones_aprobadas)
+    ).group_by(
+        # Le decimos a SQL que agrupe todas las filas que compartan estos datos idénticos
+        models.BitacoraEstatalValidada.entidad,
+        models.BitacoraEstatalValidada.unidad_medica,
+        models.BitacoraEstatalValidada.clues_ib,
+        models.BitacoraEstatalValidada.especialidad,
+        models.BitacoraEstatalValidada.turno,
+        models.BitacoraEstatalValidada.profesional_salud
     ).order_by(
         models.BitacoraEstatalValidada.entidad, 
         models.BitacoraEstatalValidada.unidad_medica
     ).all()
     
+    # 5. Formateamos la respuesta
     detalle = []
     for i, reg in enumerate(registros, start=1):
         detalle.append({
@@ -572,11 +606,11 @@ async def obtener_formato_3_nacional(anio: int, mes: int, quincena: int, db: Ses
             "especialidad": reg.especialidad,
             "turno": reg.turno,
             "medico": reg.profesional_salud,
-            "dias": reg.dias_participacion
+            "dias": reg.dias_totales # Inyectamos la suma correcta
         })
         
     return {
-        "periodo": periodo_str,
+        "periodo_texto": texto_periodo_excel, # Pasamos el string perfecto para tu título
         "anio": anio,
         "mes": mes,
         "quincena": quincena,
@@ -584,31 +618,52 @@ async def obtener_formato_3_nacional(anio: int, mes: int, quincena: int, db: Ses
     }
 
 @router.get("/nacional/formato4/{anio}/{mes}/{quincena}", tags=["Nacional"])
-async def obtener_formato_4_nacional(anio: int, mes: int, quincena: int, db: Session = Depends(get_db)):
-    periodo_str = f"{anio}-{mes:02d}-Q{quincena}"
+async def obtener_formato_4_nacional(anio: int, mes: int, quincena: str, db: Session = Depends(get_db)):
     
-    # 1. Buscamos qué estados ya fueron APROBADOS
-    formatos_aprobados = db.query(models.FormatoEstatalFirmado.entidad).filter(
-        models.FormatoEstatalFirmado.quincena == periodo_str,
+    # 1. Configuración dinámica del texto y periodos
+    meses_nombres = ["", "ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"]
+    nombre_mes = meses_nombres[mes]
+    ultimo_dia = calendar.monthrange(anio, mes)[1]
+    
+    if quincena == "completo":
+        periodos = [f"{anio}-{mes:02d}-Q1", f"{anio}-{mes:02d}-Q2"]
+        texto_periodo_excel = f"1 AL {ultimo_dia} DE {nombre_mes} DE {anio}"
+    elif quincena == "1":
+        periodos = [f"{anio}-{mes:02d}-Q1"]
+        texto_periodo_excel = f"1 AL 15 DE {nombre_mes} DE {anio}"
+    elif quincena == "2":
+        periodos = [f"{anio}-{mes:02d}-Q2"]
+        texto_periodo_excel = f"16 AL {ultimo_dia} DE {nombre_mes} DE {anio}"
+    else:
+        raise HTTPException(status_code=400, detail="Quincena inválida")
+    
+    # 2. Buscamos qué formatos están APROBADOS
+    formatos_aprobados = db.query(models.FormatoEstatalFirmado).filter(
+        models.FormatoEstatalFirmado.quincena.in_(periodos),
         models.FormatoEstatalFirmado.estado == models.EstadoReporte.APROBADO
     ).all()
     
-    estados_aprobados = [f[0] for f in formatos_aprobados]
-    
-    if not estados_aprobados:
+    if not formatos_aprobados:
         raise HTTPException(
             status_code=400, 
-            detail="No se puede generar el resumen: Aún no hay ningún estado con Formato 2 APROBADO para esta quincena."
+            detail="No se puede generar el resumen: Aún no hay registros APROBADOS para este periodo."
         )
     
-    # 2. Le pedimos a PostgreSQL que cuente los médicos y sume los días SOLO de estados aprobados
+    # 3. Armamos el mismo candado de seguridad que en el formato 3
+    condiciones_aprobadas = [
+        and_(
+            models.BitacoraEstatalValidada.entidad == f.entidad,
+            models.BitacoraEstatalValidada.quincena_validada == f.quincena
+        ) for f in formatos_aprobados
+    ]
+    
+    # 4. Le pedimos a PostgreSQL que cuente los médicos (SIN REPETIR) y sume los días
     resultados = db.query(
         models.BitacoraEstatalValidada.entidad,
-        func.count(models.BitacoraEstatalValidada.id).label("total_medicos"),
+        func.count(distinct(models.BitacoraEstatalValidada.profesional_salud)).label("total_medicos"), # <-- CRÍTICO: Cuenta médicos únicos
         func.sum(models.BitacoraEstatalValidada.dias_participacion).label("total_dias")
     ).filter(
-        models.BitacoraEstatalValidada.quincena_validada == periodo_str,
-        models.BitacoraEstatalValidada.entidad.in_(estados_aprobados) # <-- AQUÍ ESTÁ EL CANDADO
+        or_(*condiciones_aprobadas)
     ).group_by(
         models.BitacoraEstatalValidada.entidad
     ).order_by(
@@ -630,9 +685,10 @@ async def obtener_formato_4_nacional(anio: int, mes: int, quincena: int, db: Ses
         gran_total_dias += dias_validos
         
     return {
-        "periodo": periodo_str,
+        "periodo_texto": texto_periodo_excel, # Mismo título exacto que el formato 3
         "anio": anio,
         "mes": mes,
+        "quincena": quincena,
         "resumen": detalle,
         "gran_total_medicos": gran_total_medicos,
         "gran_total_dias": gran_total_dias
@@ -642,7 +698,7 @@ async def obtener_formato_4_nacional(anio: int, mes: int, quincena: int, db: Ses
 async def subir_formato_nacional(
     anio: int = Form(...),
     mes: int = Form(...),
-    quincena: int = Form(...),
+    quincena: str = Form(...), # <-- Cambiado a str
     subido_por: str = Form(...),
     archivo: UploadFile = File(...),
     db: Session = Depends(get_db)
@@ -650,24 +706,26 @@ async def subir_formato_nacional(
     if not archivo.filename.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="El formato final debe ser un archivo PDF.")
 
+    # Normalizamos el periodo para que coincida con la lógica que ya usamos
     periodo_str = f"{anio}-{mes:02d}-Q{quincena}"
+    
     bucket_name = os.getenv('B2_BUCKET_NAME')
-    nombre_unico = f"formatos_nacionales/{anio}/{mes:02d}/Q{quincena}/NACIONAL_FORMATO3y4.pdf"
+    # Ajustamos la ruta para que soporte el string "completo" en el nombre del archivo
+    nombre_unico = f"formatos_nacionales/{anio}/{mes:02d}/{quincena}/NACIONAL_FORMATO3y4.pdf"
 
     # 1. Verificamos si existe en la BD
     formato_existente = db.query(models.FormatoNacionalFirmado).filter(
         models.FormatoNacionalFirmado.quincena == periodo_str
     ).first()
 
-    # 2. ELIMINAMOS PRIMERO: Si ya hay un archivo en la nube, lo borramos antes de subir el nuevo
-    # Esto evita conflictos de sobrescritura en B2
+    # 2. Borrado seguro en la nube
     if formato_existente and formato_existente.url_documento:
         try:
             s3_client.delete_object(Bucket=bucket_name, Key=formato_existente.url_documento)
         except Exception:
-            pass # Si falla el borrado, no detenemos el proceso
+            pass
 
-    # 3. SUBIMOS EL NUEVO: Ahora que el camino está limpio
+    # 3. Subida a la nube
     try:
         s3_client.upload_fileobj(
             archivo.file, 
@@ -678,7 +736,7 @@ async def subir_formato_nacional(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al subir a la nube: {str(e)}")
 
-    # 4. ACTUALIZAMOS LA BD
+    # 4. Actualización de BD
     if formato_existente:
         formato_existente.url_documento = nombre_unico
         formato_existente.fecha_subida = func.now()
@@ -692,7 +750,6 @@ async def subir_formato_nacional(
         db.add(nuevo_formato)
 
     db.commit()
-
     return {"mensaje": "Formato Nacional Firmado guardado con éxito"}
 
 @router.get("/nacional/historial-formatos", tags=["Nacional"])
@@ -771,21 +828,37 @@ async def rechazar_formato_estatal(id_formato: int, req: RechazoRequest, db: Ses
     return {"mensaje": "Formato estatal rechazado. El Coordinador ha sido notificado."}
 
 @router.get("/nacional/estado-formatos/{anio}/{mes}/{quincena}", tags=["Nacional"])
-async def obtener_estado_formatos_estatales(anio: int, mes: str, quincena: int, db: Session = Depends(get_db)):
+async def obtener_estado_formatos_estatales(anio: int, mes: str, quincena: str, db: Session = Depends(get_db)):
+    # Nota: cambiamos quincena a str en los parámetros
     mes_formateado = str(mes).zfill(2)
-    periodo_str = f"{anio}-{mes_formateado}-Q{quincena}"
     
-    # Traemos todos los Formatos 2 subidos en esa quincena
+    # 1. Determinamos los periodos a buscar
+    if quincena == "completo":
+        periodos = [f"{anio}-{mes_formateado}-Q1", f"{anio}-{mes_formateado}-Q2"]
+    elif quincena in ["1", "2"]:
+        periodos = [f"{anio}-{mes_formateado}-Q{quincena}"]
+    else:
+        raise HTTPException(status_code=400, detail="Quincena inválida")
+    
+    # 2. Traemos todos los Formatos subidos en esos periodos (puede ser uno o ambos)
     formatos = db.query(models.FormatoEstatalFirmado).filter(
-        models.FormatoEstatalFirmado.quincena == periodo_str
-    ).order_by(models.FormatoEstatalFirmado.entidad).all()
+        models.FormatoEstatalFirmado.quincena.in_(periodos)
+    ).order_by(
+        models.FormatoEstatalFirmado.entidad,
+        models.FormatoEstatalFirmado.quincena
+    ).all()
     
-    # Devolvemos la lista limpia
+    # 3. Devolvemos la lista limpia
     resultado = []
     for f in formatos:
+        # Truco visual: Si están viendo el mes completo, le agregamos (Q1) o (Q2) al nombre
+        # para que no se confundan viendo estados duplicados en la tabla.
+        sufijo_quincena = f.quincena[-2:] # Extrae "Q1" o "Q2" del string "2026-08-Q1"
+        nombre_entidad = f"{f.entidad} ({sufijo_quincena})" if quincena == "completo" else f.entidad
+
         resultado.append({
             "id": f.id,
-            "entidad": f.entidad,
+            "entidad": nombre_entidad,  # <-- Aquí inyectamos el nombre ajustado
             "url_documento": f.url_documento,
             "estado": f.estado.value if hasattr(f.estado, 'value') else f.estado,
             "observaciones": f.observaciones,
@@ -955,3 +1028,4 @@ async def descargar_plantilla_dinamica(anio: int, mes: int, quincena: int):
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={nombre_archivo}"}
     )
+
