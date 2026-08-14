@@ -1,7 +1,7 @@
 # api_peas.py
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, func, or_, distinct
+from sqlalchemy import desc, func, and_, or_, distinct
 from calendar import monthrange
 from fastapi import File, UploadFile, Form
 from botocore.config import Config
