@@ -163,7 +163,7 @@ async def delete_registro_historico(
 @router.put("/api/historial/{historial_id}", tags=["Historial"])
 async def actualizar_fechas_historial(
     historial_id: int,
-    datos: HistorialUpdate,
+    datos: schemas.HistorialUpdate
     db: Session = Depends(get_db_session)
 ):
     registro = db.query(EstatusHistorico).filter(EstatusHistorico.id == historial_id).first()
