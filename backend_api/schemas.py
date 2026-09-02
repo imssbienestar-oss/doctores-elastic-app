@@ -166,6 +166,15 @@ class HistorialUpdate(BaseModel):
     fecha_inicio: Optional[date] = None
     fecha_fin: Optional[date] = None
 
+    @field_validator('fecha_inicio', 'fecha_fin')
+    @classmethod
+    def validar_fechas_logicas(cls, v: Optional[date]):
+        if v is not None:
+            if v.year < 2020:
+                raise ValueError("La fecha no puede ser anterior al año 2020.")
+            if v.year > 2050:
+                raise ValueError("La fecha no puede ser tan lejana en el futuro.")
+        return v
 
 class EstatusHistoricoCreate(EstatusHistoricoBase):
     pass
