@@ -655,14 +655,27 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
         body: JSON.stringify(payload),
       });
 
+      // --- CAMBIO CLAVE: Extraer el mensaje real del servidor ---
       if (!response.ok) {
-        throw new Error("Error al actualizar el historial");
+        const errorData = await response.json();
+        let mensajeError = "Hubo un problema al guardar los cambios.";
+        
+        // FastAPI manda los errores en la propiedad "detail"
+        if (errorData.detail) {
+          if (Array.isArray(errorData.detail)) {
+             mensajeError = errorData.detail[0].msg.replace("Value error, ", ""); 
+          } else {
+             // Si es un HTTPException normal (ej. 404, 500)
+             mensajeError = errorData.detail;
+          }
+        }
+        
+        throw new Error(mensajeError);
       }
+      // -----------------------------------------------------------
 
-      // 1. Cerramos el modal primero
       setIsEditHistoryModalOpen(false);
 
-      // 2. Mostramos la alerta profesional
       Swal.fire({
         icon: 'success',
         title: '¡Actualizado!',
@@ -686,11 +699,10 @@ function DoctorProfileView({ doctor: initialDoctor, onBack, onProfileUpdate }) {
       }));
     } catch (error) {
       console.error("Error:", error);
-      // Alerta profesional de error
       Swal.fire({
         icon: 'error',
         title: 'Oops...',
-        text: 'Hubo un problema al guardar los cambios.',
+        text: error.message, 
         confirmButtonColor: '#d33'
       });
     } finally {
