@@ -163,10 +163,10 @@ async def delete_registro_historico(
 @router.put("/api/historial/{historial_id}", tags=["Historial"])
 async def actualizar_fechas_historial(
     historial_id: int,
-    datos: schemas.HistorialUpdate,
+    datos: HistorialUpdate,
     db: Session = Depends(get_db_session)
 ):
-    registro = db.query(models.EstatusHistorico).filter(models.EstatusHistorico.id == historial_id).first()
+    registro = db.query(EstatusHistorico).filter(EstatusHistorico.id == historial_id).first()
 
     if not registro:
         raise HTTPException(status_code=404, detail="Registro de historial no encontrado.")
@@ -174,10 +174,17 @@ async def actualizar_fechas_historial(
     registro.fecha_inicio = datos.fecha_inicio
     registro.fecha_fin = datos.fecha_fin
 
+    doctor = db.query(DoctorModel).filter(DoctorModel.id_imss == registro.id_imss).first()
+    if doctor:
+        doctor.fecha_estatus = datos.fecha_inicio
+        if datos.fecha_fin:
+            doctor.fecha_fin = datos.fecha_fin
+
     try:
         db.commit()
         db.refresh(registro)
         return {"mensaje": "Fechas actualizadas correctamente", "id": registro.id}
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error al guardar: {str(e)}")
+        print(f"Error real al guardar las fechas: {e}") 
+        raise HTTPException(status_code=500, detail="Error interno al guardar las fechas.")
