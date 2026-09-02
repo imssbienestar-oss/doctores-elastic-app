@@ -163,10 +163,10 @@ async def delete_registro_historico(
 @router.put("/api/historial/{historial_id}", tags=["Historial"])
 async def actualizar_fechas_historial(
     historial_id: int,
-    datos: schemas.HistorialUpdate
+    datos: schemas.HistorialUpdate, 
     db: Session = Depends(get_db_session)
 ):
-    registro = db.query(EstatusHistorico).filter(EstatusHistorico.id == historial_id).first()
+    registro = db.query(models.EstatusHistorico).filter(models.EstatusHistorico.id == historial_id).first()
 
     if not registro:
         raise HTTPException(status_code=404, detail="Registro de historial no encontrado.")
@@ -174,7 +174,7 @@ async def actualizar_fechas_historial(
     registro.fecha_inicio = datos.fecha_inicio
     registro.fecha_fin = datos.fecha_fin
 
-    doctor = db.query(DoctorModel).filter(DoctorModel.id_imss == registro.id_imss).first()
+    doctor = db.query(models.Doctor).filter(models.Doctor.id_imss == registro.id_imss).first()
     if doctor:
         doctor.fecha_estatus = datos.fecha_inicio
         if datos.fecha_fin:
