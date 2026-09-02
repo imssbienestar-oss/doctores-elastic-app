@@ -163,7 +163,7 @@ async def delete_registro_historico(
 @router.put("/api/historial/{historial_id}", tags=["Historial"])
 async def actualizar_fechas_historial(
     historial_id: int,
-    datos: schemas.HistorialUpdate, 
+    datos: schemas.HistorialUpdate,
     db: Session = Depends(get_db_session)
 ):
     registro = db.query(models.EstatusHistorico).filter(models.EstatusHistorico.id == historial_id).first()
@@ -173,12 +173,22 @@ async def actualizar_fechas_historial(
 
     registro.fecha_inicio = datos.fecha_inicio
     registro.fecha_fin = datos.fecha_fin
+    db.flush() 
 
+    # 2. Buscamos al doctor
     doctor = db.query(models.Doctor).filter(models.Doctor.id_imss == registro.id_imss).first()
+    
     if doctor:
-        doctor.fecha_estatus = datos.fecha_inicio
-        if datos.fecha_fin:
-            doctor.fecha_fin = datos.fecha_fin
+        ultimo_movimiento = db.query(models.EstatusHistorico).filter(
+            models.EstatusHistorico.id_imss == registro.id_imss
+        ).order_by(models.EstatusHistorico.fecha_inicio.desc()).first()
+
+        if ultimo_movimiento:
+            doctor.fecha_estatus = ultimo_movimiento.fecha_inicio
+            if ultimo_movimiento.fecha_fin:
+                doctor.fecha_fin = ultimo_movimiento.fecha_fin
+            else:
+                doctor.fecha_fin = None
 
     try:
         db.commit()
