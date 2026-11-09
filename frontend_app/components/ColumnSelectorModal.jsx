@@ -1,80 +1,12 @@
 // src/components/ColumnSelectorModal.jsx
 import React, { useState, useMemo } from 'react';
+import { X, CheckSquare, Square, Download } from 'lucide-react';
 
-// --- ESTILOS  ---
-const modalStyles = {
-    modalBackdrop: {
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '100%',
-        backgroundColor: 'rgba(0, 0, 0, 0.6)',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 1200,
-    },
-    modalContent: {
-        backgroundColor: '#fff',
-        padding: '25px',
-        borderRadius: '8px',
-        boxShadow: '0 5px 15px rgba(0,0,0,0.3)',
-        width: '90%',
-        maxWidth: '600px', // Un poco más ancho para las columnas
-        maxHeight: '80vh',
-        display: 'flex',
-        flexDirection: 'column',
-    },
-    modalHeader: {
-        fontSize: '20px',
-        fontWeight: '600',
-        marginBottom: '20px',
-        textAlign: 'center',
-        color: '#10312B',
-        borderBottom: '1px solid #dee2e6',
-        paddingBottom: '15px',
-    },
-    controlsContainer: {
-        display: 'flex',
-        justifyContent: 'flex-end',
-        gap: '10px',
-        marginBottom: '10px',
-    },
-    controlButton: {
-        padding: '5px 10px',
-        fontSize: '0.8em',
-        backgroundColor: '#55b1b6ff',
-        border: '1px solid #ccc',
-        borderRadius: '4px',
-        cursor: 'pointer',
-    },
-    checkboxContainer: {
-        overflowY: 'auto',
-        flexGrow: 1,
-        display: 'grid',
-        gridTemplateColumns: 'repeat(2, 1fr)', // Dos columnas de checkboxes
-        gap: '10px',
-        padding: '10px',
-        border: '1px solid #eee',
-        borderRadius: '4px',
-    },
-    checkboxItem: {
-        display: 'flex',
-        alignItems: 'center',
-    },
-    buttonContainer: {
-        marginTop: '20px',
-        paddingTop: '15px',
-        borderTop: '1px solid #dee2e6',
-        display: 'flex',
-        justifyContent: 'flex-end',
-        gap: '10px',
-    },
-    // ... (puedes añadir estilos para los botones si es necesario)
-};
+// ==========================================
+// 1. AGREGAMOS LOS GRUPOS DE COLUMNAS
+// ==========================================
 
-const ALL_COLUMNS = [
+const COLUMNS_PERSONAL = [
     //DATOS PERSONALES
     { key: 'id_imss', label: 'ID IMSS' },
     { key: 'estatus', label: 'Estatus' },
@@ -90,14 +22,18 @@ const ALL_COLUMNS = [
     { key: 'matrimonio_id', label: 'Matrimonio ID' },
     { key: 'telefono', label: 'Teléfono' },
     { key: 'correo', label: 'Correo' },
-    { key: 'domicilio', label: 'Docimicilio' },
+    { key: 'domicilio', label: 'Domicilio' },
+];
 
+const COLUMNS_ACADEMIC = [
     //DATOS ACADEMICOS
     { key: 'licenciatura', label: 'Licenciatura' },
     { key: 'cedula_lic', label: 'Cédula Licenciatura' },
     { key: 'especialidad', label: 'Especialidad' },
     { key: 'cedula_esp', label: 'Cédula Especialidad' },
+];
 
+const COLUMNS_COLABORACION = [
     //DATOS DE COOPERACIÓN
     { key: 'acuerdo', label: 'Acuerdo' },
     { key: 'fecha_vuelo', label: 'Fecha Llegada' },
@@ -121,10 +57,22 @@ const ALL_COLUMNS = [
     { key: 'motivo_baja', label: 'Motivo de Baja' },
     { key: 'fecha_notificacion', label: 'Fecha Notificación' },
     { key: 'forma_notificacion', label: 'Forma Notificación' },
+    { key: 'tipo_incapacidad', label: 'Tipo Incapacidad'},
+    { key: 'comentarios_estatus', label: 'Comentarios'}
+];
 
+// ==========================================
+// 2. UNIMOS TODO Y LO ORDENAMOS ALFABÉTICAMENTE POR LABEL
+// ==========================================
 
+// Función para ordenar alfabéticamente por etiqueta (label)
+const sortByLabel = (columns) => [...columns].sort((a, b) => a.label.localeCompare(b.label));
 
-    { key: 'comentarios_estatus', label: 'Comentarios' }
+// Creamos el array final con todas las columnas (ya ordenadas por grupo)
+const ALL_COLUMNS = [
+    ...sortByLabel(COLUMNS_PERSONAL),
+    ...sortByLabel(COLUMNS_ACADEMIC),
+    ...sortByLabel(COLUMNS_COLABORACION)
 ];
 
 function ColumnSelectorModal({ isOpen, onClose, onConfirmDownload }) {
@@ -157,17 +105,36 @@ function ColumnSelectorModal({ isOpen, onClose, onConfirmDownload }) {
     if (!isOpen) return null;
 
     return (
-        <div style={modalStyles.modalBackdrop}>
-            <div style={modalStyles.modalContent}>
-                <div style={modalStyles.modalHeader}>Seleccionar Columnas para Exportar</div>
+        <div className="fixed inset-0 bg-black/60 z-[1200] flex justify-center items-center backdrop-blur-sm p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-6 relative max-h-[85vh] flex flex-col">
 
-                <div style={modalStyles.controlsContainer}>
-                    <button onClick={handleSelectAll} style={modalStyles.controlButton}>Seleccionar Todo</button>
-                    <button onClick={handleDeselectAll} style={modalStyles.controlButton}>Deseleccionar Todo</button>
+                {/* Botón de cierre */}
+                <button
+                    onClick={onClose}
+                    className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white hover:bg-gray-100 flex items-center justify-center text-gray-800 text-2xl font-bold cursor-pointer border-none shadow-sm transition-colors"
+                >
+                    ×
+                </button>
+
+                {/* Cabecera */}
+                <div className="mb-5 pb-3 border-b border-gray-100">
+                    <h2 className="text-xl font-bold text-[#10312B] text-center">Seleccionar Columnas para Exportar</h2>
                 </div>
+
+                {/* Controles de selección global */}
+                <div className="flex justify-end gap-2 mb-3">
+                    <button onClick={handleSelectAll} className="px-3 py-1.5 text-xs font-semibold bg-teal-50 text-[#10312B] border border-teal-200 rounded hover:bg-teal-100 transition-colors">
+                        Seleccionar Todo
+                    </button>
+                    <button onClick={handleDeselectAll} className="px-3 py-1.5 text-xs font-semibold bg-gray-100 text-gray-600 border border-gray-200 rounded hover:bg-gray-200 transition-colors">
+                        Deseleccionar Todo
+                    </button>
+                </div>
+
+                {/* Selector de Mes (Condicional) */}
                 {selectedColumns.includes("dias_activos_mes_actual") && (
-                    <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '8px', border: '1px solid #dee2e6' }}>
-                        <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', color: '#006657' }}>
+                    <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <label className="block font-bold text-xs text-[#10312B] mb-2 uppercase tracking-wide">
                             Mes de Evaluación de Asistencia:
                         </label>
                         <input
@@ -176,31 +143,103 @@ function ColumnSelectorModal({ isOpen, onClose, onConfirmDownload }) {
                             min="2026-01"
                             max={mesActual}
                             onChange={(e) => setMesSeleccionado(e.target.value)}
-                            style={{ padding: '8px 12px', borderRadius: '4px', border: '1px solid #ccc', width: '100%', maxWidth: '250px' }}
-                        />
-                        <p style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+                            className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-[#B08D55] [color-scheme:light]"/>
+                        <p className="text-[11px] text-gray-500 mt-1 italic">
                             El reporte calculará los días activos del médico en el mes seleccionado.
                         </p>
                     </div>
                 )}
-                <div style={modalStyles.checkboxContainer}>
-                    {ALL_COLUMNS.map(col => (
-                        <div key={col.key} style={modalStyles.checkboxItem}>
-                            <input
-                                type="checkbox"
-                                id={`col-${col.key}`}
-                                checked={selectedColumns.includes(col.key)}
-                                onChange={() => handleCheckboxChange(col.key)}
-                                style={{ marginRight: '10px' }}
-                            />
-                            <label htmlFor={`col-${col.key}`}>{col.label}</label>
+
+                {/* Contenedor de Checkboxes agrupado por secciones */}
+                <div className="overflow-y-auto flex-1 p-3 border border-gray-200 rounded-lg bg-white mb-6">
+
+                    {/* SECCIÓN 1: INFORMACIÓN PERSONAL */}
+                    <div className="mb-6">
+                        <h3 className="text-sm font-bold text-[#10312B] mb-3 pb-2 border-b border-gray-100">
+                            Información Personal
+                        </h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {sortByLabel(COLUMNS_PERSONAL).map(col => (
+                                <div key={col.key} className="flex items-center gap-2.5 p-1 hover:bg-gray-50 rounded transition-colors">
+                                    <input
+                                        type="checkbox"
+                                        id={`col-${col.key}`}
+                                        checked={selectedColumns.includes(col.key)}
+                                        onChange={() => handleCheckboxChange(col.key)}
+                                        className="w-4 h-4 text-[#10312B] focus:ring-[#B08D55] border-gray-300 rounded cursor-pointer"
+                                    />
+                                    <label htmlFor={`col-${col.key}`} className="text-xs font-medium text-gray-700 cursor-pointer select-none">
+                                        {col.label}
+                                    </label>
+                                </div>
+                            ))}
                         </div>
-                    ))}
+                    </div>
+
+                    {/* SECCIÓN 2: DATOS ACADÉMICOS */}
+                    <div className="mb-6">
+                        <h3 className="text-sm font-bold text-[#10312B] mb-3 pb-2 border-b border-gray-100">
+                            Datos Académicos
+                        </h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {sortByLabel(COLUMNS_ACADEMIC).map(col => (
+                                <div key={col.key} className="flex items-center gap-2.5 p-1 hover:bg-gray-50 rounded transition-colors">
+                                    <input
+                                        type="checkbox"
+                                        id={`col-${col.key}`}
+                                        checked={selectedColumns.includes(col.key)}
+                                        onChange={() => handleCheckboxChange(col.key)}
+                                        className="w-4 h-4 text-[#10312B] focus:ring-[#B08D55] border-gray-300 rounded cursor-pointer"
+                                    />
+                                    <label htmlFor={`col-${col.key}`} className="text-xs font-medium text-gray-700 cursor-pointer select-none">
+                                        {col.label}
+                                    </label>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* SECCIÓN 3: DATOS DE COLABORACIÓN */}
+                    <div>
+                        <h3 className="text-sm font-bold text-[#10312B] mb-3 pb-2 border-b border-gray-100">
+                            Datos de Colaboración
+                        </h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {sortByLabel(COLUMNS_COLABORACION).map(col => (
+                                <div key={col.key} className="flex items-center gap-2.5 p-1 hover:bg-gray-50 rounded transition-colors">
+                                    <input
+                                        type="checkbox"
+                                        id={`col-${col.key}`}
+                                        checked={selectedColumns.includes(col.key)}
+                                        onChange={() => handleCheckboxChange(col.key)}
+                                        className="w-4 h-4 text-[#10312B] focus:ring-[#B08D55] border-gray-300 rounded cursor-pointer"
+                                    />
+                                    <label htmlFor={`col-${col.key}`} className="text-xs font-medium text-gray-700 cursor-pointer select-none">
+                                        {col.label}
+                                    </label>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
                 </div>
-                <div style={modalStyles.buttonContainer}>
-                    <button onClick={onClose} style={{ backgroundColor: '#6c757d', color: 'white', padding: '10px 20px', border: 'none', borderRadius: '4px' }}>Cancelar</button>
-                    <button onClick={() => onConfirmDownload(selectedColumns, mesSeleccionado)} style={{ backgroundColor: '#006657', color: 'white', padding: '10px 20px', border: 'none', borderRadius: '4px' }}>Confirmar y Descargar</button>
+
+                {/* Botones Finales */}
+                <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-2 text-sm font-bold text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-100 transition-colors shadow-sm"
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        onClick={() => onConfirmDownload(selectedColumns, mesSeleccionado)}
+                        className="px-5 py-2 text-sm font-bold text-white bg-[#10312B] hover:bg-[#0a201c] rounded-md shadow-sm transition-colors flex items-center gap-2"
+                    >
+                        <Download className="w-4 h-4" /> Confirmar y Descargar
+                    </button>
                 </div>
+
             </div>
         </div>
     );
